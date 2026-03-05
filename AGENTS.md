@@ -338,6 +338,16 @@ Use Shadcn UI components whenever possible.
 
 Avoid custom UI components if Shadcn provides them.
 
+**Before building any UI component:**
+1. Use the **Shadcn MCP** (`shadcn_search_items_in_registries`, `shadcn_view_items_in_registries`) to check whether the component already exists in Shadcn
+2. If it exists in Shadcn, install and use it — do not copy its source code or recreate it
+3. Never duplicate Shadcn component logic; import and compose from `@/components/ui/`
+
+Rules:
+- `shadcn_search_items_in_registries` must be called before deciding a custom component is needed
+- Shadcn components must be installed via the CLI (`shadcn_get_add_command_for_items`), not copy-pasted
+- Composition over recreation — wrap or extend Shadcn primitives rather than rewriting them
+
 Consistency rules:
 
 - Tailwind for spacing and styling
