@@ -34,19 +34,19 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 ## Feature: Auth
 
 ### Backend
-- [ ] `invite-user` Edge Function -- invite new user via Supabase Auth admin API
-- [ ] `bootstrap-root-admin` Edge Function -- create first Root Admin from env vars
-- [ ] `update-user-role` Edge Function -- sync role/group/active to JWT metadata
+- [x] `invite-user` Edge Function -- invite new user via Supabase Auth admin API
+- [x] `bootstrap-root-admin` Edge Function -- create first Root Admin from env vars
+- [x] `update-user-role` Edge Function -- sync role/group/active to JWT metadata
 
 ### Frontend
-- [ ] Supabase client initialization (`src/services/supabase.ts`)
-- [ ] Auth context / `useAuth` hook
-- [ ] `useCurrentUser` hook (role, group, active from JWT metadata)
+- [x] Supabase client initialization (`src/services/supabase.ts`)
+- [x] Auth context / `useAuth` hook
+- [x] `useCurrentUser` hook (role, group, active from JWT metadata)
 - [ ] Login page (`/login`)
 - [ ] Forgot password page (`/forgot-password`)
 - [ ] Reset password page (`/reset-password`)
 - [ ] Invite acceptance page (`/invite/accept`)
-- [ ] Protected route wrapper (auth + active + role check)
+- [x] Protected route wrapper (auth + active + role check)
 - [ ] Sidebar layout component
 - [ ] Role-filtered navigation links
 - [ ] User info + sign out in sidebar
