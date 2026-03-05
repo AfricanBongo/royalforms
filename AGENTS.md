@@ -29,12 +29,16 @@ Frontend
 
 Backend
 - Supabase (configured via MCP in `opencode.json`)
+- Supabase CLI for local development (`supabase/` directory)
 
 Database
 - PostgreSQL
 
 Package manager
 - npm (ESM project: `"type": "module"`)
+- Always install the **latest stable version** of packages (`npm install package@latest`)
+- Never pin to outdated versions without an explicit reason
+- Before adding a new package, check its current version and changelog via Context7 or npm
 
 Design
 - Figma (via MCP)
@@ -357,12 +361,39 @@ Do not guess design details if Figma is available.
 
 ## Supabase MCP
 
+The Supabase MCP connection will be pointed at the **local Supabase** instance. Use Supabase MCP tools as the **primary interface** for all database work.
+
 Use for:
-- database queries
-- schema design
-- migrations
-- authentication
-- backend communication
+- **creating tables, columns, indexes, triggers, functions** via `supabase_apply_migration`
+- **writing and applying RLS policies** via `supabase_apply_migration`
+- **running ad-hoc queries** (data inspection, debugging) via `supabase_execute_sql`
+- **listing tables and schema** via `supabase_list_tables`
+- **listing and checking migrations** via `supabase_list_migrations`
+- **generating TypeScript types** via `supabase_generate_typescript_types`
+- **checking advisors** (security, performance) via `supabase_get_advisors` after DDL changes
+- Edge Function management via `supabase_deploy_edge_function`, `supabase_list_edge_functions`, `supabase_get_edge_function`
+
+**Migration workflow:**
+1. Use `supabase_apply_migration` for every schema change -- this creates a proper timestamped migration file and applies it
+2. Never write raw SQL migration files manually; always go through the MCP tool
+3. After applying migrations, run `supabase_get_advisors` (security) to catch missing RLS policies
+4. Use `supabase_generate_typescript_types` after schema changes to keep frontend types in sync
+5. Use `supabase_list_tables` (verbose) to verify the schema looks correct after migrations
+
+## Context7 MCP
+
+**Always use Context7 MCP proactively** — do not wait to be asked.
+
+Use whenever:
+- installing or adding a new library or package
+- writing code that uses a third-party API or SDK
+- following setup or configuration steps for any tool
+- generating code patterns for a library (hooks, clients, middleware, etc.)
+- unsure about the correct API surface for a dependency
+
+Context7 provides up-to-date, version-accurate documentation pulled directly from the library source. It prevents hallucinated APIs and outdated usage patterns.
+
+Never rely on training data alone for library-specific code. Always resolve docs via Context7 first.
 
 ---
 
@@ -458,6 +489,98 @@ Do not:
 
 ---
 
+# Git Commits & Versioning
+
+## Conventional Commits
+
+All commits must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+
+Format:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+Allowed types:
+
+| Type | When to use |
+|---|---|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `docs` | Documentation changes only |
+| `style` | Formatting, whitespace (no logic change) |
+| `refactor` | Code change that is neither a fix nor a feature |
+| `test` | Adding or updating tests |
+| `chore` | Build process, tooling, dependencies |
+| `perf` | Performance improvement |
+| `ci` | CI/CD configuration changes |
+| `revert` | Reverts a previous commit |
+
+Examples:
+
+```
+feat(forms): add field assignment to form instances
+fix(auth): redirect unauthenticated users to login
+chore(deps): update vite to v7.1.0
+docs(agents): add commit and versioning guidelines
+```
+
+## Atomic Commits
+
+Every commit must represent one logical, self-contained change.
+
+Rules:
+- One concern per commit — do not mix features, fixes, and refactors
+- Commits must pass build and lint at every point in history
+- Never bundle unrelated changes to make committing easier
+- If a change feels too large, split it into smaller commits
+
+This ensures any commit can be safely reverted without side effects.
+
+## Versioning
+
+Uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`) driven by conventional commits:
+
+| Version bump | Trigger |
+|---|---|
+| `PATCH` (0.0.x) | `fix`, `perf`, `refactor`, `docs`, `chore` |
+| `MINOR` (0.x.0) | `feat` |
+| `MAJOR` (x.0.0) | Any commit with `BREAKING CHANGE:` in the footer |
+
+### Git Tags
+
+Tag every release:
+
+```bash
+# Create an annotated tag
+git tag -a v1.2.0 -m "feat(forms): add collaborative field assignment"
+
+# Push tag to remote
+git push origin v1.2.0
+
+# Push all tags
+git push origin --tags
+```
+
+Tag naming: `v<MAJOR>.<MINOR>.<PATCH>` (e.g., `v0.1.0`, `v1.0.0`)
+
+### GitHub Releases
+
+Create a GitHub release for every tag:
+- Use the tag as the release title (e.g., `v0.1.0`)
+- Release notes must summarise all commits since the previous tag, grouped by type (`feat`, `fix`, etc.)
+- Mark pre-1.0 releases as **pre-release**
+
+### Starting Version
+
+Project starts at `v0.1.0`. Version `v1.0.0` is cut when the MVP is considered production-ready.
+
+---
+
 # Environment & Tooling
 
 - **Node.js**: v25+
@@ -466,6 +589,105 @@ Do not:
 - **No path aliases** -- use relative imports
 - **`.env` files** are gitignored; prefix Vite-exposed vars with `VITE_`
 - Use `opencode.json` for MCP config; never redefine MCP connections manually
+
+---
+
+# Supabase Local Development Workflow
+
+## Setup
+
+The project uses **local Supabase** via the Supabase CLI with Docker. All database schema, migrations, Edge Functions, and seed data live in the `supabase/` directory under version control.
+
+```
+supabase/
+  config.toml              # Local Supabase configuration
+  migrations/              # SQL migration files (timestamped, versioned)
+  functions/               # Edge Functions source code (Deno/TypeScript)
+  seed.sql                 # Seed data (Root Admin bootstrap, test data)
+```
+
+## Commands
+
+```bash
+# Start local Supabase (requires Docker)
+supabase start
+
+# Stop local Supabase
+supabase stop
+
+# Check local Supabase status
+supabase status
+
+# Create a new migration
+supabase migration new <migration_name>
+
+# Apply migrations to local database
+supabase db reset
+
+# Push migrations to remote Supabase project
+supabase db push
+
+# Pull remote schema changes (if any were made via dashboard)
+supabase db pull
+
+# Deploy all Edge Functions to remote
+supabase functions deploy
+
+# Deploy a specific Edge Function
+supabase functions deploy <function_name>
+
+# Serve Edge Functions locally for testing
+supabase functions serve
+
+# Generate TypeScript types from local schema
+supabase gen types typescript --local > src/types/database.ts
+
+# View local database diff (uncommitted schema changes)
+supabase db diff
+```
+
+## Development Workflow
+
+1. **Start local Supabase** before development: `supabase start`
+2. **Create migrations via Supabase MCP** using `supabase_apply_migration` for all schema changes
+   - Never write raw SQL migration files manually -- always use the MCP tool
+   - The MCP tool creates proper timestamped migration files and applies them automatically
+   - After applying, run `supabase_get_advisors` (security) to catch missing RLS policies
+3. **Write Edge Functions** in `supabase/functions/<function-name>/index.ts`
+4. **Test locally** with `supabase functions serve` and `supabase db reset`
+5. **Generate types** after schema changes via `supabase_generate_typescript_types` (or CLI: `supabase gen types typescript --local > src/types/database.ts`)
+6. **Verify schema** after migrations via `supabase_list_tables` (verbose)
+7. **Commit** migrations and Edge Functions alongside application code
+8. **Push to remote** after merging to main:
+   - `supabase db push` for migrations
+   - `supabase functions deploy` for Edge Functions
+
+## Migration Rules
+
+- Every schema change (tables, columns, RLS policies, triggers, functions, indexes) must go through `supabase_apply_migration`
+- Never write raw SQL migration files by hand -- the MCP tool is the single entry point
+- Migration files are SQL, timestamped, and auto-ordered (created by the MCP tool)
+- Migrations must be idempotent where possible
+- Never edit a migration that has already been applied to remote
+- To fix a bad migration, create a new migration via `supabase_apply_migration` that corrects it
+- Seed data (`seed.sql`) is applied on `supabase db reset` -- use it for the Root Admin bootstrap and test data
+- Run `supabase db reset` to verify migrations apply cleanly from scratch
+- After DDL changes, always run `supabase_get_advisors` (security + performance) to catch issues
+
+## Edge Function Rules
+
+- Each Edge Function lives in `supabase/functions/<function-name>/index.ts`
+- Edge Functions run on Deno -- use Deno-compatible imports
+- Environment variables are set in `.env.local` for local dev (gitignored) and via Supabase dashboard for remote
+- Test Edge Functions locally with `supabase functions serve` before deploying
+- Always deploy Edge Functions alongside their corresponding migrations
+
+## Remote Sync
+
+- **Never make schema changes directly on the remote Supabase project** unless absolutely necessary
+- If a remote change is unavoidable, immediately pull it: `supabase db pull`
+- The local `supabase/` directory is the source of truth for all database schema and Edge Functions
+- Remote Supabase is a deployment target, not a development environment
 
 ---
 
@@ -480,3 +702,19 @@ shipping > perfection
 Act like a pragmatic senior full-stack engineer.
 
 Focus on: simplicity, maintainability, correctness, practical solutions.
+
+---
+
+# Cross-Session Progress Tracking
+
+Progress is tracked via three sources:
+
+1. **`docs/TODO.md`** -- flat task list of remaining implementation work. Read this at the start of every session. Cross off items when done. Add new items if scope changes.
+2. **`docs/system-design/`** -- the system design docs. If a doc exists, that subsystem is designed.
+3. **Git log** -- shows what has been implemented. Check recent commits for context.
+
+Rules:
+- Read `docs/TODO.md` at the start of every new session
+- Cross off completed items immediately after finishing them
+- Do not add statuses, priorities, or metadata -- keep it a flat checklist
+- If the system design changes, update both the design doc and the TODO list
