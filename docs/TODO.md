@@ -17,7 +17,7 @@ An agent starting a new session should read this file to understand what's left 
 
 ## Foundation (batch -- do all before any feature)
 
-All migrations use `supabase_apply_migration`. Never write migration files manually.
+Write migration SQL files in `supabase/migrations/` with timestamped filenames. Run `supabase db reset` to verify.
 After each migration, run `supabase_get_advisors` (security) and `supabase_list_tables` (verbose) to verify.
 
 - [x] Enable pg_net extension

@@ -374,11 +374,24 @@ Use for:
 - Edge Function management via `supabase_deploy_edge_function`, `supabase_list_edge_functions`, `supabase_get_edge_function`
 
 **Migration workflow:**
-1. Use `supabase_apply_migration` for every schema change -- this creates a proper timestamped migration file and applies it
-2. Never write raw SQL migration files manually; always go through the MCP tool
+1. Write migration SQL files directly in `supabase/migrations/` with timestamped filenames (the MCP `supabase_apply_migration` tool runs SQL against the live DB but does **not** create local migration files)
+2. Run `supabase db reset` to verify migrations apply cleanly from scratch
 3. After applying migrations, run `supabase_get_advisors` (security) to catch missing RLS policies
-4. Use `supabase_generate_typescript_types` after schema changes to keep frontend types in sync
+4. Use `supabase_generate_typescript_types` after schema changes to keep frontend types in sync (redirect stderr: `supabase gen types typescript --local 2>/dev/null > src/types/database.ts`)
 5. Use `supabase_list_tables` (verbose) to verify the schema looks correct after migrations
+
+**Remote changes tracking:**
+
+Some Supabase configuration cannot be pushed via migrations or Edge Function deploys (auth settings, environment variables, SMTP config, etc.). When making any such change locally:
+1. Open `supabase-changes.local` (gitignored)
+2. Add a checklist item describing the change and what needs to be set on the remote project
+3. This file serves as a deployment checklist -- review it before every remote deployment
+
+Examples of changes to track:
+- Auth settings (`config.toml` values like `site_url`, `enable_signup`, `redirect_urls`)
+- Edge Function environment variables (`RESEND_API_KEY`, `SHLINK_API_KEY`, etc.)
+- SMTP / email provider configuration
+- Any Dashboard-only setting that affects application behavior
 
 ## Context7 MCP
 
@@ -649,27 +662,27 @@ supabase db diff
 ## Development Workflow
 
 1. **Start local Supabase** before development: `supabase start`
-2. **Create migrations via Supabase MCP** using `supabase_apply_migration` for all schema changes
-   - Never write raw SQL migration files manually -- always use the MCP tool
-   - The MCP tool creates proper timestamped migration files and applies them automatically
+2. **Create migrations** by writing SQL files in `supabase/migrations/` with timestamped filenames
+   - The MCP `supabase_apply_migration` tool runs SQL against the live DB but does **not** create local migration files
+   - Always write the migration file first, then use `supabase db reset` to apply and verify
    - After applying, run `supabase_get_advisors` (security) to catch missing RLS policies
 3. **Write Edge Functions** in `supabase/functions/<function-name>/index.ts`
 4. **Test locally** with `supabase functions serve` and `supabase db reset`
-5. **Generate types** after schema changes via `supabase_generate_typescript_types` (or CLI: `supabase gen types typescript --local > src/types/database.ts`)
+5. **Generate types** after schema changes via `supabase_generate_typescript_types` (or CLI: `supabase gen types typescript --local 2>/dev/null > src/types/database.ts`)
 6. **Verify schema** after migrations via `supabase_list_tables` (verbose)
 7. **Commit** migrations and Edge Functions alongside application code
 8. **Push to remote** after merging to main:
    - `supabase db push` for migrations
    - `supabase functions deploy` for Edge Functions
+   - Review `supabase-changes.local` for Dashboard settings that need manual configuration
 
 ## Migration Rules
 
-- Every schema change (tables, columns, RLS policies, triggers, functions, indexes) must go through `supabase_apply_migration`
-- Never write raw SQL migration files by hand -- the MCP tool is the single entry point
-- Migration files are SQL, timestamped, and auto-ordered (created by the MCP tool)
+- Every schema change (tables, columns, RLS policies, triggers, functions, indexes) must have a migration file in `supabase/migrations/`
+- Migration files are SQL, timestamped, and ordered by filename
 - Migrations must be idempotent where possible
 - Never edit a migration that has already been applied to remote
-- To fix a bad migration, create a new migration via `supabase_apply_migration` that corrects it
+- To fix a bad migration, create a new migration that corrects it
 - Seed data (`seed.sql`) is applied on `supabase db reset` -- use it for the Root Admin bootstrap and test data
 - Run `supabase db reset` to verify migrations apply cleanly from scratch
 - After DDL changes, always run `supabase_get_advisors` (security + performance) to catch issues
