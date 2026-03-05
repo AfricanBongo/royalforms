@@ -1,0 +1,3 @@
+-- seed.sql
+-- Applied on `supabase db reset`. Use for Root Admin bootstrap and test data.
+-- This file will be populated after the profiles table migration is created.

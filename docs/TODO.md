@@ -8,10 +8,10 @@ An agent starting a new session should read this file to understand what's left 
 
 ## Infrastructure Setup
 
-- [ ] Initialize Supabase CLI (`supabase init`)
-- [ ] Configure `supabase/config.toml` for local dev
-- [ ] Create `.env.local` with local Supabase credentials (gitignored)
-- [ ] Install frontend dependencies (TanStack Router, TanStack Query, Shadcn UI)
+- [x] Initialize Supabase CLI (`supabase init`)
+- [x] Configure `supabase/config.toml` for local dev
+- [x] Create `.env.local` with local Supabase credentials (gitignored)
+- [x] Install frontend dependencies (TanStack Router, TanStack Query, Shadcn UI)
 
 ## Database Migrations (via Supabase MCP)
 

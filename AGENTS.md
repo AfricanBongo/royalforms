@@ -586,7 +586,7 @@ Project starts at `v0.1.0`. Version `v1.0.0` is cut when the MVP is considered p
 - **Node.js**: v25+
 - **Module system**: ESM (`"type": "module"`)
 - **Vite dev server**: HMR via `@vitejs/plugin-react`
-- **No path aliases** -- use relative imports
+- **Path alias**: `@/` maps to `./src/` (required by Shadcn UI). Use it for Shadcn imports; prefer relative imports elsewhere.
 - **`.env` files** are gitignored; prefix Vite-exposed vars with `VITE_`
 - Use `opencode.json` for MCP config; never redefine MCP connections manually
 
