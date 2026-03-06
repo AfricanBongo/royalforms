@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react'
 
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { CheckIcon, Loader2Icon, LockIcon, MailIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -19,7 +19,7 @@ import {
   InputGroupInput,
 } from '../components/ui/input-group'
 import { useAuth } from '../hooks/use-auth'
-import { mapSignInError } from '../lib/auth-errors'
+import { mapSupabaseError } from '../lib/supabase-errors'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -53,7 +53,7 @@ function LoginPage() {
 
     if (error) {
       setButtonState('idle')
-      const mapped = mapSignInError(error.message)
+      const mapped = mapSupabaseError(error.code, error.message, 'auth', 'sign_in')
       toast.error(mapped.title, { description: mapped.description })
       return
     }
@@ -141,6 +141,10 @@ function LoginPage() {
               )}
               {buttonState === 'idle' && 'Sign in'}
             </Button>
+
+            <Link to="/forgot-password" className="text-center text-sm text-muted-foreground hover:text-foreground">
+              Forgot your password?
+            </Link>
           </form>
         </CardContent>
       </Card>

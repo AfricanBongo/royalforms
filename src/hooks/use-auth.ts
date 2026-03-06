@@ -26,8 +26,8 @@ export interface AuthContextValue {
   currentUser: CurrentUser | null
   /** True while the initial session is being resolved */
   isLoading: boolean
-  /** Sign in with email + password */
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  /** Sign in with email + password. Returns code + message on error. */
+  signIn: (email: string, password: string) => Promise<{ error: { code: string | undefined; message: string } | null }>
   /** Sign out */
   signOut: () => Promise<void>
 }
@@ -92,7 +92,11 @@ export function useAuthProvider(): AuthContextValue {
         email,
         password,
       })
-      return { error: error ? new Error(error.message) : null }
+      return {
+        error: error
+          ? { code: error.code, message: error.message }
+          : null,
+      }
     },
     [],
   )
