@@ -58,9 +58,9 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 (tables already created in Foundation)
 
 ### Frontend
-- [ ] Group list page (`/groups`)
-- [ ] Group detail page (`/groups/:groupId`)
-- [ ] Member request side sheet (create request, approve/reject)
+- [x] Group list page (`/groups`)
+- [x] Group detail page (`/groups/:groupId`)
+- [x] Member request side sheet (create request, approve/reject)
 
 ## Feature: Form Templates
 
