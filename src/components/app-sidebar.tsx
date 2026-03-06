@@ -35,18 +35,13 @@ import { getDefaultAvatarUri } from '../lib/avatar'
 // Navigation items
 // ---------------------------------------------------------------------------
 
-// Nav items reference routes that will be created in future features.
-// The `as const` + string type allows forward-referencing before route files exist.
-const NAV_ITEMS: Array<{
-  label: string
-  icon: typeof HomeIcon
-  to: string
-}> = [
+// Nav items reference routes under /_authenticated.
+const NAV_ITEMS = [
   { label: 'Home', icon: HomeIcon, to: '/' },
   { label: 'Forms', icon: FileTextIcon, to: '/forms' },
   { label: 'Reports', icon: PieChartIcon, to: '/reports' },
   { label: 'Groups', icon: UsersIcon, to: '/groups' },
-]
+] as const
 
 // ---------------------------------------------------------------------------
 // AppSidebar
@@ -100,10 +95,10 @@ export function AppSidebar() {
               return (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton asChild isActive={isActive}>
-                    <a href={item.to}>
+                    <Link to={item.to}>
                       <item.icon className="size-4" />
                       <span>{item.label}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )
