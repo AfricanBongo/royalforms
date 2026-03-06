@@ -1,4 +1,18 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect, useMatches } from '@tanstack/react-router'
+
+import { AppSidebar } from '../components/app-sidebar'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from '../components/ui/breadcrumb'
+import { Separator } from '../components/ui/separator'
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from '../components/ui/sidebar'
 
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: ({ context }) => {
@@ -18,6 +32,50 @@ export const Route = createFileRoute('/_authenticated')({
   component: AuthenticatedLayout,
 })
 
+// ---------------------------------------------------------------------------
+// Route label mapping for breadcrumbs
+// ---------------------------------------------------------------------------
+
+const ROUTE_LABELS: Record<string, string> = {
+  '/': 'Home',
+  '/forms': 'Forms',
+  '/reports': 'Reports',
+  '/groups': 'Groups',
+}
+
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+
 function AuthenticatedLayout() {
-  return <Outlet />
+  const matches = useMatches()
+  const currentPath = matches[matches.length - 1]?.pathname ?? '/'
+  const pageLabel = ROUTE_LABELS[currentPath] ?? 'Page'
+
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        {/* Header bar with sidebar trigger + breadcrumb */}
+        <header className="flex h-12 items-center gap-2 border-b border-border px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="h-6" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-sm text-muted-foreground">
+                  {pageLabel}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+
+        {/* Page content */}
+        <div className="flex-1 overflow-auto">
+          <Outlet />
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
 }
