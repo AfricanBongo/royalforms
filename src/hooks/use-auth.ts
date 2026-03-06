@@ -68,6 +68,8 @@ export function useAuthProvider(): AuthContextValue {
     supabase.auth.getSession().then(({ data: { session: initial } }) => {
       setSession(initial)
       setIsLoading(false)
+    }).catch(() => {
+      setIsLoading(false)
     })
 
     const {
@@ -102,7 +104,10 @@ export function useAuthProvider(): AuthContextValue {
   )
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('Sign out failed:', error.message)
+    }
   }, [])
 
   return useMemo<AuthContextValue>(

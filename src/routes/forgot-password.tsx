@@ -18,8 +18,9 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from '../components/ui/input-group'
-import { supabase } from '../services/supabase'
+import { resetPassword } from '../services/auth'
 import { mapSupabaseError } from '../lib/supabase-errors'
+import { isValidEmail } from '../lib/validation'
 
 export const Route = createFileRoute('/forgot-password')({
   beforeLoad: ({ context }) => {
@@ -48,14 +49,20 @@ function ForgotPasswordPage() {
       return
     }
 
+    if (!isValidEmail(email)) {
+      toast.error('Invalid email', {
+        description: 'Please enter a valid email address.',
+      })
+      return
+    }
+
     setButtonState('loading')
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
-
-    if (error) {
+    try {
+      await resetPassword(email.trim(), `${window.location.origin}/reset-password`)
+    } catch (err: unknown) {
       setButtonState('idle')
+      const error = err as { code?: string; message: string }
       const mapped = mapSupabaseError(error.code, error.message, 'auth', 'forgot_password')
       toast.error(mapped.title, { description: mapped.description })
       return

@@ -18,7 +18,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from '../components/ui/input-group'
-import { supabase } from '../services/supabase'
+import { updatePassword } from '../services/auth'
 import { mapSupabaseError } from '../lib/supabase-errors'
 
 export const Route = createFileRoute('/reset-password')({
@@ -62,10 +62,11 @@ function ResetPasswordPage() {
 
     setButtonState('loading')
 
-    const { error } = await supabase.auth.updateUser({ password })
-
-    if (error) {
+    try {
+      await updatePassword(password)
+    } catch (err: unknown) {
       setButtonState('idle')
+      const error = err as { code?: string; message: string }
       const mapped = mapSupabaseError(error.code, error.message, 'auth', 'reset_password')
       toast.error(mapped.title, { description: mapped.description })
       return

@@ -32,7 +32,8 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from '../../components/ui/input-group'
-import { supabase } from '../../services/supabase'
+import { getSession, verifyInviteOtp, updatePassword, updateUserMetadata } from '../../services/auth'
+import { fetchGroupName, uploadAvatar, updateProfile } from '../../services/profiles'
 import { mapSupabaseError } from '../../lib/supabase-errors'
 import { getDefaultAvatarUri } from '../../lib/avatar'
 import type { UserRole } from '../../types/auth'
@@ -65,7 +66,7 @@ function InviteAcceptPage() {
       // If no token params, check if user already has a session
       // (e.g. they refreshed the page after verifying)
       if (!tokenHash || type !== 'invite') {
-        const { data: { session } } = await supabase.auth.getSession()
+        const session = await getSession()
         if (session?.user) {
           setUser(session.user)
           // Determine which step to show based on user state
@@ -84,21 +85,18 @@ function InviteAcceptPage() {
       }
 
       // Exchange the token for a session
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: 'invite',
-      })
-
-      if (verifyError || !data.user) {
+      try {
+        const verifiedUser = await verifyInviteOtp(tokenHash)
+        setUser(verifiedUser)
+        setStep('create-account')
+      } catch (err: unknown) {
+        const error = err as { message?: string }
         setError(
-          verifyError?.message ??
+          error.message ??
           'Could not verify the invite link. It may have expired. Please contact your administrator for a new invite.'
         )
         return
       }
-
-      setUser(data.user)
-      setStep('create-account')
 
       // Clean the URL of token params
       window.history.replaceState({}, '', window.location.pathname)
@@ -227,13 +225,11 @@ function CreateAccountStep({
 
     setButtonState('loading')
 
-    const { error } = await supabase.auth.updateUser({
-      password,
-      data: { onboarding_password_set: true },
-    })
-
-    if (error) {
+    try {
+      await updatePassword(password, { onboarding_password_set: true })
+    } catch (err: unknown) {
       setButtonState('idle')
+      const error = err as { code?: string; message: string }
       const mapped = mapSupabaseError(error.code, error.message, 'auth', 'invite_accept')
       toast.error(mapped.title, { description: mapped.description })
       return
@@ -366,23 +362,20 @@ function OnboardingStep({
   const [buttonState, setButtonState] = useState<ButtonState>('idle')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Fetch group name from database
+  // Fetch group name via service
   useEffect(() => {
     if (!groupId) return
 
-    async function fetchGroupName() {
-      const { data } = await supabase
-        .from('groups')
-        .select('name')
-        .eq('id', groupId!)
-        .single()
-
-      if (data?.name) {
-        setGroupName(data.name)
+    async function loadGroupName() {
+      try {
+        const name = await fetchGroupName(groupId!)
+        if (name) setGroupName(name)
+      } catch {
+        // Non-critical: keep default 'your group'
       }
     }
 
-    void fetchGroupName()
+    void loadGroupName()
   }, [groupId])
 
   const isDisabled = buttonState === 'loading' || buttonState === 'success'
@@ -440,47 +433,37 @@ function OnboardingStep({
 
     // Upload avatar if one was selected
     if (avatarFile) {
-      const ext = avatarFile.name.split('.').pop() ?? 'png'
-      const filePath = `${user.id}/avatar.${ext}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, avatarFile, { upsert: true })
-
-      if (uploadError) {
+      try {
+        avatarUrl = await uploadAvatar(user.id, avatarFile)
+      } catch (err: unknown) {
         setButtonState('idle')
+        const error = err as { message: string }
         const mapped = mapSupabaseError(
-          uploadError.message,
-          uploadError.message,
+          error.message,
+          error.message,
           'storage',
           'upload_file',
         )
         toast.error(mapped.title, { description: mapped.description })
         return
       }
-
-      const { data: urlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath)
-
-      avatarUrl = urlData.publicUrl
     }
 
     // Update user metadata with first_name, last_name, avatar_url
-    const { data: updateData, error: updateError } = await supabase.auth.updateUser({
-      data: {
+    let updatedUser
+    try {
+      updatedUser = await updateUserMetadata({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         full_name: `${firstName.trim()} ${lastName.trim()}`,
         ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
-      },
-    })
-
-    if (updateError) {
+      })
+    } catch (err: unknown) {
       setButtonState('idle')
+      const error = err as { code?: string; message: string }
       const mapped = mapSupabaseError(
-        updateError.code,
-        updateError.message,
+        error.code,
+        error.message,
         'auth',
         'update_profile',
       )
@@ -488,23 +471,20 @@ function OnboardingStep({
       return
     }
 
-    // Update the profiles table with first_name, last_name
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
+    // Update the profiles table with full_name
+    try {
+      await updateProfile(user.id, {
         full_name: `${firstName.trim()} ${lastName.trim()}`,
       })
-      .eq('id', user.id)
-
-    if (profileError) {
+    } catch {
       // Non-critical: profile sync failed but auth metadata is updated
-      console.error('Profile update failed:', profileError)
+      console.error('Profile table update failed')
     }
 
     setButtonState('success')
 
     setTimeout(() => {
-      onComplete(updateData.user)
+      onComplete(updatedUser)
     }, 800)
   }
 
