@@ -34,6 +34,7 @@ import {
 } from '../../components/ui/input-group'
 import { supabase } from '../../services/supabase'
 import { mapSupabaseError } from '../../lib/supabase-errors'
+import { getDefaultAvatarUri } from '../../lib/avatar'
 import type { UserRole } from '../../types/auth'
 
 export const Route = createFileRoute('/invite/accept')({
@@ -542,9 +543,10 @@ function OnboardingStep({
                 {/* Avatar section */}
                 <div className="flex flex-col items-center gap-2">
                   <Avatar className="size-[72px]">
-                    {avatarPreview ? (
-                      <AvatarImage src={avatarPreview} alt="Profile picture" />
-                    ) : null}
+                    <AvatarImage
+                      src={avatarPreview ?? getDefaultAvatarUri(firstName || user.email || 'user')}
+                      alt="Profile picture"
+                    />
                     <AvatarFallback className="text-lg">
                       {initials || 'CN'}
                     </AvatarFallback>
