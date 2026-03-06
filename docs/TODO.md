@@ -47,10 +47,10 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Reset password page (`/reset-password`)
 - [x] Invite acceptance page (`/invite/accept`)
 - [x] Protected route wrapper (auth + active + role check)
-- [ ] Sidebar layout component
-- [ ] Role-filtered navigation links
-- [ ] User info + sign out in sidebar
-- [ ] Page header with breadcrumbs
+- [x] Sidebar layout component
+- [x] Role-filtered navigation links
+- [x] User info + sign out in sidebar
+- [x] Page header with breadcrumbs
 
 ## Feature: Groups
 
