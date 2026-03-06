@@ -45,7 +45,7 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Login page (`/login`)
 - [x] Forgot password page (`/forgot-password`)
 - [x] Reset password page (`/reset-password`)
-- [ ] Invite acceptance page (`/invite/accept`)
+- [x] Invite acceptance page (`/invite/accept`)
 - [x] Protected route wrapper (auth + active + role check)
 - [ ] Sidebar layout component
 - [ ] Role-filtered navigation links
