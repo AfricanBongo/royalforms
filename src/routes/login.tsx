@@ -20,6 +20,7 @@ import {
 } from '../components/ui/input-group'
 import { useAuth } from '../hooks/use-auth'
 import { mapSupabaseError } from '../lib/supabase-errors'
+import { isValidEmail } from '../lib/validation'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: ({ context }) => {
@@ -48,6 +49,13 @@ function LoginPage() {
     if (!email.trim() || !password.trim()) {
       toast.error('Missing credentials', {
         description: 'Please enter both your email address and password.',
+      })
+      return
+    }
+
+    if (!isValidEmail(email)) {
+      toast.error('Invalid email', {
+        description: 'Please enter a valid email address.',
       })
       return
     }

@@ -296,6 +296,22 @@ if (error) throw error
 return data
 ```
 
+## Input Validation
+
+**Always validate user input in form submit handlers before sending to the backend.** Do not rely on HTML `type` attributes or `required` alone — `e.preventDefault()` bypasses native browser validation.
+
+Validation rules:
+
+- **Email fields**: use `isValidEmail()` from `src/lib/validation.ts` — checks format beyond just non-empty
+- **Phone numbers**: validate format before submission. If unsure about the expected format, ask the user
+- **Passwords**: check minimum length, match confirmation field where applicable
+- **Required text fields**: check for non-empty after `.trim()`
+- **Bulk/CSV imports**: validate every row before submission. Filter out invalid rows and warn the user about skipped entries
+
+Shared validators live in `src/lib/validation.ts`. Add new validators there rather than inlining regex in components.
+
+When building a new form and unsure whether a field needs format validation beyond "required", ask the user for guidance rather than shipping without validation.
+
 ---
 
 # Frontend Structure
