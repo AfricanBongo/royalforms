@@ -42,9 +42,9 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Supabase client initialization (`src/services/supabase.ts`)
 - [x] Auth context / `useAuth` hook
 - [x] `useCurrentUser` hook (role, group, active from JWT metadata)
-- [ ] Login page (`/login`)
-- [ ] Forgot password page (`/forgot-password`)
-- [ ] Reset password page (`/reset-password`)
+- [x] Login page (`/login`)
+- [x] Forgot password page (`/forgot-password`)
+- [x] Reset password page (`/reset-password`)
 - [ ] Invite acceptance page (`/invite/accept`)
 - [x] Protected route wrapper (auth + active + role check)
 - [ ] Sidebar layout component
