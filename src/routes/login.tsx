@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react'
 
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { CheckIcon, Loader2Icon, LockIcon, MailIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -22,6 +22,11 @@ import { useAuth } from '../hooks/use-auth'
 import { mapSupabaseError } from '../lib/supabase-errors'
 
 export const Route = createFileRoute('/login')({
+  beforeLoad: ({ context }) => {
+    if (context.auth.session) {
+      throw redirect({ to: '/' })
+    }
+  },
   component: LoginPage,
 })
 

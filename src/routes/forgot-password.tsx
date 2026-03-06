@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react'
 
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { ArrowLeftIcon, CheckIcon, Loader2Icon, MailIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -22,6 +22,11 @@ import { supabase } from '../services/supabase'
 import { mapSupabaseError } from '../lib/supabase-errors'
 
 export const Route = createFileRoute('/forgot-password')({
+  beforeLoad: ({ context }) => {
+    if (context.auth.session) {
+      throw redirect({ to: '/' })
+    }
+  },
   component: ForgotPasswordPage,
 })
 
