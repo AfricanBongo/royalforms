@@ -188,6 +188,9 @@ export async function rejectRequest(requestId: string): Promise<void> {
  * Directly add a member: insert an audit row in `member_requests` with
  * `status: approved`, then call the `invite-user` Edge Function so the
  * invitee receives an email. Root Admin only.
+ *
+ * Acts as a client-side transaction: if the Edge Function call fails,
+ * the audit row is deleted so the database stays consistent.
  */
 export async function addMemberDirectly(data: {
   email: string
@@ -198,8 +201,8 @@ export async function addMemberDirectly(data: {
   const currentUser = await getCurrentAuthUser()
   const now = new Date().toISOString()
 
-  // 1. Insert audit row
-  const { error: insertError } = await supabase
+  // 1. Insert audit row and capture its id for potential rollback
+  const { data: inserted, error: insertError } = await supabase
     .from('member_requests')
     .insert({
       email: data.email.trim(),
@@ -211,22 +214,34 @@ export async function addMemberDirectly(data: {
       decided_by: currentUser.id,
       decided_at: now,
     })
+    .select()
+    .single()
 
   if (insertError) throw insertError
 
-  // 2. Invoke Edge Function to send invite
-  const { data: fnData, error: fnError } = await supabase.functions.invoke(
-    'invite-user',
-    { body: data },
-  )
+  // 2. Invoke Edge Function to send invite — rollback audit row on failure
+  try {
+    const { data: fnData, error: fnError } = await supabase.functions.invoke(
+      'invite-user',
+      { body: data },
+    )
 
-  if (fnError) throw fnError
+    if (fnError) throw fnError
 
-  const result = typeof fnData === 'string'
-    ? JSON.parse(fnData) as { success: boolean; error?: string }
-    : fnData as { success: boolean; error?: string }
-  if (!result.success) {
-    throw new Error(result.error ?? 'Failed to invite member')
+    const result = typeof fnData === 'string'
+      ? JSON.parse(fnData) as { success: boolean; error?: string }
+      : fnData as { success: boolean; error?: string }
+    if (!result.success) {
+      throw new Error(result.error ?? 'Failed to invite member')
+    }
+  } catch (err) {
+    // Rollback: delete the audit row that was just inserted
+    await supabase
+      .from('member_requests')
+      .delete()
+      .eq('id', inserted.id)
+
+    throw err
   }
 }
 
