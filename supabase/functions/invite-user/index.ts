@@ -214,14 +214,19 @@ Deno.serve(async (req) => {
     }
 
     // Invite the user via Supabase Auth admin API
+    const siteUrl = Deno.env.get("SITE_URL") ?? ""
+    const redirectTo = siteUrl ? `${siteUrl}/invite/accept` : undefined
     console.info(
       "[invite-user] Calling auth.admin.inviteUserByEmail for:",
       email,
+      "redirectTo:",
+      redirectTo ?? "(default)",
     );
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth
       .admin.inviteUserByEmail(
         email,
         {
+          redirectTo,
           data: {
             full_name,
             role,

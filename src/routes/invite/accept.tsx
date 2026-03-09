@@ -33,6 +33,7 @@ import {
   InputGroupInput,
 } from '../../components/ui/input-group'
 import { getSession, verifyInviteOtp, updatePassword, updateUserMetadata } from '../../services/auth'
+import { supabase } from '../../services/supabase'
 import { fetchGroupName, uploadAvatar, updateProfile } from '../../services/profiles'
 import { mapSupabaseError } from '../../lib/supabase-errors'
 import { getDefaultAvatarUri } from '../../lib/avatar'
@@ -56,6 +57,18 @@ function InviteAcceptPage() {
   const [user, setUser] = useState<User | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const resolveStepFromUser = useCallback((sessionUser: User) => {
+    setUser(sessionUser)
+    const meta = sessionUser.user_metadata
+    if (meta.first_name && meta.last_name) {
+      setStep('thank-you')
+    } else if (meta.onboarding_password_set) {
+      setStep('onboarding')
+    } else {
+      setStep('create-account')
+    }
+  }, [])
+
   // Verify the invite token from URL on mount
   useEffect(() => {
     async function verifyInviteToken() {
@@ -63,47 +76,61 @@ function InviteAcceptPage() {
       const tokenHash = params.get('token_hash')
       const type = params.get('type')
 
-      // If no token params, check if user already has a session
-      // (e.g. they refreshed the page after verifying)
-      if (!tokenHash || type !== 'invite') {
-        const session = await getSession()
-        if (session?.user) {
-          setUser(session.user)
-          // Determine which step to show based on user state
-          const meta = session.user.user_metadata
-          if (meta.first_name && meta.last_name) {
-            setStep('thank-you')
-          } else if (meta.onboarding_password_set) {
-            setStep('onboarding')
-          } else {
-            setStep('create-account')
-          }
+      // Flow A: token_hash in query params (custom email template flow)
+      if (tokenHash && type === 'invite') {
+        try {
+          const verifiedUser = await verifyInviteOtp(tokenHash)
+          setUser(verifiedUser)
+          setStep('create-account')
+        } catch (err: unknown) {
+          const error = err as { message?: string }
+          setError(
+            error.message ??
+            'Could not verify the invite link. It may have expired. Please contact your administrator for a new invite.'
+          )
           return
         }
-        setError('This invite link is invalid or has expired. Please contact your administrator for a new invite.')
+        // Clean the URL of token params
+        window.history.replaceState({}, '', window.location.pathname)
         return
       }
 
-      // Exchange the token for a session
-      try {
-        const verifiedUser = await verifyInviteOtp(tokenHash)
-        setUser(verifiedUser)
-        setStep('create-account')
-      } catch (err: unknown) {
-        const error = err as { message?: string }
-        setError(
-          error.message ??
-          'Could not verify the invite link. It may have expired. Please contact your administrator for a new invite.'
-        )
+      // Flow B: hash fragment redirect (default Supabase invite flow)
+      // The supabase-js client auto-detects #access_token in the URL and
+      // establishes a session via onAuthStateChange. We wait for that.
+      const hash = window.location.hash
+      if (hash && hash.includes('access_token')) {
+        // Session will be picked up by the onAuthStateChange listener below.
+        // Clean the hash from the URL so it doesn't linger.
+        window.history.replaceState({}, '', window.location.pathname)
         return
       }
 
-      // Clean the URL of token params
-      window.history.replaceState({}, '', window.location.pathname)
+      // Flow C: no token at all — check for existing session
+      // (e.g. they refreshed the page after verifying)
+      const session = await getSession()
+      if (session?.user) {
+        resolveStepFromUser(session.user)
+        return
+      }
+
+      setError('This invite link is invalid or has expired. Please contact your administrator for a new invite.')
     }
 
     void verifyInviteToken()
-  }, [])
+  }, [resolveStepFromUser])
+
+  // Listen for auth state changes to catch the session from hash fragment redirect
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (_event === 'SIGNED_IN' && session?.user && !user) {
+          resolveStepFromUser(session.user)
+        }
+      },
+    )
+    return () => subscription.unsubscribe()
+  }, [user, resolveStepFromUser])
 
   if (error) {
     return <ErrorScreen message={error} />
