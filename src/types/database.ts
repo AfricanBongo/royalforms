@@ -34,6 +34,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      form_templates: {
+        Row: {
+          abbreviation: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          instance_counter: number
+          is_active: boolean
+          name: string
+          sharing_mode: string
+          updated_at: string
+        }
+        Insert: {
+          abbreviation: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          instance_counter?: number
+          is_active?: boolean
+          name: string
+          sharing_mode?: string
+          updated_at?: string
+        }
+        Update: {
+          abbreviation?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          instance_counter?: number
+          is_active?: boolean
+          name?: string
+          sharing_mode?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groups: {
         Row: {
           created_at: string
@@ -184,6 +231,180 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups_with_member_count"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_fields: {
+        Row: {
+          created_at: string
+          field_type: string
+          id: string
+          is_required: boolean
+          label: string
+          options: Json | null
+          sort_order: number
+          template_section_id: string
+          validation_rules: Json | null
+        }
+        Insert: {
+          created_at?: string
+          field_type: string
+          id?: string
+          is_required?: boolean
+          label: string
+          options?: Json | null
+          sort_order: number
+          template_section_id: string
+          validation_rules?: Json | null
+        }
+        Update: {
+          created_at?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          label?: string
+          options?: Json | null
+          sort_order?: number
+          template_section_id?: string
+          validation_rules?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_fields_template_section_id_fkey"
+            columns: ["template_section_id"]
+            isOneToOne: false
+            referencedRelation: "template_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_group_access: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_group_access_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_group_access_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups_with_member_count"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_group_access_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_sections: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          sort_order: number
+          template_version_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          sort_order: number
+          template_version_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          sort_order?: number
+          template_version_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_sections_template_version_id_fkey"
+            columns: ["template_version_id"]
+            isOneToOne: false
+            referencedRelation: "template_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_versions: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_latest: boolean
+          restored_from: string | null
+          template_id: string
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_latest?: boolean
+          restored_from?: string | null
+          template_id: string
+          version_number: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_latest?: boolean
+          restored_from?: string | null
+          template_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_versions_restored_from_fkey"
+            columns: ["restored_from"]
+            isOneToOne: false
+            referencedRelation: "template_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_versions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
             referencedColumns: ["id"]
           },
         ]
