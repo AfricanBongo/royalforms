@@ -3,6 +3,30 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.3.0](https://github.com/AfricanBongo/royalforms/compare/v0.2.1...v0.3.0) (2026-03-09)
+
+
+### Features
+
+* **db:** add form instances tables, triggers, cron job, and Edge Function ([0a2b950](https://github.com/AfricanBongo/royalforms/commit/0a2b950a9d7f59e672265eab7ca62d763751f9aa))
+* **forms:** add form builder with field type picker and edit support ([5b445ea](https://github.com/AfricanBongo/royalforms/commit/5b445eaa93a2199389be9e751268a9875d568d90))
+* **forms:** add header action buttons and navigation blocker to builder ([7ae511b](https://github.com/AfricanBongo/royalforms/commit/7ae511b6f2e3499af033ad2e2a33dcfbfe05273e))
+* **forms:** add share form sheet with group access management ([3812a9c](https://github.com/AfricanBongo/royalforms/commit/3812a9c998a5cfdfca233e17fc7f038b2eb86678))
+* **forms:** add templates list and detail pages with stats view ([4ea6733](https://github.com/AfricanBongo/royalforms/commit/4ea6733862a722a7617bfaf6866767ace55df0a3))
+* **layout:** add header actions support to page title context ([d9e9fdf](https://github.com/AfricanBongo/royalforms/commit/d9e9fdf3fa627a0d9ce17545bfe1ceed9938912d))
+
+
+### Bug Fixes
+
+* **forms:** add section delete with confirmation and fix field picker width ([4883fef](https://github.com/AfricanBongo/royalforms/commit/4883fefc9f6d40070768690ae59f5d68486b8752))
+
+
+### Documentation
+
+* replace scaffold README with project documentation ([ee43143](https://github.com/AfricanBongo/royalforms/commit/ee43143fc81446fe5244a75891fb81ccb68d1ad8))
+* **todo:** update form builder checklist with new items ([aac7768](https://github.com/AfricanBongo/royalforms/commit/aac77684ddcf6804f7c868201cc601aa7a920a7a))
+* update TODO checklist and system design for form instances ([5192a54](https://github.com/AfricanBongo/royalforms/commit/5192a5417f0d900866cfbae08b49b850f8b1ba1b))
+
 ## [0.2.1](https://github.com/AfricanBongo/royalforms/compare/v0.2.0...v0.2.1) (2026-03-09)
 
 
