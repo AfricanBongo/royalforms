@@ -15,7 +15,6 @@ import { toast } from 'sonner'
 
 import { BuilderSection } from '../../components/builder-section'
 import { Button } from '../../components/ui/button'
-import { ScrollArea } from '../../components/ui/scroll-area'
 import { useFormBuilder, FIELD_TYPE } from '../../hooks/use-form-builder'
 import { usePageTitle } from '../../hooks/use-page-title'
 import {
@@ -80,7 +79,7 @@ function toBuilderState(data: TemplateVersionData): BuilderState {
 function EditFormPage() {
   const { templateId } = Route.useParams()
   const navigate = useNavigate()
-  const { setPageTitle } = usePageTitle()
+  const { setPageTitle, setHeaderActions } = usePageTitle()
 
   const [loading, setLoading] = useState(true)
   const [isPublishing, setIsPublishing] = useState(false)
@@ -91,8 +90,27 @@ function EditFormPage() {
   // Update breadcrumb dynamically with form name
   useEffect(() => {
     setPageTitle(state.name.trim() || 'Edit Form')
-    return () => setPageTitle(null)
   }, [state.name, setPageTitle])
+
+  // Inject Publish New Version button into the header bar
+  useEffect(() => {
+    setHeaderActions(
+      <Button
+        size="sm"
+        onClick={handlePublish}
+        disabled={isPublishing}
+        className="gap-2"
+      >
+        <SaveIcon className="size-4" />
+        {isPublishing ? 'Publishing...' : 'Publish New Version'}
+      </Button>,
+    )
+    return () => {
+      setPageTitle(null)
+      setHeaderActions(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPublishing, setHeaderActions])
 
   // Load existing template data
   useEffect(() => {
@@ -158,110 +176,93 @@ function EditFormPage() {
   }
 
   return (
-    <ScrollArea className="h-full">
-      <div className="flex flex-col items-center bg-muted px-16">
-        <div className="flex w-full max-w-[816px] flex-1 flex-col gap-6 overflow-clip">
-          {/* Form title / description card */}
-          <div className="flex flex-col gap-0 rounded-b-lg bg-background px-6 py-4">
-            <div className="flex flex-col gap-1">
-              <h3
-                className="text-2xl font-semibold tracking-tight outline-none empty:before:content-['Form_Title'] empty:before:text-muted-foreground/50"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => {
-                  const text = e.currentTarget.textContent?.trim() ?? ''
-                  builder.setName(text)
-                }}
-              >
-                {state.name}
-              </h3>
-              <p
-                className="text-lg outline-none empty:before:content-['Form_Description'] empty:before:text-muted-foreground/50"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => {
-                  const text = e.currentTarget.textContent?.trim() ?? ''
-                  builder.setDescription(text)
-                }}
-              >
-                {state.description}
-              </p>
-            </div>
-
-            {/* Abbreviation (read-only in edit mode) */}
-            <div className="mt-2 flex items-center gap-2">
-              <label className="text-sm text-muted-foreground">
-                Abbreviation:
-              </label>
-              <span className="text-sm font-medium">{state.abbreviation}</span>
-            </div>
+    <div className="flex h-full flex-col items-center overflow-auto bg-muted px-16">
+      <div className="flex w-full max-w-[816px] flex-col gap-6 pb-16">
+        {/* Form title / description card */}
+        <div className="flex flex-col gap-0 rounded-b-lg bg-background px-6 py-4">
+          <div className="flex flex-col gap-1">
+            <h3
+              className="text-2xl font-semibold tracking-tight outline-none empty:before:content-['Form_Title'] empty:before:text-muted-foreground/50"
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => {
+                const text = e.currentTarget.textContent?.trim() ?? ''
+                builder.setName(text)
+              }}
+            >
+              {state.name}
+            </h3>
+            <p
+              className="text-lg outline-none empty:before:content-['Form_Description'] empty:before:text-muted-foreground/50"
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={(e) => {
+                const text = e.currentTarget.textContent?.trim() ?? ''
+                builder.setDescription(text)
+              }}
+            >
+              {state.description}
+            </p>
           </div>
 
-          {/* Sections */}
-          {state.sections.map((section) => (
-            <BuilderSection
-              key={section.clientId}
-              section={section}
-              onUpdateSection={(updates) =>
-                builder.updateSection(section.clientId, updates)
-              }
-              onRemoveSection={() =>
-                builder.removeSection(section.clientId)
-              }
-              onShowFieldTypePicker={(atIndex) =>
-                builder.showFieldTypePicker(section.clientId, atIndex)
-              }
-              onCancelFieldTypePicker={() =>
-                builder.cancelFieldTypePicker(section.clientId)
-              }
-              onInsertField={(fieldType: FieldType) =>
-                builder.insertField(section.clientId, fieldType)
-              }
-              onAddSection={builder.addSection}
-              onUpdateField={(fieldClientId: string, updates: Partial<Omit<BuilderField, 'clientId'>>) =>
-                builder.updateField(section.clientId, fieldClientId, updates)
-              }
-              onRemoveField={(fieldClientId: string) =>
-                builder.removeField(section.clientId, fieldClientId)
-              }
-              onDuplicateField={(fieldClientId: string) =>
-                builder.duplicateField(section.clientId, fieldClientId)
-              }
-              onMoveField={(fieldClientId: string, direction: 'up' | 'down') =>
-                builder.moveField(section.clientId, fieldClientId, direction)
-              }
-              onSetFieldEditing={(fieldClientId: string, editing: boolean) =>
-                builder.setFieldEditing(section.clientId, fieldClientId, editing)
-              }
-              onAddOption={(fieldClientId: string) =>
-                builder.addOption(section.clientId, fieldClientId)
-              }
-              onUpdateOption={(fieldClientId: string, optionIndex: number, value: string) =>
-                builder.updateOption(section.clientId, fieldClientId, optionIndex, value)
-              }
-              onRemoveOption={(fieldClientId: string, optionIndex: number) =>
-                builder.removeOption(section.clientId, fieldClientId, optionIndex)
-              }
-            />
-          ))}
-
-          {/* Bottom spacer */}
-          <div className="h-16" />
+          {/* Abbreviation (read-only in edit mode) */}
+          <div className="mt-2 flex items-center gap-2">
+            <label className="text-sm text-muted-foreground">
+              Abbreviation:
+            </label>
+            <span className="text-sm font-medium">{state.abbreviation}</span>
+          </div>
         </div>
-      </div>
 
-      {/* Floating publish button */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <Button
-          size="lg"
-          onClick={handlePublish}
-          disabled={isPublishing}
-          className="gap-2 shadow-lg"
-        >
-          <SaveIcon className="size-4" />
-          {isPublishing ? 'Publishing...' : 'Publish New Version'}
-        </Button>
+        {/* Sections */}
+        {state.sections.map((section) => (
+          <BuilderSection
+            key={section.clientId}
+            section={section}
+            totalSections={state.sections.length}
+            onUpdateSection={(updates) =>
+              builder.updateSection(section.clientId, updates)
+            }
+            onRemoveSection={() =>
+              builder.removeSection(section.clientId)
+            }
+            onShowFieldTypePicker={(atIndex) =>
+              builder.showFieldTypePicker(section.clientId, atIndex)
+            }
+            onCancelFieldTypePicker={() =>
+              builder.cancelFieldTypePicker(section.clientId)
+            }
+            onInsertField={(fieldType: FieldType) =>
+              builder.insertField(section.clientId, fieldType)
+            }
+            onAddSection={builder.addSection}
+            onUpdateField={(fieldClientId: string, updates: Partial<Omit<BuilderField, 'clientId'>>) =>
+              builder.updateField(section.clientId, fieldClientId, updates)
+            }
+            onRemoveField={(fieldClientId: string) =>
+              builder.removeField(section.clientId, fieldClientId)
+            }
+            onDuplicateField={(fieldClientId: string) =>
+              builder.duplicateField(section.clientId, fieldClientId)
+            }
+            onMoveField={(fieldClientId: string, direction: 'up' | 'down') =>
+              builder.moveField(section.clientId, fieldClientId, direction)
+            }
+            onSetFieldEditing={(fieldClientId: string, editing: boolean) =>
+              builder.setFieldEditing(section.clientId, fieldClientId, editing)
+            }
+            onAddOption={(fieldClientId: string) =>
+              builder.addOption(section.clientId, fieldClientId)
+            }
+            onUpdateOption={(fieldClientId: string, optionIndex: number, value: string) =>
+              builder.updateOption(section.clientId, fieldClientId, optionIndex, value)
+            }
+            onRemoveOption={(fieldClientId: string, optionIndex: number) =>
+              builder.removeOption(section.clientId, fieldClientId, optionIndex)
+            }
+          />
+        ))}
       </div>
-    </ScrollArea>
+    </div>
   )
 }

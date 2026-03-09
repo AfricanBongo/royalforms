@@ -1,26 +1,31 @@
 /**
  * /forms/new — Form builder page for creating a new form template.
  *
- * Layout matches the Figma "New Form" screens:
- * - Header: breadcrumb "Forms > New Form" + Publish button (right)
- * - Body: bg-muted, centred content (max-w-[816px])
+ * Layout:
+ * - Header (from _authenticated layout): breadcrumb "Forms > New Form" + Cancel / Publish buttons (right)
+ * - Body: bg-muted, scrollable content area (max-w-[816px])
  *   - Form title/description card (white, top, no top-rounding)
  *   - Section cards (white, rounded-lg) with fields inside
  *
- * The header bar from the authenticated layout already shows breadcrumbs,
- * but the form builder has its OWN header inside the content area (the Figma
- * shows the Publish button in the header). We use usePageTitle to set the
- * breadcrumb label.
+ * Navigation away from this page is blocked with a confirmation dialog
+ * via TanStack Router's useBlocker hook (breadcrumb, back button, etc.).
  */
 import { useEffect, useState } from 'react'
 
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useBlocker, useNavigate } from '@tanstack/react-router'
 import { SaveIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { BuilderSection } from '../../../components/builder-section'
 import { Button } from '../../../components/ui/button'
-import { ScrollArea } from '../../../components/ui/scroll-area'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../../components/ui/dialog'
 import { useFormBuilder } from '../../../hooks/use-form-builder'
 import { usePageTitle } from '../../../hooks/use-page-title'
 import { createTemplate } from '../../../services/form-templates'
@@ -34,18 +39,54 @@ export const Route = createFileRoute('/_authenticated/forms/new')({
 
 function NewFormPage() {
   const navigate = useNavigate()
-  const { setPageTitle } = usePageTitle()
+  const { setPageTitle, setHeaderActions } = usePageTitle()
 
   const [isPublishing, setIsPublishing] = useState(false)
 
   const builder = useFormBuilder()
   const { state } = builder
 
+  // Block navigation away from the form builder with a custom dialog.
+  // `proceed` allows navigation; `reset` cancels; `status` drives the dialog.
+  const blocker = useBlocker({
+    shouldBlockFn: () => true,
+    withResolver: true,
+  })
+  const { status } = blocker
+
   // Update breadcrumb: show form name when typed, fall back to "New Form"
   useEffect(() => {
     setPageTitle(state.name.trim() || 'New Form')
-    return () => setPageTitle(null)
   }, [state.name, setPageTitle])
+
+  // Inject Cancel + Publish buttons into the header bar
+  useEffect(() => {
+    setHeaderActions(
+      <>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void navigate({ to: '/forms' })}
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          onClick={handlePublish}
+          disabled={isPublishing}
+          className="gap-2"
+        >
+          <SaveIcon className="size-4" />
+          {isPublishing ? 'Publishing...' : 'Publish'}
+        </Button>
+      </>,
+    )
+    return () => {
+      setPageTitle(null)
+      setHeaderActions(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPublishing, setHeaderActions])
 
   // -------------------------------------------------------------------------
   // Publish
@@ -63,6 +104,7 @@ function NewFormPage() {
       const input = builder.toCreateInput()
       const templateId = await createTemplate(input)
       toast.success('Form published successfully!')
+      blocker.proceed?.()
       void navigate({ to: '/forms/$templateId', params: { templateId } })
     } catch (err: unknown) {
       const error = err as { code?: string; message: string }
@@ -78,9 +120,9 @@ function NewFormPage() {
   // -------------------------------------------------------------------------
 
   return (
-    <ScrollArea className="h-full">
-      <div className="flex flex-col items-center bg-muted px-16">
-        <div className="flex w-full max-w-[816px] flex-1 flex-col gap-6 overflow-clip">
+    <>
+      <div className="flex h-full flex-col items-center overflow-auto bg-muted px-16">
+        <div className="flex w-full max-w-[816px] flex-col gap-6 pb-16">
           {/* Form title / description card */}
           <div className="flex flex-col gap-0 rounded-b-lg bg-background px-6 py-4">
             <div className="flex flex-col gap-1">
@@ -129,6 +171,7 @@ function NewFormPage() {
             <BuilderSection
               key={section.clientId}
               section={section}
+              totalSections={state.sections.length}
               onUpdateSection={(updates) =>
                 builder.updateSection(section.clientId, updates)
               }
@@ -171,24 +214,28 @@ function NewFormPage() {
               }
             />
           ))}
-
-          {/* Bottom spacer */}
-          <div className="h-16" />
         </div>
       </div>
 
-      {/* Floating publish button (fixed to bottom-right) */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <Button
-          size="lg"
-          onClick={handlePublish}
-          disabled={isPublishing}
-          className="gap-2 shadow-lg"
-        >
-          <SaveIcon className="size-4" />
-          {isPublishing ? 'Publishing...' : 'Publish'}
-        </Button>
-      </div>
-    </ScrollArea>
+      {/* Navigation blocker confirmation dialog */}
+      <Dialog open={status === 'blocked'} onOpenChange={(open) => { if (!open) blocker.reset?.() }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Discard new form?</DialogTitle>
+            <DialogDescription>
+              Any fields and sections you have added will be lost. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => blocker.reset?.()}>
+              Keep editing
+            </Button>
+            <Button variant="destructive" onClick={() => blocker.proceed?.()}>
+              Discard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
