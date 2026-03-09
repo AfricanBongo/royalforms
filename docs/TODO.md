@@ -87,10 +87,12 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Section delete with confirmation dialog
 - [x] Header action buttons (Cancel, Publish) in breadcrumb bar
 - [x] Navigation blocker on new form page (useBlocker)
-- [ ] Auto-generate abbreviation from form title
-- [ ] Save draft button (save without publishing)
-- [ ] Field-type-specific configuration (range selector, rating stars preview, etc.)
-- [ ] Field limits via "More" button (min/max chars, date range, file types, etc.)
+- [x] Auto-generate abbreviation from form title
+- [x] Save draft button (save without publishing)
+- [x] Field-type-specific configuration (range selector, rating stars preview, etc.)
+- [x] Field limits via "More" button (min/max chars, date range, file types, etc.)
+- [x] Editable field subtitle/description for all field types
+- [x] Draft badge and routing in templates list
 - [ ] Version history side sheet (view, restore)
 - [x] Sharing settings side sheet (all vs restricted groups)
 
