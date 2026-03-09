@@ -582,13 +582,40 @@ This ensures any commit can be safely reverted without side effects.
 
 ## Versioning
 
-Uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`) driven by conventional commits:
+Uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`) driven by conventional commits, automated via **`commit-and-tag-version`**.
 
 | Version bump | Trigger |
 |---|---|
 | `PATCH` (0.0.x) | `fix`, `perf`, `refactor`, `docs`, `chore` |
 | `MINOR` (0.x.0) | `feat` |
-| `MAJOR` (x.0.0) | Any commit with `BREAKING CHANGE:` in the footer |
+| `MAJOR` (x.0.0) | Any commit with `BREAKING CHANGE:` in the footer — **only on explicit user request** |
+
+### Automated versioning after commits
+
+When the user says **"do commits and update app version"** (or similar), use the `update-app-version` skill:
+
+1. Finish all commits for the session first
+2. Show the **current version** from `package.json`
+3. Run `npm run release:dry` to preview the bump
+4. Run `npm run release` (auto-detects PATCH or MINOR from commits)
+5. Show the **new version** and created tag
+6. Remind the user to push: `git push --follow-tags`
+
+**Never bump MAJOR automatically.** Only do so when the user explicitly asks for a major release.
+
+Available npm scripts:
+
+```bash
+npm run release             # auto-detect bump from commits
+npm run release:patch       # force PATCH bump
+npm run release:minor       # force MINOR bump
+npm run release:major       # force MAJOR bump (explicit request only)
+npm run release:alpha       # pre-release alpha (x.y.z-alpha.N)
+npm run release:beta        # pre-release beta  (x.y.z-beta.N)
+npm run release:prerelease  # pre-release       (x.y.z-N)
+npm run release:dry         # dry run — preview only, no changes
+npm run release:first       # first release (no version bump)
+```
 
 ### Git Tags
 

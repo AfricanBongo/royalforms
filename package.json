@@ -1,13 +1,22 @@
 {
   "name": "royalforms",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "commit-and-tag-version",
+    "release:minor": "commit-and-tag-version --release-as minor",
+    "release:patch": "commit-and-tag-version --release-as patch",
+    "release:major": "commit-and-tag-version --release-as major",
+    "release:prerelease": "commit-and-tag-version --prerelease",
+    "release:alpha": "commit-and-tag-version --prerelease alpha",
+    "release:beta": "commit-and-tag-version --prerelease beta",
+    "release:first": "commit-and-tag-version --first-release",
+    "release:dry": "commit-and-tag-version --dry-run"
   },
   "dependencies": {
     "@dicebear/core": "^9.4.0",
@@ -37,6 +46,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "commit-and-tag-version": "^12.6.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
