@@ -1,6 +1,9 @@
-import { createFileRoute, Link, Outlet, redirect, useMatches } from '@tanstack/react-router'
+import { useEffect } from 'react'
+
+import { createFileRoute, Link, Outlet, redirect, useMatches, useNavigate } from '@tanstack/react-router'
 
 import { AppSidebar } from '../components/app-sidebar'
+import { useAuth } from '../hooks/use-auth'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -50,6 +53,18 @@ const SEGMENT_LABELS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 function AuthenticatedLayout() {
+  const { session, isLoading } = useAuth()
+  const navigate = useNavigate()
+
+  // Redirect to login when session is cleared (e.g. sign-out, token expiry).
+  // The beforeLoad guard only runs on navigation events, so this effect
+  // covers the case where the session drops while the user is on a page.
+  useEffect(() => {
+    if (!isLoading && !session) {
+      void navigate({ to: '/login' })
+    }
+  }, [isLoading, session, navigate])
+
   return (
     <PageTitleProvider>
       <SidebarProvider>

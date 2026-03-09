@@ -78,6 +78,10 @@ function InviteAcceptPage() {
 
       // Flow A: token_hash in query params (custom email template flow)
       if (tokenHash && type === 'invite') {
+        // Sign out any existing session first so verifyOtp establishes
+        // the invited user's session, not the current user's.
+        await supabase.auth.signOut()
+
         try {
           const verifiedUser = await verifyInviteOtp(tokenHash)
           setUser(verifiedUser)
@@ -97,12 +101,27 @@ function InviteAcceptPage() {
 
       // Flow B: hash fragment redirect (default Supabase invite flow)
       // The supabase-js client auto-detects #access_token in the URL and
-      // establishes a session via onAuthStateChange. We wait for that.
+      // establishes a session. We must NOT clear the hash before the client
+      // has finished processing it. Instead, wait for getSession() to pick
+      // up the session from the hash, then clean the URL afterwards.
       const hash = window.location.hash
       if (hash && hash.includes('access_token')) {
-        // Session will be picked up by the onAuthStateChange listener below.
-        // Clean the hash from the URL so it doesn't linger.
+        // Sign out any existing session first so the hash fragment tokens
+        // (which belong to the invited user) take precedence.
+        await supabase.auth.signOut()
+
+        // getSession() detects the hash fragment, exchanges it for a
+        // session, and stores it. After this call the session is established.
+        const session = await getSession()
+        // Now safe to clean the hash from the URL.
         window.history.replaceState({}, '', window.location.pathname)
+
+        if (session?.user) {
+          resolveStepFromUser(session.user)
+          return
+        }
+
+        setError('This invite link is invalid or has expired. Please contact your administrator for a new invite.')
         return
       }
 
@@ -119,18 +138,6 @@ function InviteAcceptPage() {
 
     void verifyInviteToken()
   }, [resolveStepFromUser])
-
-  // Listen for auth state changes to catch the session from hash fragment redirect
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (_event === 'SIGNED_IN' && session?.user && !user) {
-          resolveStepFromUser(session.user)
-        }
-      },
-    )
-    return () => subscription.unsubscribe()
-  }, [user, resolveStepFromUser])
 
   if (error) {
     return <ErrorScreen message={error} />
