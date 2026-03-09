@@ -133,7 +133,7 @@ function HeaderBar() {
               <BreadcrumbItem key={crumb.path}>
                 {index > 0 && <BreadcrumbSeparator />}
                 {isLast ? (
-                  <BreadcrumbPage className="text-sm text-muted-foreground">
+                  <BreadcrumbPage className="text-sm text-foreground">
                     {crumb.label}
                   </BreadcrumbPage>
                 ) : (

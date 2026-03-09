@@ -1,12 +1,21 @@
 import { useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { FilterIcon, PlusIcon, SearchIcon } from 'lucide-react'
+import {
+  ClockIcon,
+  FilterIcon,
+  PencilIcon,
+  SearchIcon,
+  SendIcon,
+  Share2Icon,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
 import { Checkbox } from '../../../components/ui/checkbox'
 import { Input } from '../../../components/ui/input'
+import { Separator } from '../../../components/ui/separator'
 import {
   Table,
   TableBody,
@@ -17,12 +26,20 @@ import {
 } from '../../../components/ui/table'
 import { StatCard } from '../../../components/stat-card'
 import { useCurrentUser } from '../../../hooks/use-current-user'
-import { fetchTemplates } from '../../../services/form-templates'
-import type { TemplateListRow } from '../../../services/form-templates'
+import { usePageTitle } from '../../../hooks/use-page-title'
+import {
+  fetchGroupAccessCount,
+  fetchTemplateDetail,
+  fetchTemplateInstances,
+} from '../../../services/form-templates'
+import type {
+  InstanceRow,
+  TemplateDetail,
+} from '../../../services/form-templates'
 import { mapSupabaseError } from '../../../lib/supabase-errors'
 
-export const Route = createFileRoute('/_authenticated/forms/')({
-  component: FormTemplateListPage,
+export const Route = createFileRoute('/_authenticated/forms/$templateId')({
+  component: TemplateDetailPage,
 })
 
 // ---------------------------------------------------------------------------
@@ -35,11 +52,15 @@ const PAGE_SIZE = 15
 // Page
 // ---------------------------------------------------------------------------
 
-function FormTemplateListPage() {
+function TemplateDetailPage() {
+  const { templateId } = Route.useParams()
   const currentUser = useCurrentUser()
   const navigate = useNavigate()
+  const { setPageTitle } = usePageTitle()
 
-  const [templates, setTemplates] = useState<TemplateListRow[]>([])
+  const [template, setTemplate] = useState<TemplateDetail | null>(null)
+  const [instances, setInstances] = useState<InstanceRow[]>([])
+  const [groupCount, setGroupCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -47,12 +68,18 @@ function FormTemplateListPage() {
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
-  // Filter templates by search term (client-side)
+  // Filter instances by search (readable_id or group_name)
   const filtered = search.trim()
-    ? templates.filter((t) =>
-        t.name.toLowerCase().includes(search.trim().toLowerCase()),
+    ? instances.filter(
+        (i) =>
+          i.readable_id
+            .toLowerCase()
+            .includes(search.trim().toLowerCase()) ||
+          i.group_name
+            .toLowerCase()
+            .includes(search.trim().toLowerCase()),
       )
-    : templates
+    : instances
 
   // Pagination
   const totalItems = filtered.length
@@ -61,31 +88,17 @@ function FormTemplateListPage() {
   const startIndex = (safePage - 1) * PAGE_SIZE
   const paged = filtered.slice(startIndex, startIndex + PAGE_SIZE)
 
-  // Aggregate stats (across all templates)
-  const totalInstances = templates.reduce(
-    (sum, t) => sum + t.submitted_count + t.pending_count,
-    0,
-  )
-  const submittedInstances = templates.reduce(
-    (sum, t) => sum + t.submitted_count,
-    0,
-  )
-  const pendingInstances = templates.reduce(
-    (sum, t) => sum + t.pending_count,
-    0,
-  )
-
   // Selection helpers
   const allPageSelected =
-    paged.length > 0 && paged.every((t) => selectedIds.has(t.id))
+    paged.length > 0 && paged.every((i) => selectedIds.has(i.id))
 
   function toggleSelectAll() {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (allPageSelected) {
-        for (const t of paged) next.delete(t.id)
+        for (const i of paged) next.delete(i.id)
       } else {
-        for (const t of paged) next.add(t.id)
+        for (const i of paged) next.add(i.id)
       }
       return next
     })
@@ -103,13 +116,25 @@ function FormTemplateListPage() {
     })
   }
 
-  // Load templates on mount
+  // Load data on mount
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        const data = await fetchTemplates()
-        setTemplates(data)
+        const [tmpl, inst] = await Promise.all([
+          fetchTemplateDetail(templateId),
+          fetchTemplateInstances(templateId),
+        ])
+        setTemplate(tmpl)
+        setInstances(inst)
+        setPageTitle(tmpl.name)
+
+        // Fetch group access count separately (needs sharing_mode)
+        const count = await fetchGroupAccessCount(
+          templateId,
+          tmpl.sharing_mode,
+        )
+        setGroupCount(count)
       } catch (err: unknown) {
         const error = err as { code?: string; message: string }
         const mapped = mapSupabaseError(
@@ -125,24 +150,50 @@ function FormTemplateListPage() {
     }
 
     void load()
-  }, [])
+    return () => setPageTitle(null)
+  }, [templateId, setPageTitle])
 
   // Reset to page 1 when search changes
   useEffect(() => {
     setPage(1)
   }, [search])
 
+  if (loading) {
+    return (
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Loading template...
+        </p>
+      </div>
+    )
+  }
+
+  if (!template) {
+    return (
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Template not found.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       {/* Stat cards */}
       <div className="flex gap-2.5">
-        <StatCard label="Total Instances" value={totalInstances} />
-        <StatCard label="Submitted Instances" value={submittedInstances} />
-        <StatCard label="Pending Instances" value={pendingInstances} />
+        <StatCard
+          label="Form Version"
+          value={`v${template.latest_version}`}
+        />
+        <StatCard label="Submitted" value={template.submitted_count} />
+        <StatCard label="Pending" value={template.pending_count} />
+        <StatCard label="Groups Shared With" value={groupCount} />
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center justify-between">
+        {/* Left: search + filters */}
         <div className="flex items-center gap-4">
           <div className="relative w-[320px]">
             <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -158,26 +209,44 @@ function FormTemplateListPage() {
             Filters
           </Button>
         </div>
+
+        {/* Right: action buttons (Root Admin only) */}
         {isRootAdmin && (
-          <Button
-            onClick={() => void navigate({ to: '/forms/new' })}
-          >
-            <PlusIcon className="size-4" />
-            New Form
-          </Button>
+          <div className="flex items-center gap-2">
+            <Separator orientation="vertical" className="h-6" />
+            <Button variant="outline" size="default">
+              <ClockIcon className="size-4" />
+              Versions
+            </Button>
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => void navigate({
+                to: '/forms/$templateId/edit',
+                params: { templateId },
+              })}
+            >
+              <PencilIcon className="size-4" />
+              Edit Form
+            </Button>
+            <Button variant="outline" size="default">
+              <Share2Icon className="size-4" />
+              Share
+            </Button>
+            <Button>
+              <SendIcon className="size-4" />
+              Create instance
+            </Button>
+          </div>
         )}
       </div>
 
       {/* Table */}
-      {loading ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          Loading forms...
-        </p>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
           {search.trim()
-            ? 'No forms match your search.'
-            : 'No form templates found.'}
+            ? 'No instances match your search.'
+            : 'No form instances yet.'}
         </p>
       ) : (
         <>
@@ -194,17 +263,14 @@ function FormTemplateListPage() {
                 <TableHead className="min-w-[240px] font-medium">
                   Form Title
                 </TableHead>
+                <TableHead className="min-w-[240px] text-right font-medium">
+                  Group
+                </TableHead>
+                <TableHead className="text-right font-medium">
+                  Status
+                </TableHead>
                 <TableHead className="text-right font-medium">
                   Form Version
-                </TableHead>
-                <TableHead className="text-right font-medium">
-                  Submitted
-                </TableHead>
-                <TableHead className="text-right font-medium">
-                  Pending
-                </TableHead>
-                <TableHead className="text-right font-medium">
-                  Updated On
                 </TableHead>
                 <TableHead className="text-right font-medium">
                   Created On
@@ -212,44 +278,32 @@ function FormTemplateListPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paged.map((template) => (
-                <TableRow
-                  key={template.id}
-                  className="cursor-pointer"
-                  onClick={() =>
-                    void navigate({
-                      to: '/forms/$templateId',
-                      params: { templateId: template.id },
-                    })
-                  }
-                >
+              {paged.map((instance) => (
+                <TableRow key={instance.id} className="cursor-pointer">
                   <TableCell
                     className="w-[40px]"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Checkbox
-                      checked={selectedIds.has(template.id)}
-                      onCheckedChange={() => toggleSelect(template.id)}
-                      aria-label={`Select ${template.name}`}
+                      checked={selectedIds.has(instance.id)}
+                      onCheckedChange={() => toggleSelect(instance.id)}
+                      aria-label={`Select ${instance.readable_id}`}
                     />
                   </TableCell>
                   <TableCell className="min-w-[240px]">
-                    {template.name}
+                    {instance.readable_id}
+                  </TableCell>
+                  <TableCell className="min-w-[240px] text-right">
+                    {instance.group_name}
                   </TableCell>
                   <TableCell className="text-right">
-                    v{template.latest_version}
+                    <StatusBadge status={instance.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    {template.submitted_count}
+                    v{instance.version_number}
                   </TableCell>
                   <TableCell className="text-right">
-                    {template.pending_count}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatDate(template.updated_at)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatDate(template.created_at)}
+                    {formatDate(instance.created_at)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -259,8 +313,9 @@ function FormTemplateListPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              Showing {startIndex + 1}-{Math.min(startIndex + PAGE_SIZE, totalItems)} of{' '}
-              {totalItems} forms
+              Showing {startIndex + 1}-
+              {Math.min(startIndex + PAGE_SIZE, totalItems)} of {totalItems}{' '}
+              forms
             </p>
             <div className="flex items-center gap-1">
               <Button
@@ -308,6 +363,38 @@ function FormTemplateListPage() {
 }
 
 // ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function StatusBadge({ status }: { status: string }) {
+  const config: Record<string, { className: string; label: string }> = {
+    submitted: {
+      className: 'bg-green-50 text-green-700 border-green-200',
+      label: 'Submitted',
+    },
+    draft: {
+      className: 'bg-amber-50 text-amber-700 border-amber-200',
+      label: 'Draft',
+    },
+    pending: {
+      className: 'bg-blue-50 text-blue-700 border-blue-200',
+      label: 'Pending',
+    },
+  }
+
+  const { className, label } = config[status] ?? {
+    className: 'bg-muted text-muted-foreground',
+    label: status,
+  }
+
+  return (
+    <Badge variant="outline" className={className}>
+      {label}
+    </Badge>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -321,7 +408,6 @@ function formatDate(iso: string): string {
 
 /**
  * Compute page numbers with ellipsis for pagination display.
- * Always shows first, last, and pages around the current page.
  */
 function getPageNumbers(
   current: number,
@@ -332,7 +418,15 @@ function getPageNumbers(
   }
 
   const pages: (number | '...')[] = []
-  const around = new Set([1, 2, current - 1, current, current + 1, total - 1, total])
+  const around = new Set([
+    1,
+    2,
+    current - 1,
+    current,
+    current + 1,
+    total - 1,
+    total,
+  ])
 
   let prev = 0
   for (const p of [...around].sort((a, b) => a - b)) {
