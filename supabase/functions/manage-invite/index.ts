@@ -212,6 +212,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Fetch group name for the email template
+    const { data: groupRow } = await supabaseAdmin
+      .from("groups")
+      .select("name")
+      .eq("id", targetProfile.group_id)
+      .single();
+    const groupName = groupRow?.name ?? "your group";
+    const organizationName = Deno.env.get("ORGANIZATION_NAME") ?? "RoyalHouse Reporting";
+
     // Rate limit: resend requires 1 hour between invites (always)
     // Rate limit: change_email requires 1 hour between invites (after 3+ changes)
     const RATE_LIMIT_MS = 60 * 60 * 1000; // 1 hour
@@ -267,6 +276,8 @@ Deno.serve(async (req) => {
               full_name: targetProfile.full_name,
               role: targetProfile.role,
               group_id: targetProfile.group_id,
+              group_name: groupName,
+              organization_name: organizationName,
               is_active: true,
             },
           },
@@ -414,6 +425,8 @@ Deno.serve(async (req) => {
               full_name: targetProfile.full_name,
               role: targetProfile.role,
               group_id: targetProfile.group_id,
+              group_name: groupName,
+              organization_name: organizationName,
               is_active: true,
             },
           },

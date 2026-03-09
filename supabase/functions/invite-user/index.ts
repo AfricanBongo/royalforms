@@ -213,6 +213,15 @@ Deno.serve(async (req) => {
       console.info("[invite-user] Approved request found:", approvedRequest.id);
     }
 
+    // Fetch group name for the email template
+    const { data: groupRow } = await supabaseAdmin
+      .from("groups")
+      .select("name")
+      .eq("id", group_id)
+      .single();
+    const groupName = groupRow?.name ?? "your group";
+    const organizationName = Deno.env.get("ORGANIZATION_NAME") ?? "RoyalHouse Reporting";
+
     // Invite the user via Supabase Auth admin API
     const siteUrl = Deno.env.get("SITE_URL") ?? ""
     const redirectTo = siteUrl ? `${siteUrl}/invite/accept` : undefined
@@ -231,6 +240,8 @@ Deno.serve(async (req) => {
             full_name,
             role,
             group_id,
+            group_name: groupName,
+            organization_name: organizationName,
             is_active: true,
           },
         },

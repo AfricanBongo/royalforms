@@ -1,0 +1,131 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>You have been invited</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+  <!-- Outer wrapper table for full-width background -->
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f4f4f5;">
+    <tr>
+      <td align="center" style="padding: 40px 16px;">
+        <!-- Inner content table (max 560px) -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="max-width: 560px; width: 100%;">
+
+          <!-- Card -->
+          <tr>
+            <td style="background-color: #ffffff; border-radius: 12px; border: 1px solid #e4e4e7; overflow: hidden;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+
+                <!-- Header / Org name -->
+                <tr>
+                  <td style="padding: 32px 32px 0 32px;">
+                    <h1 style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 20px; font-weight: 600; color: #18181b; line-height: 28px;">
+                      {{ .Data.organization_name }}
+                    </h1>
+                  </td>
+                </tr>
+
+                <!-- Divider -->
+                <tr>
+                  <td style="padding: 16px 32px 0 32px;">
+                    <div style="height: 1px; background-color: #e4e4e7;"></div>
+                  </td>
+                </tr>
+
+                <!-- Body content -->
+                <tr>
+                  <td style="padding: 24px 32px 0 32px;">
+                    <p style="margin: 0 0 16px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 15px; color: #3f3f46; line-height: 24px;">
+                      Hello,
+                    </p>
+                    <p style="margin: 0 0 24px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 15px; color: #3f3f46; line-height: 24px;">
+                      You have been invited to join
+                      <strong style="color: #18181b;">{{ .Data.group_name }}</strong>
+                      on {{ .Data.organization_name }} as
+                      {{ if eq .Data.role "admin" }}an{{ else }}a{{ end }}
+                      <strong style="color: #18181b;">{{ .Data.role }}</strong>.
+                    </p>
+                    <p style="margin: 0 0 24px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 15px; color: #3f3f46; line-height: 24px;">
+                      Click the button below to accept the invitation and set up your account.
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- CTA Button -->
+                <tr>
+                  <td align="center" style="padding: 0 32px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" style="background-color: #18181b; border-radius: 8px;">
+                          <a href="{{ .SiteURL }}/invite/accept?token_hash={{ .TokenHash }}&type=invite"
+                             target="_blank"
+                             style="display: inline-block; padding: 12px 32px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 15px; font-weight: 500; color: #ffffff; text-decoration: none; border-radius: 8px;">
+                            Accept Invitation
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Fallback link -->
+                <tr>
+                  <td style="padding: 16px 32px 0 32px;">
+                    <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #a1a1aa; line-height: 20px; text-align: center; word-break: break-all;">
+                      If the button doesn't work, copy and paste this link into your browser:<br />
+                      <a href="{{ .SiteURL }}/invite/accept?token_hash={{ .TokenHash }}&type=invite"
+                         target="_blank"
+                         style="color: #3b82f6; text-decoration: underline;">
+                        {{ .SiteURL }}/invite/accept?token_hash={{ .TokenHash }}&type=invite
+                      </a>
+                    </p>
+                  </td>
+                </tr>
+
+                <!-- Security notice -->
+                <tr>
+                  <td style="padding: 24px 32px 0 32px;">
+                    <div style="height: 1px; background-color: #e4e4e7;"></div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 16px 32px 32px 32px;">
+                    <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #71717a; line-height: 20px;">
+                      If you do not recognize this organization or were not expecting this invitation, you can safely ignore this email. No account will be created.
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 0 0 0;">
+              <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #a1a1aa; line-height: 20px; text-align: center;">
+                This invitation was sent to {{ .Email }}.<br />
+                This link will expire in 24 hours.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
