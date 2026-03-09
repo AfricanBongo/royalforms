@@ -52,7 +52,7 @@ const FIELD_TYPES: { type: FieldType; label: string; icon: typeof TextIcon }[] =
 
 export function FieldTypePicker({ onSelect, onAddSection, onCancel }: FieldTypePickerProps) {
   return (
-    <div className="flex flex-col items-start gap-3">
+    <div className="flex w-full flex-col items-start gap-3">
       <Button
         variant="secondary"
         size="sm"
@@ -63,12 +63,12 @@ export function FieldTypePicker({ onSelect, onAddSection, onCancel }: FieldTypeP
         Cancel insert question
       </Button>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid w-full grid-cols-4 gap-2">
         {FIELD_TYPES.map(({ type, label, icon: Icon }) => (
           <Button
             key={type}
             variant="outline"
-            className="flex h-auto flex-col items-center gap-2 px-6 py-4"
+            className="flex h-auto w-full flex-col items-center gap-2 py-4"
             onClick={() => onSelect(type)}
           >
             <Icon className="size-5 text-muted-foreground" />
@@ -79,7 +79,7 @@ export function FieldTypePicker({ onSelect, onAddSection, onCancel }: FieldTypeP
         {/* Section button — special case */}
         <Button
           variant="outline"
-          className="flex h-auto flex-col items-center gap-2 px-6 py-4"
+          className="flex h-auto w-full flex-col items-center gap-2 py-4"
           onClick={onAddSection}
         >
           <TextIcon className="size-5 text-muted-foreground" />
