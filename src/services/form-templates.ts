@@ -17,6 +17,7 @@ export interface TemplateListRow {
   abbreviation: string
   description: string | null
   sharing_mode: string
+  status: string
   is_active: boolean
   created_at: string
   updated_at: string
@@ -57,6 +58,7 @@ export interface CreateSectionInput {
 /** Input for a field in the form builder. */
 export interface CreateFieldInput {
   label: string
+  description: string | null
   field_type: string
   sort_order: number
   is_required: boolean
@@ -92,6 +94,7 @@ export interface LoadedSection {
 export interface LoadedField {
   id: string
   label: string
+  description: string | null
   field_type: string
   sort_order: number
   is_required: boolean
@@ -112,7 +115,7 @@ export interface LoadedField {
 export async function fetchTemplates(): Promise<TemplateListRow[]> {
   const { data, error } = await supabase
     .from('templates_with_stats')
-    .select('id, name, abbreviation, description, sharing_mode, is_active, created_at, updated_at, latest_version, submitted_count, pending_count')
+    .select('id, name, abbreviation, description, sharing_mode, status, is_active, created_at, updated_at, latest_version, submitted_count, pending_count')
     .order('name')
 
   if (error) throw error
@@ -124,6 +127,7 @@ export async function fetchTemplates(): Promise<TemplateListRow[]> {
     abbreviation: row.abbreviation!,
     description: row.description ?? null,
     sharing_mode: row.sharing_mode ?? 'all',
+    status: row.status ?? 'draft',
     is_active: row.is_active ?? true,
     created_at: row.created_at!,
     updated_at: row.updated_at!,
@@ -141,7 +145,7 @@ export async function fetchTemplateDetail(
 ): Promise<TemplateDetail> {
   const { data, error } = await supabase
     .from('templates_with_stats')
-    .select('id, name, abbreviation, description, sharing_mode, is_active, created_at, updated_at, latest_version, submitted_count, pending_count')
+    .select('id, name, abbreviation, description, sharing_mode, status, is_active, created_at, updated_at, latest_version, submitted_count, pending_count')
     .eq('id', templateId)
     .single()
 
@@ -153,6 +157,7 @@ export async function fetchTemplateDetail(
     abbreviation: data.abbreviation!,
     description: data.description ?? null,
     sharing_mode: data.sharing_mode ?? 'all',
+    status: data.status ?? 'draft',
     is_active: data.is_active ?? true,
     created_at: data.created_at!,
     updated_at: data.updated_at!,
@@ -256,6 +261,7 @@ export async function createTemplate(
       abbreviation: input.abbreviation.trim().toLowerCase(),
       description: input.description?.trim() || null,
       created_by: user.id,
+      status: 'published',
     })
     .select('id')
     .single()
@@ -295,6 +301,7 @@ export async function createTemplate(
       const fieldRows = section.fields.map((f) => ({
         template_section_id: sec.id,
         label: f.label.trim(),
+        description: f.description,
         field_type: f.field_type,
         sort_order: f.sort_order,
         is_required: f.is_required,
@@ -392,6 +399,7 @@ export async function createTemplateVersion(
       const fieldRows = section.fields.map((f) => ({
         template_section_id: sec.id,
         label: f.label.trim(),
+        description: f.description,
         field_type: f.field_type,
         sort_order: f.sort_order,
         is_required: f.is_required,
@@ -408,6 +416,172 @@ export async function createTemplateVersion(
   }
 
   return version.id
+}
+
+/**
+ * Save a new form template as a draft with its first version, sections, and fields.
+ * Returns the created template ID.
+ */
+export async function saveDraft(
+  input: CreateTemplateInput,
+): Promise<string> {
+  const user = await getCurrentAuthUser()
+
+  const { data: template, error: tmplError } = await supabase
+    .from('form_templates')
+    .insert({
+      name: input.name.trim(),
+      abbreviation: input.abbreviation.trim().toLowerCase(),
+      description: input.description?.trim() || null,
+      created_by: user.id,
+      status: 'draft',
+    })
+    .select('id')
+    .single()
+
+  if (tmplError) throw tmplError
+
+  // Insert version 1
+  const { data: version, error: verError } = await supabase
+    .from('template_versions')
+    .insert({
+      template_id: template.id,
+      version_number: 1,
+      is_latest: true,
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (verError) throw verError
+
+  // Insert sections and fields
+  for (const section of input.sections) {
+    const { data: sec, error: secError } = await supabase
+      .from('template_sections')
+      .insert({
+        template_version_id: version.id,
+        title: section.title.trim(),
+        description: section.description?.trim() || null,
+        sort_order: section.sort_order,
+      })
+      .select('id')
+      .single()
+
+    if (secError) throw secError
+
+    if (section.fields.length > 0) {
+      const fieldRows = section.fields.map((f) => ({
+        template_section_id: sec.id,
+        label: f.label.trim(),
+        description: f.description,
+        field_type: f.field_type,
+        sort_order: f.sort_order,
+        is_required: f.is_required,
+        options: f.options,
+        validation_rules: f.validation_rules,
+      }))
+
+      const { error: fieldsError } = await supabase
+        .from('template_fields')
+        .insert(fieldRows)
+
+      if (fieldsError) throw fieldsError
+    }
+  }
+
+  return template.id
+}
+
+/**
+ * Update an existing draft template in-place (no new version).
+ * Replaces all sections and fields with the provided data.
+ */
+export async function updateDraft(
+  templateId: string,
+  input: {
+    name: string
+    abbreviation: string
+    description: string | null
+    sections: CreateSectionInput[]
+  },
+): Promise<void> {
+  // Update template metadata
+  const { error: updateError } = await supabase
+    .from('form_templates')
+    .update({
+      name: input.name.trim(),
+      abbreviation: input.abbreviation.trim().toLowerCase(),
+      description: input.description?.trim() || null,
+    })
+    .eq('id', templateId)
+
+  if (updateError) throw updateError
+
+  // Get the latest (only) version
+  const { data: currentVer, error: cvError } = await supabase
+    .from('template_versions')
+    .select('id')
+    .eq('template_id', templateId)
+    .eq('is_latest', true)
+    .single()
+
+  if (cvError) throw cvError
+
+  // Delete existing sections (cascades to fields via FK)
+  const { error: delError } = await supabase
+    .from('template_sections')
+    .delete()
+    .eq('template_version_id', currentVer.id)
+
+  if (delError) throw delError
+
+  // Re-insert sections and fields
+  for (const section of input.sections) {
+    const { data: sec, error: secError } = await supabase
+      .from('template_sections')
+      .insert({
+        template_version_id: currentVer.id,
+        title: section.title.trim(),
+        description: section.description?.trim() || null,
+        sort_order: section.sort_order,
+      })
+      .select('id')
+      .single()
+
+    if (secError) throw secError
+
+    if (section.fields.length > 0) {
+      const fieldRows = section.fields.map((f) => ({
+        template_section_id: sec.id,
+        label: f.label.trim(),
+        description: f.description,
+        field_type: f.field_type,
+        sort_order: f.sort_order,
+        is_required: f.is_required,
+        options: f.options,
+        validation_rules: f.validation_rules,
+      }))
+
+      const { error: fieldsError } = await supabase
+        .from('template_fields')
+        .insert(fieldRows)
+
+      if (fieldsError) throw fieldsError
+    }
+  }
+}
+
+/**
+ * Publish a draft template by setting its status to 'published'.
+ */
+export async function publishDraft(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from('form_templates')
+    .update({ status: 'published' })
+    .eq('id', templateId)
+
+  if (error) throw error
 }
 
 // ---------------------------------------------------------------------------
@@ -542,6 +716,7 @@ export async function fetchTemplateForEditing(
     id: string
     template_section_id: string
     label: string
+    description: string | null
     field_type: string
     sort_order: number
     is_required: boolean
@@ -552,7 +727,7 @@ export async function fetchTemplateForEditing(
   if (sectionIds.length > 0) {
     const { data: fields, error: fieldsError } = await supabase
       .from('template_fields')
-      .select('id, template_section_id, label, field_type, sort_order, is_required, options, validation_rules')
+      .select('id, template_section_id, label, description, field_type, sort_order, is_required, options, validation_rules')
       .in('template_section_id', sectionIds)
       .order('sort_order')
 
@@ -571,6 +746,7 @@ export async function fetchTemplateForEditing(
       .map((f) => ({
         id: f.id,
         label: f.label,
+        description: f.description,
         field_type: f.field_type,
         sort_order: f.sort_order,
         is_required: f.is_required ?? false,
