@@ -4,6 +4,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { FilterIcon, PlusIcon, SearchIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
 import { Checkbox } from '../../../components/ui/checkbox'
 import { Input } from '../../../components/ui/input'
@@ -74,6 +75,7 @@ function FormTemplateListPage() {
     (sum, t) => sum + t.pending_count,
     0,
   )
+  const draftCount = templates.filter((t) => t.status === 'draft').length
 
   // Selection helpers
   const allPageSelected =
@@ -139,6 +141,7 @@ function FormTemplateListPage() {
         <StatCard label="Total Instances" value={totalInstances} />
         <StatCard label="Submitted Instances" value={submittedInstances} />
         <StatCard label="Pending Instances" value={pendingInstances} />
+        <StatCard label="Drafts" value={draftCount} />
       </div>
 
       {/* Toolbar */}
@@ -216,12 +219,19 @@ function FormTemplateListPage() {
                 <TableRow
                   key={template.id}
                   className="cursor-pointer"
-                  onClick={() =>
-                    void navigate({
-                      to: '/forms/$templateId',
-                      params: { templateId: template.id },
-                    })
-                  }
+                  onClick={() => {
+                    if (template.status === 'draft') {
+                      void navigate({
+                        to: '/forms/$templateId/edit',
+                        params: { templateId: template.id },
+                      })
+                    } else {
+                      void navigate({
+                        to: '/forms/$templateId',
+                        params: { templateId: template.id },
+                      })
+                    }
+                  }}
                 >
                   <TableCell
                     className="w-[40px]"
@@ -234,7 +244,12 @@ function FormTemplateListPage() {
                     />
                   </TableCell>
                   <TableCell className="min-w-[240px]">
-                    {template.name}
+                    <div className="flex items-center gap-2">
+                      {template.name}
+                      {template.status === 'draft' && (
+                        <Badge variant="secondary" className="text-xs">Draft</Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     v{template.latest_version}

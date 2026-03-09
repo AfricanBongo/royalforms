@@ -28,7 +28,7 @@ import {
 } from '../../../components/ui/dialog'
 import { useFormBuilder } from '../../../hooks/use-form-builder'
 import { usePageTitle } from '../../../hooks/use-page-title'
-import { createTemplate } from '../../../services/form-templates'
+import { createTemplate, saveDraft } from '../../../services/form-templates'
 import { mapSupabaseError } from '../../../lib/supabase-errors'
 
 import type { BuilderField, FieldType } from '../../../hooks/use-form-builder'
@@ -42,14 +42,21 @@ function NewFormPage() {
   const { setPageTitle, setHeaderActions } = usePageTitle()
 
   const [isPublishing, setIsPublishing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   const builder = useFormBuilder()
   const { state } = builder
 
   // Block navigation away from the form builder with a custom dialog.
-  // `proceed` allows navigation; `reset` cancels; `status` drives the dialog.
+  // Only block if the user has entered any content.
   const blocker = useBlocker({
-    shouldBlockFn: () => true,
+    shouldBlockFn: () => {
+      return Boolean(
+        state.name.trim() ||
+        state.description.trim() ||
+        state.sections.some((s) => s.fields.some((f) => f.label.trim()))
+      )
+    },
     withResolver: true,
   })
   const { status } = blocker
@@ -59,21 +66,29 @@ function NewFormPage() {
     setPageTitle(state.name.trim() || 'New Form')
   }, [state.name, setPageTitle])
 
-  // Inject Cancel + Publish buttons into the header bar
+  // Inject Cancel + Save Draft + Publish buttons into the header bar
   useEffect(() => {
     setHeaderActions(
       <>
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={() => void navigate({ to: '/forms' })}
         >
           Cancel
         </Button>
         <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSaveDraft}
+          disabled={isSaving || isPublishing}
+        >
+          {isSaving ? 'Saving...' : 'Save Draft'}
+        </Button>
+        <Button
           size="sm"
           onClick={handlePublish}
-          disabled={isPublishing}
+          disabled={isSaving || isPublishing}
           className="gap-2"
         >
           <SaveIcon className="size-4" />
@@ -86,7 +101,33 @@ function NewFormPage() {
       setHeaderActions(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPublishing, setHeaderActions])
+  }, [isSaving, isPublishing, setHeaderActions])
+
+  // -------------------------------------------------------------------------
+  // Save Draft
+  // -------------------------------------------------------------------------
+
+  async function handleSaveDraft() {
+    if (!state.name.trim()) {
+      toast.error('Form title is required to save a draft.')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const input = builder.toCreateInput()
+      const templateId = await saveDraft(input)
+      toast.success('Draft saved!')
+      blocker.proceed?.()
+      void navigate({ to: '/forms/$templateId/edit', params: { templateId } })
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(error.code, error.message, 'database', 'create_record')
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   // -------------------------------------------------------------------------
   // Publish
