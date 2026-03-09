@@ -433,3 +433,9 @@ entrypoint = "./functions/manage-invite/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/manage-invite/*.html" ]
+
+[functions.on-instance-created]
+enabled = true
+verify_jwt = false
+import_map = "./functions/on-instance-created/deno.json"
+entrypoint = "./functions/on-instance-created/index.ts"
