@@ -261,6 +261,8 @@ Deno.serve(async (req) => {
       role,
       group_id,
       is_active: true,
+      invite_status: "invite_sent",
+      last_invite_sent_at: new Date().toISOString(),
     });
 
     if (insertError) {
