@@ -81,11 +81,18 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 ### Frontend
 - [x] Template list page (`/forms`)
 - [x] Template detail page (`/forms/:templateId`) with instance table
-- [ ] Form builder page (`/forms/new` and `/forms/:templateId/edit`)
-- [ ] Field type picker (text, choice, checkbox, date, rating, range, file, section)
-- [ ] Section management in builder
+- [x] Form builder page (`/forms/new` and `/forms/:templateId/edit`)
+- [x] Field type picker (text, choice, checkbox, date, rating, range, file, section)
+- [x] Section management in builder
+- [x] Section delete with confirmation dialog
+- [x] Header action buttons (Cancel, Publish) in breadcrumb bar
+- [x] Navigation blocker on new form page (useBlocker)
+- [ ] Auto-generate abbreviation from form title
+- [ ] Save draft button (save without publishing)
+- [ ] Field-type-specific configuration (range selector, rating stars preview, etc.)
+- [ ] Field limits via "More" button (min/max chars, date range, file types, etc.)
 - [ ] Version history side sheet (view, restore)
-- [ ] Sharing settings side sheet (all vs restricted groups)
+- [x] Sharing settings side sheet (all vs restricted groups)
 
 ## Feature: Form Instances
 
