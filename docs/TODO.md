@@ -37,6 +37,10 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] `invite-user` Edge Function -- invite new user via Supabase Auth admin API
 - [x] `bootstrap-root-admin` Edge Function -- create first Root Admin from env vars
 - [x] `update-user-role` Edge Function -- sync role/group/active to JWT metadata
+- [x] `manage-invite` Edge Function -- resend invite, change email, delete invite (root admin)
+- [x] `invite_status` column on profiles (invite_sent/completed lifecycle)
+- [x] `last_invite_sent_at` column on profiles (1-hour resend rate limit)
+- [x] `cancelled` status on member_requests + FK SET NULL changes
 
 ### Frontend
 - [x] Supabase client initialization (`src/services/supabase.ts`)
@@ -51,6 +55,8 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Role-filtered navigation links
 - [x] User info + sign out in sidebar
 - [x] Page header with breadcrumbs
+- [x] Invite lifecycle UI (Invite Sent badge, resend, change email, delete in members tab)
+- [x] Cancelled request badge in requests tab
 
 ## Feature: Groups
 
