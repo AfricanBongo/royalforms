@@ -65,12 +65,12 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 ## Feature: Form Templates
 
 ### Backend
-- [ ] `form_templates` table + RLS policies
-- [ ] `template_versions` table + RLS policies
-- [ ] `template_sections` table + RLS policies
-- [ ] `template_fields` table + RLS policies
-- [ ] `template_group_access` table + RLS policies
-- [ ] Apply `update_updated_at` trigger to form template tables
+- [x] `form_templates` table + RLS policies
+- [x] `template_versions` table + RLS policies
+- [x] `template_sections` table + RLS policies
+- [x] `template_fields` table + RLS policies
+- [x] `template_group_access` table + RLS policies
+- [x] Apply `update_updated_at` trigger to form template tables
 
 ### Frontend
 - [ ] Template list page (`/forms`)
