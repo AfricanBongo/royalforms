@@ -7,23 +7,29 @@
  *
  * Clicking a closed field opens it for editing.
  */
+import { useState } from 'react'
+
 import {
   ArrowDownIcon,
   ArrowUpIcon,
   CopyIcon,
   EllipsisIcon,
   PlusIcon,
+  StarIcon,
   Trash2Icon,
 } from 'lucide-react'
 
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
 import { Input } from './ui/input'
+import { Slider } from './ui/slider'
 import { Switch } from './ui/switch'
 import { Textarea } from './ui/textarea'
 import { FIELD_TYPE } from '../hooks/use-form-builder'
 
-import type { BuilderField, FieldType } from '../hooks/use-form-builder'
+import type { BuilderField } from '../hooks/use-form-builder'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -46,23 +52,6 @@ interface BuilderFieldCardProps {
 }
 
 // ---------------------------------------------------------------------------
-// Human-readable field type labels
-// ---------------------------------------------------------------------------
-
-const FIELD_TYPE_LABEL: Record<string, string> = {
-  [FIELD_TYPE.TEXT]: 'Text',
-  [FIELD_TYPE.TEXTAREA]: 'Long Text',
-  [FIELD_TYPE.NUMBER]: 'Number',
-  [FIELD_TYPE.DATE]: 'Date',
-  [FIELD_TYPE.SELECT]: 'Choice',
-  [FIELD_TYPE.MULTI_SELECT]: 'Multi Choice',
-  [FIELD_TYPE.CHECKBOX]: 'Checkbox',
-  [FIELD_TYPE.RATING]: 'Rating',
-  [FIELD_TYPE.RANGE]: 'Range',
-  [FIELD_TYPE.FILE]: 'Upload File',
-}
-
-// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
@@ -74,7 +63,12 @@ function FieldActionBar({
   onRemove,
   onDuplicate,
   onMove,
-}: Pick<BuilderFieldCardProps, 'field' | 'index' | 'totalFields' | 'onUpdate' | 'onRemove' | 'onDuplicate' | 'onMove'>) {
+  showLimits,
+  setShowLimits,
+}: Pick<BuilderFieldCardProps, 'field' | 'index' | 'totalFields' | 'onUpdate' | 'onRemove' | 'onDuplicate' | 'onMove'> & {
+  showLimits: boolean
+  setShowLimits: (open: boolean) => void
+}) {
   const isText = field.field_type === FIELD_TYPE.TEXT ||
     field.field_type === FIELD_TYPE.TEXTAREA ||
     field.field_type === FIELD_TYPE.NUMBER
@@ -109,14 +103,17 @@ function FieldActionBar({
           </div>
         )}
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-6 gap-1.5 rounded-lg px-2 text-xs"
-        >
-          <EllipsisIcon className="size-3" />
-          More
-        </Button>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 gap-1.5 rounded-lg px-2 text-xs"
+            onClick={() => setShowLimits(!showLimits)}
+          >
+            <EllipsisIcon className="size-3" />
+            {showLimits ? 'Less' : 'More'}
+          </Button>
+        </CollapsibleTrigger>
       </div>
 
       {/* Right: action buttons group */}
@@ -164,28 +161,66 @@ function FieldActionBar({
   )
 }
 
-/** The answer preview shown for text-like fields. */
-function AnswerPreview({ fieldType }: { fieldType: FieldType }) {
-  if (
-    fieldType === FIELD_TYPE.SELECT ||
-    fieldType === FIELD_TYPE.MULTI_SELECT ||
-    fieldType === FIELD_TYPE.CHECKBOX
-  ) {
-    return null
+/** Type-specific preview shown below the field title in editing mode. */
+function FieldPreview({ field }: { field: BuilderField }) {
+  const rules = field.validation_rules ?? {}
+
+  switch (field.field_type) {
+    case FIELD_TYPE.TEXT:
+    case FIELD_TYPE.NUMBER:
+      return (
+        <Input
+          disabled
+          placeholder={field.field_type === FIELD_TYPE.NUMBER ? 'Enter a number' : 'Enter your answer'}
+          className="opacity-50"
+        />
+      )
+
+    case FIELD_TYPE.TEXTAREA:
+      return <Textarea disabled placeholder="Enter your answer" className="min-h-[76px] opacity-50" />
+
+    case FIELD_TYPE.DATE:
+      return <Input type="date" disabled className="w-48 opacity-50" />
+
+    case FIELD_TYPE.RATING:
+      return (
+        <div className="flex gap-1">
+          {Array.from({ length: 5 }, (_, i) => (
+            <StarIcon key={i} className="size-5 text-muted-foreground/40" />
+          ))}
+        </div>
+      )
+
+    case FIELD_TYPE.RANGE: {
+      const min = (rules.min_value as number) ?? 0
+      const max = (rules.max_value as number) ?? 100
+      return (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">{min}</span>
+          <Slider disabled defaultValue={[50]} min={min} max={max} className="flex-1 opacity-50" />
+          <span className="text-sm text-muted-foreground">{max}</span>
+        </div>
+      )
+    }
+
+    case FIELD_TYPE.FILE:
+      return (
+        <div className="flex h-20 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25">
+          <p className="text-sm text-muted-foreground">Click or drag to upload a file</p>
+        </div>
+      )
+
+    case FIELD_TYPE.CHECKBOX:
+      return (
+        <div className="flex items-center gap-2 opacity-50">
+          <Checkbox disabled />
+          <span className="text-sm text-muted-foreground">Check this box</span>
+        </div>
+      )
+
+    default:
+      return null
   }
-
-  const placeholder =
-    fieldType === FIELD_TYPE.DATE
-      ? 'Select a date'
-      : fieldType === FIELD_TYPE.RATING
-        ? 'Select a rating'
-        : fieldType === FIELD_TYPE.RANGE
-          ? 'Select a value'
-          : fieldType === FIELD_TYPE.FILE
-            ? 'Upload a file'
-            : 'Enter your answer'
-
-  return <Input disabled placeholder={placeholder} className="opacity-50" />
 }
 
 /** Choice options editor (for select/multi_select). */
@@ -253,6 +288,183 @@ function ChoiceOptionsEditor({
   )
 }
 
+/** Validation limits section shown when "More" is expanded. */
+function FieldLimitsSection({
+  field,
+  onUpdate,
+}: {
+  field: BuilderField
+  onUpdate: BuilderFieldCardProps['onUpdate']
+}) {
+  const rules = field.validation_rules ?? {}
+
+  function updateRule(key: string, value: unknown) {
+    const current = field.validation_rules ?? {}
+    if (value === '' || value === undefined || value === null) {
+      const { [key]: _, ...rest } = current
+      onUpdate(field.clientId, {
+        validation_rules: Object.keys(rest).length > 0 ? rest : null,
+      })
+    } else {
+      onUpdate(field.clientId, {
+        validation_rules: { ...current, [key]: value },
+      })
+    }
+  }
+
+  switch (field.field_type) {
+    case FIELD_TYPE.TEXT:
+    case FIELD_TYPE.TEXTAREA:
+      return (
+        <>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Min characters</label>
+            <Input
+              type="number"
+              value={(rules.min_length as number) ?? ''}
+              onChange={(e) => updateRule('min_length', e.target.value ? Number(e.target.value) : null)}
+              placeholder="0"
+              className="h-8 w-24"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Max characters</label>
+            <Input
+              type="number"
+              value={(rules.max_length as number) ?? ''}
+              onChange={(e) => updateRule('max_length', e.target.value ? Number(e.target.value) : null)}
+              placeholder="∞"
+              className="h-8 w-24"
+            />
+          </div>
+        </>
+      )
+
+    case FIELD_TYPE.NUMBER:
+      return (
+        <>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Min value</label>
+            <Input
+              type="number"
+              value={(rules.min_value as number) ?? ''}
+              onChange={(e) => updateRule('min_value', e.target.value ? Number(e.target.value) : null)}
+              placeholder="0"
+              className="h-8 w-24"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Max value</label>
+            <Input
+              type="number"
+              value={(rules.max_value as number) ?? ''}
+              onChange={(e) => updateRule('max_value', e.target.value ? Number(e.target.value) : null)}
+              placeholder="∞"
+              className="h-8 w-24"
+            />
+          </div>
+        </>
+      )
+
+    case FIELD_TYPE.DATE:
+      return (
+        <>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Min date</label>
+            <Input
+              type="date"
+              value={(rules.min_date as string) ?? ''}
+              onChange={(e) => updateRule('min_date', e.target.value || null)}
+              className="h-8 w-40"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Max date</label>
+            <Input
+              type="date"
+              value={(rules.max_date as string) ?? ''}
+              onChange={(e) => updateRule('max_date', e.target.value || null)}
+              className="h-8 w-40"
+            />
+          </div>
+        </>
+      )
+
+    case FIELD_TYPE.FILE:
+      return (
+        <>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Accepted types</label>
+            <Input
+              type="text"
+              value={(rules.accepted_types as string) ?? ''}
+              onChange={(e) => updateRule('accepted_types', e.target.value || null)}
+              placeholder=".pdf,.docx"
+              className="h-8 w-40"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Max size (MB)</label>
+            <Input
+              type="number"
+              value={(rules.max_size_mb as number) ?? ''}
+              onChange={(e) => updateRule('max_size_mb', e.target.value ? Number(e.target.value) : null)}
+              placeholder="10"
+              className="h-8 w-24"
+            />
+          </div>
+        </>
+      )
+
+    case FIELD_TYPE.RANGE:
+      return (
+        <>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Min value</label>
+            <Input
+              type="number"
+              value={(rules.min_value as number) ?? ''}
+              onChange={(e) => updateRule('min_value', e.target.value ? Number(e.target.value) : null)}
+              placeholder="0"
+              className="h-8 w-24"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Max value</label>
+            <Input
+              type="number"
+              value={(rules.max_value as number) ?? ''}
+              onChange={(e) => updateRule('max_value', e.target.value ? Number(e.target.value) : null)}
+              placeholder="100"
+              className="h-8 w-24"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Step</label>
+            <Input
+              type="number"
+              value={(rules.step as number) ?? ''}
+              onChange={(e) => updateRule('step', e.target.value ? Number(e.target.value) : null)}
+              placeholder="1"
+              className="h-8 w-24"
+            />
+          </div>
+        </>
+      )
+
+    case FIELD_TYPE.RATING:
+      return <p className="text-xs text-muted-foreground">Fixed 5-star rating</p>
+
+    case FIELD_TYPE.SELECT:
+    case FIELD_TYPE.MULTI_SELECT:
+    case FIELD_TYPE.CHECKBOX:
+      return <p className="text-xs text-muted-foreground">No additional limits</p>
+
+    default:
+      return <p className="text-xs text-muted-foreground">No additional limits</p>
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -271,6 +483,8 @@ export function BuilderFieldCard({
   onUpdateOption,
   onRemoveOption,
 }: BuilderFieldCardProps) {
+  const [showLimits, setShowLimits] = useState(false)
+
   const isChoice =
     field.field_type === FIELD_TYPE.SELECT ||
     field.field_type === FIELD_TYPE.MULTI_SELECT
@@ -297,11 +511,13 @@ export function BuilderFieldCard({
             {index + 1}
           </Badge>
         </div>
-        <div className="flex flex-1 flex-col gap-2">
+        <div className="flex flex-1 flex-col gap-1">
           <p className="text-lg text-foreground">
             {field.label || <span className="text-muted-foreground italic">Untitled field</span>}
           </p>
-          <Input disabled placeholder="Enter your answer" className="opacity-50" />
+          {field.description && (
+            <p className="text-sm text-muted-foreground">{field.description}</p>
+          )}
         </div>
       </div>
     )
@@ -312,15 +528,25 @@ export function BuilderFieldCard({
   // -------------------------------------------------------------------------
   return (
     <div className="rounded-lg border border-border bg-card pb-4 pt-2 shadow-sm">
-      <FieldActionBar
-        field={field}
-        index={index}
-        totalFields={totalFields}
-        onUpdate={onUpdate}
-        onRemove={onRemove}
-        onDuplicate={onDuplicate}
-        onMove={onMove}
-      />
+      <Collapsible open={showLimits} onOpenChange={setShowLimits}>
+        <FieldActionBar
+          field={field}
+          index={index}
+          totalFields={totalFields}
+          onUpdate={onUpdate}
+          onRemove={onRemove}
+          onDuplicate={onDuplicate}
+          onMove={onMove}
+          showLimits={showLimits}
+          setShowLimits={setShowLimits}
+        />
+
+        <CollapsibleContent>
+          <div className="flex flex-wrap gap-4 border-b border-border px-5 pb-3 pt-2">
+            <FieldLimitsSection field={field} onUpdate={onUpdate} />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       <div className="flex gap-2 pl-2 pr-4 pt-3">
         {/* Number badge */}
@@ -339,13 +565,13 @@ export function BuilderFieldCard({
             onChange={(e) => onUpdate(field.clientId, { label: e.target.value })}
           />
 
-          {/* Subtitle textarea (choice always shows it, text via "More") */}
-          {isChoice && (
-            <Textarea
-              placeholder="Enter subtitle here"
-              className="min-h-[76px] resize-y"
-            />
-          )}
+          {/* Subtitle textarea — all field types */}
+          <Textarea
+            value={field.description}
+            placeholder="Enter subtitle here"
+            className="min-h-[60px] resize-y"
+            onChange={(e) => onUpdate(field.clientId, { description: e.target.value })}
+          />
 
           {/* Choice options */}
           {isChoice && (
@@ -357,17 +583,8 @@ export function BuilderFieldCard({
             />
           )}
 
-          {/* Answer preview for non-choice fields */}
-          <AnswerPreview fieldType={field.field_type} />
-
-          {/* Type label for non-text fields (to help identify what kind of field this is) */}
-          {field.field_type !== FIELD_TYPE.TEXT &&
-            field.field_type !== FIELD_TYPE.TEXTAREA &&
-            !isChoice && (
-            <p className="text-xs text-muted-foreground">
-              Type: {FIELD_TYPE_LABEL[field.field_type] ?? field.field_type}
-            </p>
-          )}
+          {/* Type-specific preview */}
+          <FieldPreview field={field} />
         </div>
       </div>
     </div>
