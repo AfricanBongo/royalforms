@@ -296,6 +296,22 @@ if (error) throw error
 return data
 ```
 
+## Input Validation
+
+**Always validate user input in form submit handlers before sending to the backend.** Do not rely on HTML `type` attributes or `required` alone — `e.preventDefault()` bypasses native browser validation.
+
+Validation rules:
+
+- **Email fields**: use `isValidEmail()` from `src/lib/validation.ts` — checks format beyond just non-empty
+- **Phone numbers**: validate format before submission. If unsure about the expected format, ask the user
+- **Passwords**: check minimum length, match confirmation field where applicable
+- **Required text fields**: check for non-empty after `.trim()`
+- **Bulk/CSV imports**: validate every row before submission. Filter out invalid rows and warn the user about skipped entries
+
+Shared validators live in `src/lib/validation.ts`. Add new validators there rather than inlining regex in components.
+
+When building a new form and unsure whether a field needs format validation beyond "required", ask the user for guidance rather than shipping without validation.
+
 ---
 
 # Frontend Structure
@@ -338,6 +354,16 @@ Use Shadcn UI components whenever possible.
 
 Avoid custom UI components if Shadcn provides them.
 
+**Before building any UI component:**
+1. Use the **Shadcn MCP** (`shadcn_search_items_in_registries`, `shadcn_view_items_in_registries`) to check whether the component already exists in Shadcn
+2. If it exists in Shadcn, install and use it — do not copy its source code or recreate it
+3. Never duplicate Shadcn component logic; import and compose from `@/components/ui/`
+
+Rules:
+- `shadcn_search_items_in_registries` must be called before deciding a custom component is needed
+- Shadcn components must be installed via the CLI (`shadcn_get_add_command_for_items`), not copy-pasted
+- Composition over recreation — wrap or extend Shadcn primitives rather than rewriting them
+
 Consistency rules:
 
 - Tailwind for spacing and styling
@@ -374,11 +400,24 @@ Use for:
 - Edge Function management via `supabase_deploy_edge_function`, `supabase_list_edge_functions`, `supabase_get_edge_function`
 
 **Migration workflow:**
-1. Use `supabase_apply_migration` for every schema change -- this creates a proper timestamped migration file and applies it
-2. Never write raw SQL migration files manually; always go through the MCP tool
+1. Write migration SQL files directly in `supabase/migrations/` with timestamped filenames (the MCP `supabase_apply_migration` tool runs SQL against the live DB but does **not** create local migration files)
+2. Run `supabase db reset` to verify migrations apply cleanly from scratch
 3. After applying migrations, run `supabase_get_advisors` (security) to catch missing RLS policies
-4. Use `supabase_generate_typescript_types` after schema changes to keep frontend types in sync
+4. Use `supabase_generate_typescript_types` after schema changes to keep frontend types in sync (redirect stderr: `supabase gen types typescript --local 2>/dev/null > src/types/database.ts`)
 5. Use `supabase_list_tables` (verbose) to verify the schema looks correct after migrations
+
+**Remote changes tracking:**
+
+Some Supabase configuration cannot be pushed via migrations or Edge Function deploys (auth settings, environment variables, SMTP config, etc.). When making any such change locally:
+1. Open `supabase-changes.local` (gitignored)
+2. Add a checklist item describing the change and what needs to be set on the remote project
+3. This file serves as a deployment checklist -- review it before every remote deployment
+
+Examples of changes to track:
+- Auth settings (`config.toml` values like `site_url`, `enable_signup`, `redirect_urls`)
+- Edge Function environment variables (`RESEND_API_KEY`, `SHLINK_API_KEY`, etc.)
+- SMTP / email provider configuration
+- Any Dashboard-only setting that affects application behavior
 
 ## Context7 MCP
 
@@ -543,13 +582,40 @@ This ensures any commit can be safely reverted without side effects.
 
 ## Versioning
 
-Uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`) driven by conventional commits:
+Uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`) driven by conventional commits, automated via **`commit-and-tag-version`**.
 
 | Version bump | Trigger |
 |---|---|
 | `PATCH` (0.0.x) | `fix`, `perf`, `refactor`, `docs`, `chore` |
 | `MINOR` (0.x.0) | `feat` |
-| `MAJOR` (x.0.0) | Any commit with `BREAKING CHANGE:` in the footer |
+| `MAJOR` (x.0.0) | Any commit with `BREAKING CHANGE:` in the footer — **only on explicit user request** |
+
+### Automated versioning after commits
+
+When the user says **"do commits and update app version"** (or similar), use the `update-app-version` skill:
+
+1. Finish all commits for the session first
+2. Show the **current version** from `package.json`
+3. Run `npm run release:dry` to preview the bump
+4. Run `npm run release` (auto-detects PATCH or MINOR from commits)
+5. Show the **new version** and created tag
+6. Remind the user to push: `git push --follow-tags`
+
+**Never bump MAJOR automatically.** Only do so when the user explicitly asks for a major release.
+
+Available npm scripts:
+
+```bash
+npm run release             # auto-detect bump from commits
+npm run release:patch       # force PATCH bump
+npm run release:minor       # force MINOR bump
+npm run release:major       # force MAJOR bump (explicit request only)
+npm run release:alpha       # pre-release alpha (x.y.z-alpha.N)
+npm run release:beta        # pre-release beta  (x.y.z-beta.N)
+npm run release:prerelease  # pre-release       (x.y.z-N)
+npm run release:dry         # dry run — preview only, no changes
+npm run release:first       # first release (no version bump)
+```
 
 ### Git Tags
 
@@ -586,7 +652,7 @@ Project starts at `v0.1.0`. Version `v1.0.0` is cut when the MVP is considered p
 - **Node.js**: v25+
 - **Module system**: ESM (`"type": "module"`)
 - **Vite dev server**: HMR via `@vitejs/plugin-react`
-- **No path aliases** -- use relative imports
+- **Path alias**: `@/` maps to `./src/` (required by Shadcn UI). Use it for Shadcn imports; prefer relative imports elsewhere.
 - **`.env` files** are gitignored; prefix Vite-exposed vars with `VITE_`
 - Use `opencode.json` for MCP config; never redefine MCP connections manually
 
@@ -649,27 +715,27 @@ supabase db diff
 ## Development Workflow
 
 1. **Start local Supabase** before development: `supabase start`
-2. **Create migrations via Supabase MCP** using `supabase_apply_migration` for all schema changes
-   - Never write raw SQL migration files manually -- always use the MCP tool
-   - The MCP tool creates proper timestamped migration files and applies them automatically
+2. **Create migrations** by writing SQL files in `supabase/migrations/` with timestamped filenames
+   - The MCP `supabase_apply_migration` tool runs SQL against the live DB but does **not** create local migration files
+   - Always write the migration file first, then use `supabase db reset` to apply and verify
    - After applying, run `supabase_get_advisors` (security) to catch missing RLS policies
 3. **Write Edge Functions** in `supabase/functions/<function-name>/index.ts`
 4. **Test locally** with `supabase functions serve` and `supabase db reset`
-5. **Generate types** after schema changes via `supabase_generate_typescript_types` (or CLI: `supabase gen types typescript --local > src/types/database.ts`)
+5. **Generate types** after schema changes via `supabase_generate_typescript_types` (or CLI: `supabase gen types typescript --local 2>/dev/null > src/types/database.ts`)
 6. **Verify schema** after migrations via `supabase_list_tables` (verbose)
 7. **Commit** migrations and Edge Functions alongside application code
 8. **Push to remote** after merging to main:
    - `supabase db push` for migrations
    - `supabase functions deploy` for Edge Functions
+   - Review `supabase-changes.local` for Dashboard settings that need manual configuration
 
 ## Migration Rules
 
-- Every schema change (tables, columns, RLS policies, triggers, functions, indexes) must go through `supabase_apply_migration`
-- Never write raw SQL migration files by hand -- the MCP tool is the single entry point
-- Migration files are SQL, timestamped, and auto-ordered (created by the MCP tool)
+- Every schema change (tables, columns, RLS policies, triggers, functions, indexes) must have a migration file in `supabase/migrations/`
+- Migration files are SQL, timestamped, and ordered by filename
 - Migrations must be idempotent where possible
 - Never edit a migration that has already been applied to remote
-- To fix a bad migration, create a new migration via `supabase_apply_migration` that corrects it
+- To fix a bad migration, create a new migration that corrects it
 - Seed data (`seed.sql`) is applied on `supabase db reset` -- use it for the Root Admin bootstrap and test data
 - Run `supabase db reset` to verify migrations apply cleanly from scratch
 - After DDL changes, always run `supabase_get_advisors` (security + performance) to catch issues

@@ -4,94 +4,81 @@ Remaining implementation work derived from the system design docs in `docs/syste
 
 An agent starting a new session should read this file to understand what's left to build. Cross off items when done. Add new items if scope changes.
 
+**Execution strategy**: Foundation batch first (shared DB infrastructure), then feature-by-feature verticals (backend -> frontend per feature). See Option C rationale in commit history.
+
 ---
 
 ## Infrastructure Setup
 
-- [ ] Initialize Supabase CLI (`supabase init`)
-- [ ] Configure `supabase/config.toml` for local dev
-- [ ] Create `.env.local` with local Supabase credentials (gitignored)
-- [ ] Install frontend dependencies (TanStack Router, TanStack Query, Shadcn UI)
+- [x] Initialize Supabase CLI (`supabase init`)
+- [x] Configure `supabase/config.toml` for local dev
+- [x] Create `.env.local` with local Supabase credentials (gitignored)
+- [x] Install frontend dependencies (TanStack Router, TanStack Query, Shadcn UI)
 
-## Database Migrations (via Supabase MCP)
+## Foundation (batch -- do all before any feature)
 
-All migrations use `supabase_apply_migration`. Never write migration files manually.
+Write migration SQL files in `supabase/migrations/` with timestamped filenames. Run `supabase db reset` to verify.
 After each migration, run `supabase_get_advisors` (security) and `supabase_list_tables` (verbose) to verify.
 
-- [ ] Enable pg_net extension
-- [ ] Enable pg_cron extension
-- [ ] RLS helper functions (`get_current_user_role`, `get_current_user_group_id`, `is_active_user`)
-- [ ] `update_updated_at` trigger function
-- [ ] `profiles` table + RLS policies
-- [ ] `groups` table + RLS policies
-- [ ] `member_requests` table + RLS policies
-- [ ] `form_templates` table + RLS policies
-- [ ] `template_versions` table + RLS policies
-- [ ] `template_sections` table + RLS policies
-- [ ] `template_fields` table + RLS policies
-- [ ] `template_group_access` table + RLS policies
-- [ ] `form_instances` table + RLS policies
-- [ ] `field_values` table + RLS policies
-- [ ] `instance_schedules` table + RLS policies
-- [ ] `schedule_group_targets` table + RLS policies
-- [ ] `report_templates` table + RLS policies
-- [ ] `report_template_versions` table + RLS policies
-- [ ] `report_template_sections` table + RLS policies
-- [ ] `report_template_fields` table + RLS policies
-- [ ] `report_instances` table + RLS policies
-- [ ] Apply `update_updated_at` trigger to all tables
-- [ ] `trigger_on_form_instance_created` (pg_net -> Edge Function)
-- [ ] `trigger_on_report_instance_created` (pg_net -> Edge Function)
-- [ ] `trigger_on_form_instance_submitted` (AFTER UPDATE, auto-report)
-- [ ] Create `create_scheduled_instances` pg_cron job
-- [ ] Seed data: Root Admin bootstrap in `seed.sql`
-- [ ] Generate TypeScript types via `supabase_generate_typescript_types`
+- [x] Enable pg_net extension
+- [x] Enable pg_cron extension
+- [x] `update_updated_at` trigger function
+- [x] RLS helper functions (`get_current_user_role`, `get_current_user_group_id`, `is_active_user`)
+- [x] `profiles` table + RLS policies
+- [x] `groups` table + RLS policies
+- [x] `member_requests` table + RLS policies
+- [x] Apply `update_updated_at` trigger to foundation tables
+- [x] Seed data: Root Admin bootstrap in `seed.sql`
+- [x] Generate TypeScript types via `supabase_generate_typescript_types`
 
-## Edge Functions
+## Feature: Auth
 
-- [ ] `invite-user` -- invite new user via Supabase Auth admin API
-- [ ] `bootstrap-root-admin` -- create first Root Admin from env vars
-- [ ] `update-user-role` -- sync role/group/active to JWT metadata
-- [ ] `send-notification-email` -- custom emails via Resend SDK
-- [ ] `on-instance-created` -- generate short URLs for form instances (Shlink)
-- [ ] `on-report-instance-created` -- generate short URL for report instances (Shlink)
-- [ ] `generate-report` -- compute report data + create report instance
-- [ ] `export-report` -- generate PDF/Word, cache in Supabase Storage
+### Backend
+- [x] `invite-user` Edge Function -- invite new user via Supabase Auth admin API
+- [x] `bootstrap-root-admin` Edge Function -- create first Root Admin from env vars
+- [x] `update-user-role` Edge Function -- sync role/group/active to JWT metadata
+- [x] `manage-invite` Edge Function -- resend invite, change email, delete invite (root admin)
+- [x] `invite_status` column on profiles (invite_sent/completed lifecycle)
+- [x] `last_invite_sent_at` column on profiles (1-hour resend rate limit)
+- [x] `cancelled` status on member_requests + FK SET NULL changes
 
-## Frontend: Auth
+### Frontend
+- [x] Supabase client initialization (`src/services/supabase.ts`)
+- [x] Auth context / `useAuth` hook
+- [x] `useCurrentUser` hook (role, group, active from JWT metadata)
+- [x] Login page (`/login`)
+- [x] Forgot password page (`/forgot-password`)
+- [x] Reset password page (`/reset-password`)
+- [x] Invite acceptance page (`/invite/accept`)
+- [x] Protected route wrapper (auth + active + role check)
+- [x] Sidebar layout component
+- [x] Role-filtered navigation links
+- [x] User info + sign out in sidebar
+- [x] Page header with breadcrumbs
+- [x] Invite lifecycle UI (Invite Sent badge, resend, change email, delete in members tab)
+- [x] Cancelled request badge in requests tab
 
-- [ ] Supabase client initialization (`src/services/supabase.ts`)
-- [ ] Auth context / `useAuth` hook
-- [ ] `useCurrentUser` hook (role, group, active from JWT metadata)
-- [ ] Login page (`/login`)
-- [ ] Forgot password page (`/forgot-password`)
-- [ ] Reset password page (`/reset-password`)
-- [ ] Invite acceptance page (`/invite/accept`)
-- [ ] Protected route wrapper (auth + active + role check)
+## Feature: Groups
 
-## Frontend: Layout & Navigation
+### Backend
+(tables already created in Foundation)
 
-- [ ] Sidebar layout component
-- [ ] Role-filtered navigation links
-- [ ] User info + sign out in sidebar
-- [ ] Page header with breadcrumbs
+### Frontend
+- [x] Group list page (`/groups`)
+- [x] Group detail page (`/groups/:groupId`)
+- [x] Member request side sheet (create request, approve/reject)
 
-## Frontend: Dashboard
+## Feature: Form Templates
 
-- [ ] Adaptive dashboard (`/`)
-- [ ] Root Admin widgets (pending requests, recent submissions, schedules, stats)
-- [ ] Admin widgets (group members, draft instances, submissions)
-- [ ] Editor widgets (assigned fields, draft instances)
-- [ ] Viewer widgets (recent submissions, reports)
+### Backend
+- [x] `form_templates` table + RLS policies
+- [x] `template_versions` table + RLS policies
+- [x] `template_sections` table + RLS policies
+- [x] `template_fields` table + RLS policies
+- [x] `template_group_access` table + RLS policies
+- [x] Apply `update_updated_at` trigger to form template tables
 
-## Frontend: Groups
-
-- [ ] Group list page (`/groups`)
-- [ ] Group detail page (`/groups/:groupId`)
-- [ ] Member request side sheet (create request, approve/reject)
-
-## Frontend: Form Templates
-
+### Frontend
 - [ ] Template list page (`/forms`)
 - [ ] Template detail page (`/forms/:templateId`) with instance table
 - [ ] Form builder page (`/forms/new` and `/forms/:templateId/edit`)
@@ -99,19 +86,44 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [ ] Section management in builder
 - [ ] Version history side sheet (view, restore)
 - [ ] Sharing settings side sheet (all vs restricted groups)
-- [ ] Schedule management (create/edit schedule, add groups)
 
-## Frontend: Form Instances
+## Feature: Form Instances
 
+### Backend
+- [ ] `form_instances` table + RLS policies
+- [ ] `field_values` table + RLS policies
+- [ ] `instance_schedules` table + RLS policies
+- [ ] `schedule_group_targets` table + RLS policies
+- [ ] Apply `update_updated_at` trigger to form instance tables
+- [ ] `trigger_on_form_instance_created` (pg_net -> Edge Function)
+- [ ] `trigger_on_form_instance_submitted` (AFTER UPDATE, auto-report)
+- [ ] `on-instance-created` Edge Function -- generate short URLs (Shlink)
+- [ ] `create_scheduled_instances` pg_cron job
+
+### Frontend
 - [ ] Form instance fill page (`/forms/:readableId/fill`)
 - [ ] Form instance view page (`/forms/:readableId/view`)
 - [ ] Section-as-page navigation
 - [ ] Field assignment side sheet
 - [ ] Field change log display
 - [ ] Required field validation on submit
+- [ ] Schedule management (create/edit schedule, add groups)
 
-## Frontend: Report Templates
+## Feature: Reports
 
+### Backend
+- [ ] `report_templates` table + RLS policies
+- [ ] `report_template_versions` table + RLS policies
+- [ ] `report_template_sections` table + RLS policies
+- [ ] `report_template_fields` table + RLS policies
+- [ ] `report_instances` table + RLS policies
+- [ ] Apply `update_updated_at` trigger to report tables
+- [ ] `trigger_on_report_instance_created` (pg_net -> Edge Function)
+- [ ] `on-report-instance-created` Edge Function -- generate short URL (Shlink)
+- [ ] `generate-report` Edge Function -- compute report data + create instance
+- [ ] `export-report` Edge Function -- generate PDF/Word, cache in Storage
+
+### Frontend
 - [ ] Report template list page (`/reports/templates`)
 - [ ] Report template detail page (`/reports/templates/:id`)
 - [ ] Report template builder (`/reports/templates/new` and `edit`)
@@ -120,17 +132,27 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [ ] Table column configuration
 - [ ] Static text editor
 - [ ] Version history side sheet
-
-## Frontend: Report Instances
-
 - [ ] Report instance list page (`/reports`)
 - [ ] Report instance viewer (`/reports/:readableId`)
 - [ ] Manual report creation (select form instances, generate)
 - [ ] Export buttons (PDF / Word) with download
+
+## Feature: Notifications
+
+### Backend
+- [ ] `send-notification-email` Edge Function -- custom emails via Resend SDK
+
+## Feature: Dashboard
+
+- [ ] Adaptive dashboard (`/`)
+- [ ] Root Admin widgets (pending requests, recent submissions, schedules, stats)
+- [ ] Admin widgets (group members, draft instances, submissions)
+- [ ] Editor widgets (assigned fields, draft instances)
+- [ ] Viewer widgets (recent submissions, reports)
 
 ## External Services
 
 - [ ] Shlink setup (self-hosted or cloud) + API key
 - [ ] Resend SMTP configuration in Supabase Auth settings
 - [ ] Resend SDK API key for Edge Functions
-- [ ] Supabase Storage buckets (form-uploads, report-exports)
+- [x] Supabase Storage buckets (form-uploads, report-exports)
