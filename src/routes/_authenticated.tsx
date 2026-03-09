@@ -88,7 +88,7 @@ function AuthenticatedLayout() {
 
 function HeaderBar() {
   const matches = useMatches()
-  const { pageTitle } = usePageTitle()
+  const { pageTitle, headerActions } = usePageTitle()
 
   // Build breadcrumb trail from URL path
   const currentPath = matches[matches.length - 1]?.pathname ?? '/'
@@ -148,6 +148,13 @@ function HeaderBar() {
           })}
         </BreadcrumbList>
       </Breadcrumb>
+
+      {/* Right-aligned header actions injected by child routes */}
+      {headerActions && (
+        <div className="ml-auto flex items-center gap-2">
+          {headerActions}
+        </div>
+      )}
     </header>
   )
 }
