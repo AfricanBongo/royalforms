@@ -13,7 +13,7 @@ import { supabase } from './supabase'
  */
 export async function updateProfile(
   userId: string,
-  data: { full_name?: string },
+  data: { full_name?: string; invite_status?: string },
 ) {
   const { error } = await supabase
     .from('profiles')

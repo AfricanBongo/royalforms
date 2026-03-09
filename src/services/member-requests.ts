@@ -17,7 +17,7 @@ export interface MemberRequestRow {
   status: string
   created_at: string
   decided_at: string | null
-  requested_by: string
+  requested_by: string | null
   requested_by_name: string
 }
 

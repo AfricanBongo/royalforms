@@ -126,7 +126,7 @@ export type Database = {
           group_id: string
           id: string
           proposed_role: string
-          requested_by: string
+          requested_by: string | null
           status: string
           updated_at: string
         }
@@ -139,7 +139,7 @@ export type Database = {
           group_id: string
           id?: string
           proposed_role: string
-          requested_by: string
+          requested_by?: string | null
           status?: string
           updated_at?: string
         }
@@ -152,7 +152,7 @@ export type Database = {
           group_id?: string
           id?: string
           proposed_role?: string
-          requested_by?: string
+          requested_by?: string | null
           status?: string
           updated_at?: string
         }
@@ -194,7 +194,9 @@ export type Database = {
           full_name: string
           group_id: string | null
           id: string
+          invite_status: string
           is_active: boolean
+          last_invite_sent_at: string | null
           role: string
           updated_at: string
         }
@@ -204,7 +206,9 @@ export type Database = {
           full_name: string
           group_id?: string | null
           id: string
+          invite_status?: string
           is_active?: boolean
+          last_invite_sent_at?: string | null
           role: string
           updated_at?: string
         }
@@ -214,7 +218,9 @@ export type Database = {
           full_name?: string
           group_id?: string | null
           id?: string
+          invite_status?: string
           is_active?: boolean
+          last_invite_sent_at?: string | null
           role?: string
           updated_at?: string
         }

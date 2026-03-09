@@ -262,6 +262,14 @@ function CreateAccountStep({
       return
     }
 
+    // Mark invite as completed in the profiles table
+    try {
+      await updateProfile(user.id, { invite_status: 'completed' })
+    } catch {
+      // Non-critical: invite_status update failed but password is set
+      console.error('Failed to update invite_status to completed')
+    }
+
     setButtonState('success')
 
     setTimeout(() => {

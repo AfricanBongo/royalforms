@@ -14,6 +14,8 @@ export interface MemberRow {
   full_name: string
   role: string
   is_active: boolean
+  invite_status: string
+  last_invite_sent_at: string | null
   created_at: string
 }
 
@@ -30,7 +32,7 @@ export async function fetchGroupMembers(
 ): Promise<MemberRow[]> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role, is_active, created_at')
+    .select('id, email, full_name, role, is_active, invite_status, last_invite_sent_at, created_at')
     .eq('group_id', groupId)
     .order('full_name')
 
