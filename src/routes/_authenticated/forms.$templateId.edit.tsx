@@ -45,6 +45,7 @@ function toBuilderState(data: TemplateVersionData): BuilderState {
     name: data.template.name,
     abbreviation: data.template.abbreviation,
     description: data.template.description ?? '',
+    isAbbreviationManual: true,
     sections: data.sections.map((sec) => ({
       clientId: makeId(),
       title: sec.title,
@@ -53,6 +54,7 @@ function toBuilderState(data: TemplateVersionData): BuilderState {
       fields: sec.fields.map((f) => ({
         clientId: makeId(),
         label: f.label,
+        description: (f as { description?: string | null }).description ?? '',
         field_type: f.field_type as FieldType,
         sort_order: f.sort_order,
         is_required: f.is_required,

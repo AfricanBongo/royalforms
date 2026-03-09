@@ -41,6 +41,8 @@ export interface BuilderField {
   /** Client-side temp ID for React keys — NOT a database UUID. */
   clientId: string
   label: string
+  /** Optional subtitle/description shown below the field label. */
+  description: string
   field_type: FieldType
   sort_order: number
   is_required: boolean
@@ -64,6 +66,8 @@ export interface BuilderState {
   name: string
   abbreviation: string
   description: string
+  /** Whether the user has manually edited the abbreviation. */
+  isAbbreviationManual: boolean
   sections: BuilderSection[]
 }
 
@@ -81,6 +85,7 @@ function makeDefaultField(sortOrder: number, fieldType: FieldType): BuilderField
   return {
     clientId: makeId(),
     label: '',
+    description: '',
     field_type: fieldType,
     sort_order: sortOrder,
     is_required: false,
@@ -104,6 +109,24 @@ function makeDefaultSection(sortOrder: number): BuilderSection {
 }
 
 // ---------------------------------------------------------------------------
+// Auto-abbreviation
+// ---------------------------------------------------------------------------
+
+const SKIP_WORDS = new Set([
+  'a', 'an', 'the', 'of', 'for', 'and', 'or', 'in', 'on', 'at', 'to',
+])
+
+/** Generate an abbreviation from a form title by taking the first letter of each significant word. */
+function generateAbbreviation(name: string): string {
+  const words = name.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const significant = words.filter((w) => !SKIP_WORDS.has(w))
+  const source = significant.length > 0 ? significant : words
+  return source.map((w) => w[0]).join('').slice(0, 10)
+}
+
+export { generateAbbreviation }
+
+// ---------------------------------------------------------------------------
 // Initial state builder
 // ---------------------------------------------------------------------------
 
@@ -112,6 +135,7 @@ function createInitialState(): BuilderState {
     name: '',
     abbreviation: '',
     description: '',
+    isAbbreviationManual: false,
     sections: [makeDefaultSection(1)],
   }
 }
@@ -126,11 +150,17 @@ export function useFormBuilder(initial?: BuilderState) {
   // -- Template metadata ----------------------------------------------------
 
   const setName = useCallback((name: string) => {
-    setState((s) => ({ ...s, name }))
+    setState((s) => {
+      const updates: Partial<BuilderState> = { name }
+      if (!s.isAbbreviationManual) {
+        updates.abbreviation = generateAbbreviation(name)
+      }
+      return { ...s, ...updates }
+    })
   }, [])
 
   const setAbbreviation = useCallback((abbreviation: string) => {
-    setState((s) => ({ ...s, abbreviation }))
+    setState((s) => ({ ...s, abbreviation, isAbbreviationManual: true }))
   }, [])
 
   const setDescription = useCallback((description: string) => {
@@ -439,6 +469,7 @@ export function useFormBuilder(initial?: BuilderState) {
       sort_order: number
       fields: {
         label: string
+        description: string | null
         field_type: string
         sort_order: number
         is_required: boolean
@@ -457,6 +488,7 @@ export function useFormBuilder(initial?: BuilderState) {
         sort_order: sec.sort_order,
         fields: sec.fields.map((f) => ({
           label: f.label,
+          description: f.description || null,
           field_type: f.field_type,
           sort_order: f.sort_order,
           is_required: f.is_required,
