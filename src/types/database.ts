@@ -201,6 +201,7 @@ export type Database = {
           is_active: boolean
           name: string
           sharing_mode: string
+          status: string
           updated_at: string
         }
         Insert: {
@@ -213,6 +214,7 @@ export type Database = {
           is_active?: boolean
           name: string
           sharing_mode?: string
+          status?: string
           updated_at?: string
         }
         Update: {
@@ -225,6 +227,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           sharing_mode?: string
+          status?: string
           updated_at?: string
         }
         Relationships: [
@@ -513,6 +516,7 @@ export type Database = {
       template_fields: {
         Row: {
           created_at: string
+          description: string | null
           field_type: string
           id: string
           is_required: boolean
@@ -524,6 +528,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          description?: string | null
           field_type: string
           id?: string
           is_required?: boolean
@@ -535,6 +540,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          description?: string | null
           field_type?: string
           id?: string
           is_required?: boolean
@@ -730,6 +736,7 @@ export type Database = {
           name: string | null
           pending_count: number | null
           sharing_mode: string | null
+          status: string | null
           submitted_count: number | null
           updated_at: string | null
         }
