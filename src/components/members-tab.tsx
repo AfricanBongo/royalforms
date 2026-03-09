@@ -327,6 +327,11 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
                         {member.invite_status === 'invite_sent' ? (
                           (() => {
                             const cooldown = getInviteCooldownMinutes(member)
+                            const MAX_FREE_CHANGES = 3
+                            const changeCount = member.email_change_count ?? 0
+                            const freeChangesLeft = Math.max(0, MAX_FREE_CHANGES - changeCount)
+                            // Change email is only rate-limited after exhausting free changes
+                            const changeEmailCooldown = changeCount >= MAX_FREE_CHANGES ? cooldown : 0
                             return (
                               <>
                                 <DropdownMenuItem
@@ -339,7 +344,7 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
                                     : 'Resend Invite'}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  disabled={cooldown > 0}
+                                  disabled={changeEmailCooldown > 0}
                                   onClick={() => {
                                     setMemberToChangeEmail(member)
                                     setNewEmail(member.email)
@@ -347,9 +352,11 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
                                   }}
                                 >
                                   <PencilIcon className="mr-2 size-4" />
-                                  {cooldown > 0
-                                    ? `Change Email (${cooldown}m remaining)`
-                                    : 'Change Email'}
+                                  {changeEmailCooldown > 0
+                                    ? `Change Email (${changeEmailCooldown}m remaining)`
+                                    : freeChangesLeft > 0
+                                      ? `Change Email (${freeChangesLeft} free left)`
+                                      : 'Change Email'}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem

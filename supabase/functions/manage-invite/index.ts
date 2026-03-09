@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
     // --- Fetch target profile ---
     const { data: targetProfile, error: targetError } = await supabaseAdmin
       .from("profiles")
-      .select("id, email, full_name, role, group_id, invite_status, last_invite_sent_at")
+      .select("id, email, full_name, role, group_id, invite_status, last_invite_sent_at, email_change_count")
       .eq("id", user_id)
       .single();
 
@@ -215,12 +215,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Rate limit: resend and change_email require 1 hour between invites
+    // Rate limit: resend requires 1 hour between invites (always)
+    // Rate limit: change_email requires 1 hour between invites (after 3+ changes)
     const RATE_LIMIT_MS = 60 * 60 * 1000; // 1 hour
-    if (
-      (action === "resend" || action === "change_email") &&
-      targetProfile.last_invite_sent_at
-    ) {
+    const MAX_FREE_EMAIL_CHANGES = 3;
+    const shouldRateLimit =
+      action === "resend" ||
+      (action === "change_email" &&
+        (targetProfile.email_change_count ?? 0) >= MAX_FREE_EMAIL_CHANGES);
+
+    if (shouldRateLimit && targetProfile.last_invite_sent_at) {
       const lastSent = new Date(targetProfile.last_invite_sent_at).getTime();
       const elapsed = Date.now() - lastSent;
       if (elapsed < RATE_LIMIT_MS) {
@@ -248,6 +252,7 @@ Deno.serve(async (req) => {
     // Read SITE_URL for redirectTo
     const siteUrl = Deno.env.get("SITE_URL") ?? "";
     const redirectTo = siteUrl ? `${siteUrl}/invite/accept` : undefined;
+
 
     // --- Handle actions ---
     if (action === "resend") {
@@ -310,6 +315,21 @@ Deno.serve(async (req) => {
           JSON.stringify({
             success: false,
             error: "new_email is required for change_email action",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Guard: reject if new email is the same as current email
+      if (new_email.trim().toLowerCase() === targetProfile.email.toLowerCase()) {
+        console.error("[manage-invite] New email is the same as current email");
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "New email must be different from the current email",
           }),
           {
             status: 400,
@@ -415,10 +435,13 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Update rate limit timestamp
+      // Update rate limit timestamp and increment email change counter
       await supabaseAdmin
         .from("profiles")
-        .update({ last_invite_sent_at: new Date().toISOString() })
+        .update({
+          last_invite_sent_at: new Date().toISOString(),
+          email_change_count: (targetProfile.email_change_count ?? 0) + 1,
+        })
         .eq("id", user_id);
 
       console.info(
