@@ -5,11 +5,12 @@
  */
 import { useEffect, useState } from 'react'
 
-import { MoreHorizontalIcon, SearchIcon } from 'lucide-react'
+import { MailIcon, MoreHorizontalIcon, PencilIcon, SearchIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { getDefaultAvatarUri } from '../lib/avatar'
 import { mapSupabaseError } from '../lib/supabase-errors'
+import { resendInvite, changeInviteEmail, deleteInvite } from '../services/invite-management'
 import {
   fetchGroupMembers,
   changeRole,
@@ -30,7 +31,16 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog'
 import { Input } from './ui/input'
+import { Label } from './ui/label'
 import {
   Table,
   TableBody,
@@ -54,6 +64,23 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
   const [search, setSearch] = useState('')
   const [moveDialogOpen, setMoveDialogOpen] = useState(false)
   const [memberToMove, setMemberToMove] = useState<MemberRow | null>(null)
+  const [changeEmailDialogOpen, setChangeEmailDialogOpen] = useState(false)
+  const [memberToChangeEmail, setMemberToChangeEmail] = useState<MemberRow | null>(null)
+  const [newEmail, setNewEmail] = useState('')
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [memberToDelete, setMemberToDelete] = useState<MemberRow | null>(null)
+
+  /**
+   * Returns the number of minutes remaining in the invite cooldown,
+   * or 0 if the cooldown has elapsed (resend is allowed).
+   */
+  function getInviteCooldownMinutes(member: MemberRow): number {
+    if (!member.last_invite_sent_at) return 0
+    const RATE_LIMIT_MS = 60 * 60 * 1000 // 1 hour
+    const elapsed = Date.now() - new Date(member.last_invite_sent_at).getTime()
+    if (elapsed >= RATE_LIMIT_MS) return 0
+    return Math.ceil((RATE_LIMIT_MS - elapsed) / 60000)
+  }
 
   async function loadMembers() {
     try {
@@ -131,6 +158,56 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
         'update_record',
       )
       toast.error(mapped.title, { description: mapped.description })
+    }
+  }
+
+  async function handleResendInvite(member: MemberRow) {
+    try {
+      await resendInvite(member.id)
+      toast.success('Invite resent', {
+        description: `A new invite email has been sent to ${member.email}.`,
+      })
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(error.code, error.message, 'auth', 'general')
+      toast.error(mapped.title, { description: mapped.description })
+    }
+  }
+
+  async function handleChangeEmail() {
+    if (!memberToChangeEmail || !newEmail.trim()) return
+    try {
+      await changeInviteEmail(memberToChangeEmail.id, newEmail.trim())
+      toast.success('Email changed', {
+        description: `Invite resent to ${newEmail.trim()}.`,
+      })
+      void loadMembers()
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(error.code, error.message, 'auth', 'general')
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setChangeEmailDialogOpen(false)
+      setMemberToChangeEmail(null)
+      setNewEmail('')
+    }
+  }
+
+  async function handleDeleteInvite() {
+    if (!memberToDelete) return
+    try {
+      await deleteInvite(memberToDelete.id)
+      toast.success('Invite deleted', {
+        description: `${memberToDelete.full_name}'s invite has been deleted.`,
+      })
+      void loadMembers()
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(error.code, error.message, 'auth', 'general')
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setDeleteDialogOpen(false)
+      setMemberToDelete(null)
     }
   }
 
@@ -216,16 +293,25 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
 
                 {/* Status */}
                 <TableCell className="text-right">
-                  <Badge
-                    variant="outline"
-                    className={
-                      member.is_active
-                        ? 'bg-green-50 text-green-700 border-green-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }
-                  >
-                    {member.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
+                  {member.invite_status === 'invite_sent' ? (
+                    <Badge
+                      variant="outline"
+                      className="bg-amber-50 text-amber-700 border-amber-200"
+                    >
+                      Invite Sent
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className={
+                        member.is_active
+                          ? 'bg-green-50 text-green-700 border-green-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }
+                    >
+                      {member.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  )}
                 </TableCell>
 
                 {/* Actions (Root Admin only) */}
@@ -238,43 +324,88 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {/* Change Role sub-menu */}
-                        <DropdownMenuSub>
-                          <DropdownMenuSubTrigger>Change Role</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent>
-                            {ASSIGNABLE_ROLES.filter((r) => r !== member.role).map(
-                              (role) => (
+                        {member.invite_status === 'invite_sent' ? (
+                          (() => {
+                            const cooldown = getInviteCooldownMinutes(member)
+                            return (
+                              <>
                                 <DropdownMenuItem
-                                  key={role}
-                                  onClick={() => void handleChangeRole(member.id, role)}
-                                  className="capitalize"
+                                  disabled={cooldown > 0}
+                                  onClick={() => void handleResendInvite(member)}
                                 >
-                                  {role}
+                                  <MailIcon className="mr-2 size-4" />
+                                  {cooldown > 0
+                                    ? `Resend (${cooldown}m remaining)`
+                                    : 'Resend Invite'}
                                 </DropdownMenuItem>
-                              ),
-                            )}
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
+                                <DropdownMenuItem
+                                  disabled={cooldown > 0}
+                                  onClick={() => {
+                                    setMemberToChangeEmail(member)
+                                    setNewEmail(member.email)
+                                    setChangeEmailDialogOpen(true)
+                                  }}
+                                >
+                                  <PencilIcon className="mr-2 size-4" />
+                                  {cooldown > 0
+                                    ? `Change Email (${cooldown}m remaining)`
+                                    : 'Change Email'}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => {
+                                    setMemberToDelete(member)
+                                    setDeleteDialogOpen(true)
+                                  }}
+                                >
+                                   <Trash2Icon className="mr-2 size-4" />
+                                  Delete Invite
+                                </DropdownMenuItem>
+                              </>
+                            )
+                          })()
+                        ) : (
+                          <>
+                            {/* Change Role sub-menu */}
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>Change Role</DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent>
+                                {ASSIGNABLE_ROLES.filter((r) => r !== member.role).map(
+                                  (role) => (
+                                    <DropdownMenuItem
+                                      key={role}
+                                      onClick={() => void handleChangeRole(member.id, role)}
+                                      className="capitalize"
+                                    >
+                                      {role}
+                                    </DropdownMenuItem>
+                                  ),
+                                )}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
 
-                        {/* Move to Group */}
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setMemberToMove(member)
-                            setMoveDialogOpen(true)
-                          }}
-                        >
-                          Move to Group
-                        </DropdownMenuItem>
+                            {/* Move to Group */}
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setMemberToMove(member)
+                                setMoveDialogOpen(true)
+                              }}
+                            >
+                              Move to Group
+                            </DropdownMenuItem>
 
-                        <DropdownMenuSeparator />
+                            <DropdownMenuSeparator />
 
-                        {/* Deactivate Member */}
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => void handleDeactivate(member.id)}
-                        >
-                          Deactivate Member
-                        </DropdownMenuItem>
+                            {/* Deactivate Member */}
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => void handleDeactivate(member.id)}
+                            >
+                              Deactivate Member
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -293,6 +424,90 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
         currentGroupId={groupId}
         onConfirm={handleMoveConfirm}
       />
+
+      {/* Change Email dialog */}
+      <Dialog
+        open={changeEmailDialogOpen}
+        onOpenChange={(open) => {
+          setChangeEmailDialogOpen(open)
+          if (!open) {
+            setMemberToChangeEmail(null)
+            setNewEmail('')
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change invite email</DialogTitle>
+            <DialogDescription>
+              Update the email address for {memberToChangeEmail?.full_name} and resend the invite.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="new-email">New email address</Label>
+            <Input
+              id="new-email"
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="Enter new email address"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setChangeEmailDialogOpen(false)
+                setMemberToChangeEmail(null)
+                setNewEmail('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handleChangeEmail()}
+              disabled={!newEmail.trim() || newEmail.trim() === memberToChangeEmail?.email}
+            >
+              Change & Resend
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Invite dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open)
+          if (!open) setMemberToDelete(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete invite</DialogTitle>
+            <DialogDescription>
+              This will permanently delete {memberToDelete?.full_name}&apos;s account and cancel their invite. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setMemberToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleDeleteInvite()}
+            >
+              Delete Invite
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
