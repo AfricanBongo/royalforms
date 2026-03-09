@@ -3,6 +3,13 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.2.1](https://github.com/AfricanBongo/royalforms/compare/v0.2.0...v0.2.1) (2026-03-09)
+
+
+### Bug Fixes
+
+* **avatar:** use full name as DiceBear seed for consistent avatars ([79f835a](https://github.com/AfricanBongo/royalforms/commit/79f835ac36566ed042b2b58cfc07480fc0d3983d))
+
 ## 0.2.0 (2026-03-09)
 
 
