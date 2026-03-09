@@ -79,8 +79,8 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Apply `update_updated_at` trigger to form template tables
 
 ### Frontend
-- [ ] Template list page (`/forms`)
-- [ ] Template detail page (`/forms/:templateId`) with instance table
+- [x] Template list page (`/forms`)
+- [x] Template detail page (`/forms/:templateId`) with instance table
 - [ ] Form builder page (`/forms/new` and `/forms/:templateId/edit`)
 - [ ] Field type picker (text, choice, checkbox, date, rating, range, file, section)
 - [ ] Section management in builder
@@ -90,19 +90,18 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 ## Feature: Form Instances
 
 ### Backend
-- [ ] `form_instances` table + RLS policies
-- [ ] `field_values` table + RLS policies
-- [ ] `instance_schedules` table + RLS policies
-- [ ] `schedule_group_targets` table + RLS policies
-- [ ] Apply `update_updated_at` trigger to form instance tables
-- [ ] `trigger_on_form_instance_created` (pg_net -> Edge Function)
+- [x] `form_instances` table + RLS policies
+- [x] `field_values` table + RLS policies
+- [x] `instance_schedules` table + RLS policies
+- [x] `schedule_group_targets` table + RLS policies
+- [x] Apply `update_updated_at` trigger to form instance tables
+- [x] `trigger_on_form_instance_created` (pg_net -> Edge Function)
 - [ ] `trigger_on_form_instance_submitted` (AFTER UPDATE, auto-report)
-- [ ] `on-instance-created` Edge Function -- generate short URLs (Shlink)
-- [ ] `create_scheduled_instances` pg_cron job
+- [x] `on-instance-created` Edge Function -- generate short URLs (Shlink)
+- [x] `create_scheduled_instances` pg_cron job
 
 ### Frontend
-- [ ] Form instance fill page (`/forms/:readableId/fill`)
-- [ ] Form instance view page (`/forms/:readableId/view`)
+- [ ] Form instance page (`/forms/:readableId?mode=view|edit`)
 - [ ] Section-as-page navigation
 - [ ] Field assignment side sheet
 - [ ] Field change log display

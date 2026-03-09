@@ -113,8 +113,8 @@ Detail pages (form template detail, group detail) follow a consistent structure:
 /forms/new                          Create form template (Root Admin) - form builder
 /forms/:templateId                  Template detail (instances table, stats, actions)
 /forms/:templateId/edit             Edit template (Root Admin, creates new version)
-/forms/:readableId/fill             Fill form instance (Admin/Editor)
-/forms/:readableId/view             View form instance (all group members)
+/forms/:readableId?mode=edit         Fill form instance (Admin/Editor)
+/forms/:readableId?mode=view         View form instance (all group members)
 
 /reports                            Report instance list
 /reports/templates                  Report template list (Root Admin)
@@ -159,8 +159,7 @@ graph TD
             FNEW[/forms/new - Form Builder]
             FDETAIL[/forms/:templateId - Detail]
             FEDIT[/forms/:templateId/edit - Edit]
-            FFILL[/forms/:readableId/fill - Fill Instance]
-            FVIEW[/forms/:readableId/view - View Instance]
+            FINSTANCE[/forms/:readableId?mode=view|edit - Instance View/Fill]
         end
 
         subgraph Reports
@@ -209,8 +208,8 @@ flowchart TD
 | `/forms/new` | Yes | No | No | No |
 | `/forms/:templateId` | Yes | Yes (own group templates) | No | No |
 | `/forms/:templateId/edit` | Yes | No | No | No |
-| `/forms/:readableId/fill` | Yes | Yes (own group) | Yes (own group) | No |
-| `/forms/:readableId/view` | Yes | Yes (own group) | Yes (own group) | Yes (own group, submitted) |
+| `/forms/:readableId?mode=edit` | Yes | Yes (own group) | Yes (own group) | No |
+| `/forms/:readableId?mode=view` | Yes | Yes (own group) | Yes (own group) | Yes (own group, submitted) |
 | `/reports` | Yes | Yes | Yes | Yes |
 | `/reports/templates/*` | Yes | No | No | No |
 | `/reports/:readableId` | Yes | Yes | Yes | Yes |
@@ -347,9 +346,11 @@ Offset-based pagination with page numbers. Consistent across all data tables.
 
 ## 12. Short URL Resolution
 
-When a user accesses a short URL (e.g., `https://short.domain/epr-001/edit`), Shlink redirects to the full app URL (e.g., `https://app.domain/forms/epr-001/fill`). The SPA handles auth checking and routing from there.
+When a user accesses a short URL (e.g., `https://short.domain/f/epr-001-edit`), Shlink redirects to the full app URL (e.g., `https://app.domain/forms/epr-001?mode=edit`). The SPA handles auth checking and routing from there.
 
-Report short URLs (e.g., `https://short.domain/report/epr-r-001`) redirect to `https://app.domain/reports/epr-r-001`.
+Short URL slugs use namespaced prefixes: `f/` for forms, `r/` for reports. The mode (`-view`/`-edit`) is a flat suffix on the slug, while the app route uses `?mode=` query param.
+
+Report short URLs (e.g., `https://short.domain/r/epr-r-001`) redirect to `https://app.domain/reports/epr-r-001`.
 
 ---
 
