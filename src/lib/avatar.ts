@@ -11,7 +11,7 @@ import * as thumbs from '@dicebear/thumbs'
 /**
  * Generate a DiceBear thumbs avatar as a data URI.
  *
- * @param seed - Deterministic seed (typically the user's first name or full name)
+ * @param seed - Deterministic seed (use full name "FirstName LastName" for consistency)
  * @returns `data:image/svg+xml;utf8,...` string suitable for `<img src>` or `AvatarImage`
  */
 export function getDefaultAvatarUri(seed: string): string {

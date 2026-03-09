@@ -64,7 +64,7 @@ export function AppSidebar() {
     .join('')
 
   // Avatar: use uploaded URL from user_metadata, or DiceBear default
-  const avatarUrl = getDefaultAvatarUri(firstName || displayName)
+  const avatarUrl = getDefaultAvatarUri(displayName)
 
   // Org / group display
   const orgInitial = 'R'

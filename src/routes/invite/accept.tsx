@@ -566,7 +566,7 @@ function OnboardingStep({
                 <div className="flex flex-col items-center gap-2">
                   <Avatar className="size-[72px]">
                     <AvatarImage
-                      src={avatarPreview ?? getDefaultAvatarUri(firstName || user.email || 'user')}
+                      src={avatarPreview ?? getDefaultAvatarUri([firstName, lastName].filter(Boolean).join(' ') || user.email || 'user')}
                       alt="Profile picture"
                     />
                     <AvatarFallback className="text-lg">
