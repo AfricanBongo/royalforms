@@ -3,6 +3,22 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.4.0](https://github.com/AfricanBongo/royalforms/compare/v0.3.0...v0.4.0) (2026-03-09)
+
+
+### Features
+
+* **db:** add field description column and template draft status ([9c2e5f7](https://github.com/AfricanBongo/royalforms/commit/9c2e5f70f46c9a502c8c66d53e18adc6ec90e3e5))
+* **forms:** add draft save/update/publish and field description to service layer ([1425009](https://github.com/AfricanBongo/royalforms/commit/142500907516f6ee2513aac4152d8e91e7b4c346))
+* **forms:** add field description and auto-abbreviation to builder hook ([7ed4e9a](https://github.com/AfricanBongo/royalforms/commit/7ed4e9a40367e6381c3cf4fd4eb5f6a4ffa62a29))
+* **forms:** add field subtitle, type previews, and validation limits to builder ([3a997c5](https://github.com/AfricanBongo/royalforms/commit/3a997c53f46e4a62cd416d746a3e7a2fbdbd9df3))
+* **forms:** add save draft flow, smart blocker, and draft badge in list ([de6b6f8](https://github.com/AfricanBongo/royalforms/commit/de6b6f86b4c8b32bc7497e910ea8daa7caff7e0d))
+
+
+### Documentation
+
+* **todo:** check off form builder improvements ([a94d34e](https://github.com/AfricanBongo/royalforms/commit/a94d34ef4488b79e55dbb37805b087d0429291c3))
+
 ## [0.3.0](https://github.com/AfricanBongo/royalforms/compare/v0.2.1...v0.3.0) (2026-03-09)
 
 
