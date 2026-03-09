@@ -410,6 +410,97 @@ export async function createTemplateVersion(
   return version.id
 }
 
+// ---------------------------------------------------------------------------
+// Group Access
+// ---------------------------------------------------------------------------
+
+/** A group with its access status for a specific template. */
+export interface GroupAccessRow {
+  group_id: string
+  group_name: string
+  has_access: boolean
+}
+
+/**
+ * Fetch all active groups with their access status for a template.
+ *
+ * For each group, `has_access` is true if a `template_group_access` row
+ * exists for the template. Results are ordered alphabetically by group name.
+ */
+export async function fetchGroupsWithAccess(
+  templateId: string,
+): Promise<GroupAccessRow[]> {
+  // Fetch all active groups
+  const { data: groups, error: groupsError } = await supabase
+    .from('groups')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name')
+
+  if (groupsError) throw groupsError
+
+  // Fetch existing access rows for this template
+  const { data: accessRows, error: accessError } = await supabase
+    .from('template_group_access')
+    .select('group_id')
+    .eq('template_id', templateId)
+
+  if (accessError) throw accessError
+
+  const accessSet = new Set((accessRows ?? []).map((r) => r.group_id))
+
+  return (groups ?? []).map((g) => ({
+    group_id: g.id,
+    group_name: g.name,
+    has_access: accessSet.has(g.id),
+  }))
+}
+
+/**
+ * Update sharing access for a template.
+ *
+ * Sets `sharing_mode` to `'restricted'` and replaces all access rows
+ * with the provided group IDs. If all active groups are selected, sets
+ * `sharing_mode` to `'all'` and clears the access table (optimisation).
+ */
+export async function updateTemplateAccess(
+  templateId: string,
+  selectedGroupIds: string[],
+  totalActiveGroups: number,
+): Promise<void> {
+  const allSelected = selectedGroupIds.length === totalActiveGroups
+
+  // Update sharing_mode
+  const { error: modeError } = await supabase
+    .from('form_templates')
+    .update({ sharing_mode: allSelected ? 'all' : 'restricted' })
+    .eq('id', templateId)
+
+  if (modeError) throw modeError
+
+  // Delete all existing access rows for this template
+  const { error: deleteError } = await supabase
+    .from('template_group_access')
+    .delete()
+    .eq('template_id', templateId)
+
+  if (deleteError) throw deleteError
+
+  // If restricted, insert new access rows
+  if (!allSelected && selectedGroupIds.length > 0) {
+    const rows = selectedGroupIds.map((group_id) => ({
+      template_id: templateId,
+      group_id,
+    }))
+
+    const { error: insertError } = await supabase
+      .from('template_group_access')
+      .insert(rows)
+
+    if (insertError) throw insertError
+  }
+}
+
 /**
  * Fetch the latest version of a template with all sections and fields.
  * Used to load a template into the form builder for editing.

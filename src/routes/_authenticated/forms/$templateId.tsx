@@ -24,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '../../../components/ui/table'
+import { ShareFormSheet } from '../../../components/share-form-sheet'
 import { StatCard } from '../../../components/stat-card'
 import { useCurrentUser } from '../../../hooks/use-current-user'
 import { usePageTitle } from '../../../hooks/use-page-title'
@@ -65,6 +66,7 @@ function TemplateDetailPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [shareOpen, setShareOpen] = useState(false)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
@@ -158,6 +160,20 @@ function TemplateDetailPage() {
     setPage(1)
   }, [search])
 
+  // Refresh group count after sharing settings change
+  async function refreshGroupCount() {
+    if (!template) return
+    try {
+      // Re-fetch template to get updated sharing_mode
+      const tmpl = await fetchTemplateDetail(templateId)
+      setTemplate(tmpl)
+      const count = await fetchGroupAccessCount(templateId, tmpl.sharing_mode)
+      setGroupCount(count)
+    } catch {
+      // Silently fail — the page already has data
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex flex-1 flex-col gap-4 p-4">
@@ -229,7 +245,7 @@ function TemplateDetailPage() {
               <PencilIcon className="size-4" />
               Edit Form
             </Button>
-            <Button variant="outline" size="default">
+            <Button variant="outline" size="default" onClick={() => setShareOpen(true)}>
               <Share2Icon className="size-4" />
               Share
             </Button>
@@ -358,6 +374,14 @@ function TemplateDetailPage() {
           </div>
         </>
       )}
+
+      {/* Share form sheet */}
+      <ShareFormSheet
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        templateId={templateId}
+        onUpdated={() => void refreshGroupCount()}
+      />
     </div>
   )
 }
