@@ -1,6 +1,6 @@
 import {
   type ChangeEvent,
-  type FormEvent,
+  type SubmitEvent,
   useCallback,
   useEffect,
   useRef,
@@ -232,7 +232,7 @@ function CreateAccountStep({
   const isDisabled = buttonState === 'loading' || buttonState === 'success'
   const email = user.email ?? ''
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
 
     if (!password.trim()) {
@@ -459,7 +459,7 @@ function OnboardingStep({
     reader.readAsDataURL(file)
   }, [])
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
 
     if (!firstName.trim() || !lastName.trim()) {

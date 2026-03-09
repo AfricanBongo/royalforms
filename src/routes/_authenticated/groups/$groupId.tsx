@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type SubmitEvent, useEffect, useState } from 'react'
 
 import { createFileRoute } from '@tanstack/react-router'
 import { Loader2Icon, PencilIcon } from 'lucide-react'
@@ -87,7 +87,7 @@ function GroupDetailPage() {
     void load()
   }, [groupId])
 
-  async function handleEditName(e: FormEvent) {
+  async function handleEditName(e: SubmitEvent) {
     e.preventDefault()
     if (!editName.trim() || !group) return
 

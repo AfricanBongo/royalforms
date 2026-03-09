@@ -2,7 +2,7 @@
  * CreateGroupDialog — dialog for creating a new group.
  * Receives a callback prop and has zero DB knowledge.
  */
-import { type FormEvent, useState } from 'react'
+import { type SubmitEvent, useState } from 'react'
 
 import { toast } from 'sonner'
 
@@ -29,7 +29,7 @@ export function CreateGroupDialog({
   const [name, setName] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
 
     if (!name.trim()) {

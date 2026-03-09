@@ -3,7 +3,7 @@
  *   - Single: create one member request
  *   - Bulk Import: upload CSV, map columns, preview, and submit
  */
-import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
+import { type ChangeEvent, type SubmitEvent, useRef, useState } from 'react'
 
 import Papa from 'papaparse'
 import { toast } from 'sonner'
@@ -132,7 +132,7 @@ export function MemberRequestSheet({
     onOpenChange(nextOpen)
   }
 
-  async function handleSingleSubmit(e: FormEvent) {
+  async function handleSingleSubmit(e: SubmitEvent) {
     e.preventDefault()
 
     if (!email.trim() || !fullName.trim()) {

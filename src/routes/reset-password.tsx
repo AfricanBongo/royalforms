@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type SubmitEvent, useState } from 'react'
 
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { CheckIcon, Loader2Icon, LockIcon } from 'lucide-react'
@@ -36,7 +36,7 @@ function ResetPasswordPage() {
 
   const isDisabled = buttonState === 'loading' || buttonState === 'success'
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
 
     if (!password.trim()) {

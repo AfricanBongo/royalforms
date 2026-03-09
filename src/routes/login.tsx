@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type SubmitEvent, useState } from 'react'
 
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { CheckIcon, Loader2Icon, LockIcon, MailIcon } from 'lucide-react'
@@ -43,7 +43,7 @@ function LoginPage() {
 
   const isDisabled = buttonState === 'loading' || buttonState === 'success'
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
 
     if (!email.trim() || !password.trim()) {
