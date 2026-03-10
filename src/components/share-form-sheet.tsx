@@ -50,6 +50,7 @@ interface ShareFormSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   templateId: string
+  sharingMode?: string
   /** Called after a successful save so the parent can refresh stats. */
   onUpdated?: () => void
 }
@@ -62,6 +63,7 @@ export function ShareFormSheet({
   open,
   onOpenChange,
   templateId,
+  sharingMode,
   onUpdated,
 }: ShareFormSheetProps) {
   const [groups, setGroups] = useState<GroupAccessRow[]>([])
@@ -77,7 +79,7 @@ export function ShareFormSheet({
     async function load() {
       setLoading(true)
       try {
-        const data = await fetchGroupsWithAccess(templateId)
+        const data = await fetchGroupsWithAccess(templateId, sharingMode)
         setGroups(data)
         // Initialise checkboxes from current access
         setSelectedIds(new Set(
@@ -94,7 +96,7 @@ export function ShareFormSheet({
     }
 
     void load()
-  }, [open, templateId])
+  }, [open, templateId, sharingMode])
 
   // Filter groups by search
   const filtered = useMemo(() => {

@@ -50,17 +50,19 @@ Deno.serve(async (req) => {
     }
 
     // Parse the payload from pg_net (via database trigger)
+    // The trigger sends a flat object: { id, readable_id }
+    // Accept both flat and nested { record: { id, readable_id } } for robustness
     const body = await req.json();
-    const record = body.record;
+    const record = body.record ?? body;
     if (!record?.id || !record?.readable_id) {
       console.error(
-        "[on-instance-created] Missing record.id or record.readable_id in payload:",
+        "[on-instance-created] Missing id or readable_id in payload:",
         JSON.stringify(body),
       );
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Missing record.id or record.readable_id",
+          error: "Missing id or readable_id in payload",
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
@@ -80,11 +82,11 @@ Deno.serve(async (req) => {
       { baseUrl: shlinkBaseUrl, apiKey: shlinkApiKey },
     );
 
-    // Create two short URLs with f/ prefix and -view/-edit suffixes
-    // Short URL: short.domain/f/epr-001-view -> app.domain/forms/epr-001?mode=view
-    // Short URL: short.domain/f/epr-001-edit -> app.domain/forms/epr-001?mode=edit
-    const viewLongUrl = `${appBaseUrl}/forms/${readable_id}?mode=view`;
-    const editLongUrl = `${appBaseUrl}/forms/${readable_id}?mode=edit`;
+    // Create two short URLs with i/ prefix and -view/-edit suffixes
+    // Short URL: short.domain/i/abc1234567-view -> app.domain/instances/abc1234567?mode=view
+    // Short URL: short.domain/i/abc1234567-edit -> app.domain/instances/abc1234567?mode=edit
+    const viewLongUrl = `${appBaseUrl}/instances/${readable_id}?mode=view`;
+    const editLongUrl = `${appBaseUrl}/instances/${readable_id}?mode=edit`;
 
     console.info(
       "[on-instance-created] Creating view short URL for:",
@@ -92,7 +94,7 @@ Deno.serve(async (req) => {
     );
     const viewShortUrl = await shlinkClient.createShortUrl({
       longUrl: viewLongUrl,
-      customSlug: `f/${readable_id}-view`,
+      customSlug: `i/${readable_id}-view`,
     });
     console.info(
       "[on-instance-created] View short URL created:",
@@ -105,7 +107,7 @@ Deno.serve(async (req) => {
     );
     const editShortUrl = await shlinkClient.createShortUrl({
       longUrl: editLongUrl,
-      customSlug: `f/${readable_id}-edit`,
+      customSlug: `i/${readable_id}-edit`,
     });
     console.info(
       "[on-instance-created] Edit short URL created:",

@@ -18,6 +18,7 @@ import { Route as InviteAcceptRouteImport } from './routes/invite/accept'
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports/index'
 import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenticated/groups/index'
 import { Route as AuthenticatedFormsIndexRouteImport } from './routes/_authenticated/forms/index'
+import { Route as AuthenticatedInstancesReadableIdRouteImport } from './routes/_authenticated/instances/$readableId'
 import { Route as AuthenticatedGroupsGroupIdRouteImport } from './routes/_authenticated/groups/$groupId'
 import { Route as AuthenticatedFormsNewRouteImport } from './routes/_authenticated/forms/new'
 import { Route as AuthenticatedFormsTemplateIdRouteRouteImport } from './routes/_authenticated/forms/$templateId/route'
@@ -70,6 +71,12 @@ const AuthenticatedFormsIndexRoute = AuthenticatedFormsIndexRouteImport.update({
   path: '/forms/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedInstancesReadableIdRoute =
+  AuthenticatedInstancesReadableIdRouteImport.update({
+    id: '/instances/$readableId',
+    path: '/instances/$readableId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedGroupsGroupIdRoute =
   AuthenticatedGroupsGroupIdRouteImport.update({
     id: '/groups/$groupId',
@@ -109,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/forms/$templateId': typeof AuthenticatedFormsTemplateIdRouteRouteWithChildren
   '/forms/new': typeof AuthenticatedFormsNewRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
+  '/instances/$readableId': typeof AuthenticatedInstancesReadableIdRoute
   '/forms/': typeof AuthenticatedFormsIndexRoute
   '/groups/': typeof AuthenticatedGroupsIndexRoute
   '/reports/': typeof AuthenticatedReportsIndexRoute
@@ -123,6 +131,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/forms/new': typeof AuthenticatedFormsNewRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
+  '/instances/$readableId': typeof AuthenticatedInstancesReadableIdRoute
   '/forms': typeof AuthenticatedFormsIndexRoute
   '/groups': typeof AuthenticatedGroupsIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
@@ -140,6 +149,7 @@ export interface FileRoutesById {
   '/_authenticated/forms/$templateId': typeof AuthenticatedFormsTemplateIdRouteRouteWithChildren
   '/_authenticated/forms/new': typeof AuthenticatedFormsNewRoute
   '/_authenticated/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
+  '/_authenticated/instances/$readableId': typeof AuthenticatedInstancesReadableIdRoute
   '/_authenticated/forms/': typeof AuthenticatedFormsIndexRoute
   '/_authenticated/groups/': typeof AuthenticatedGroupsIndexRoute
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/forms/$templateId'
     | '/forms/new'
     | '/groups/$groupId'
+    | '/instances/$readableId'
     | '/forms/'
     | '/groups/'
     | '/reports/'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/'
     | '/forms/new'
     | '/groups/$groupId'
+    | '/instances/$readableId'
     | '/forms'
     | '/groups'
     | '/reports'
@@ -187,6 +199,7 @@ export interface FileRouteTypes {
     | '/_authenticated/forms/$templateId'
     | '/_authenticated/forms/new'
     | '/_authenticated/groups/$groupId'
+    | '/_authenticated/instances/$readableId'
     | '/_authenticated/forms/'
     | '/_authenticated/groups/'
     | '/_authenticated/reports/'
@@ -267,6 +280,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFormsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/instances/$readableId': {
+      id: '/_authenticated/instances/$readableId'
+      path: '/instances/$readableId'
+      fullPath: '/instances/$readableId'
+      preLoaderRoute: typeof AuthenticatedInstancesReadableIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/groups/$groupId': {
       id: '/_authenticated/groups/$groupId'
       path: '/groups/$groupId'
@@ -328,6 +348,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFormsTemplateIdRouteRoute: typeof AuthenticatedFormsTemplateIdRouteRouteWithChildren
   AuthenticatedFormsNewRoute: typeof AuthenticatedFormsNewRoute
   AuthenticatedGroupsGroupIdRoute: typeof AuthenticatedGroupsGroupIdRoute
+  AuthenticatedInstancesReadableIdRoute: typeof AuthenticatedInstancesReadableIdRoute
   AuthenticatedFormsIndexRoute: typeof AuthenticatedFormsIndexRoute
   AuthenticatedGroupsIndexRoute: typeof AuthenticatedGroupsIndexRoute
   AuthenticatedReportsIndexRoute: typeof AuthenticatedReportsIndexRoute
@@ -339,6 +360,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedFormsTemplateIdRouteRouteWithChildren,
   AuthenticatedFormsNewRoute: AuthenticatedFormsNewRoute,
   AuthenticatedGroupsGroupIdRoute: AuthenticatedGroupsGroupIdRoute,
+  AuthenticatedInstancesReadableIdRoute: AuthenticatedInstancesReadableIdRoute,
   AuthenticatedFormsIndexRoute: AuthenticatedFormsIndexRoute,
   AuthenticatedGroupsIndexRoute: AuthenticatedGroupsIndexRoute,
   AuthenticatedReportsIndexRoute: AuthenticatedReportsIndexRoute,
