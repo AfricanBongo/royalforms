@@ -807,10 +807,13 @@ export interface GroupAccessRow {
  * Fetch all active groups with their access status for a template.
  *
  * For each group, `has_access` is true if a `template_group_access` row
- * exists for the template. Results are ordered alphabetically by group name.
+ * exists for the template. When `sharing_mode` is `'all'`, every group
+ * is treated as having access (no individual access rows are stored).
+ * Results are ordered alphabetically by group name.
  */
 export async function fetchGroupsWithAccess(
   templateId: string,
+  sharingMode?: string,
 ): Promise<GroupAccessRow[]> {
   // Fetch all active groups
   const { data: groups, error: groupsError } = await supabase
@@ -820,6 +823,15 @@ export async function fetchGroupsWithAccess(
     .order('name')
 
   if (groupsError) throw groupsError
+
+  // When sharing_mode is 'all', every group has access
+  if (sharingMode === 'all') {
+    return (groups ?? []).map((g) => ({
+      group_id: g.id,
+      group_name: g.name,
+      has_access: true,
+    }))
+  }
 
   // Fetch existing access rows for this template
   const { data: accessRows, error: accessError } = await supabase
@@ -1128,4 +1140,654 @@ export async function restoreVersion(
   }
 
   return { versionNumber: newNum, sourceVersionNumber: sourceVer.version_number }
+}
+
+// ---------------------------------------------------------------------------
+// Form Instance helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a random 10-char alphanumeric readable_id.
+ * Matches the pattern used by the DB cron function.
+ */
+function generateReadableId(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  for (let i = 0; i < 10; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return result
+}
+
+// ---------------------------------------------------------------------------
+// Form Instance types
+// ---------------------------------------------------------------------------
+
+/** Simple group row for group selection tables. */
+export interface SimpleGroup {
+  id: string
+  name: string
+}
+
+/** A created instance row returned after bulk-creating instances. */
+export interface CreatedInstance {
+  id: string
+  readable_id: string
+  group_id: string
+  short_url_edit: string | null
+}
+
+/** Schedule data loaded for edit / display. */
+export interface ScheduleData {
+  id: string
+  start_date: string
+  repeat_interval: string
+  repeat_every: number
+  days_of_week: string[] | null
+  is_active: boolean
+  next_run_at: string
+  group_ids: string[]
+}
+
+/** Input for creating a new instance schedule. */
+export interface CreateScheduleInput {
+  templateId: string
+  startDate: string
+  repeatInterval: string
+  repeatEvery: number
+  daysOfWeek: string[] | null
+  groupIds: string[]
+}
+
+/** Input for updating an existing instance schedule. */
+export interface UpdateScheduleInput {
+  scheduleId: string
+  startDate: string
+  repeatInterval: string
+  repeatEvery: number
+  daysOfWeek: string[] | null
+  groupIds: string[]
+}
+
+// ---------------------------------------------------------------------------
+// Form Instance queries
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch all active groups (id + name) for group selection tables.
+ */
+export async function fetchActiveGroups(): Promise<SimpleGroup[]> {
+  const { data, error } = await supabase
+    .from('groups')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name')
+
+  if (error) throw error
+  return data ?? []
+}
+
+/**
+ * Create one form instance per selected group, using the latest published
+ * template version. Returns the created instances.
+ */
+export async function createFormInstances(
+  templateId: string,
+  groupIds: string[],
+): Promise<CreatedInstance[]> {
+  const user = await getCurrentAuthUser()
+
+  // Get latest published version
+  const { data: version, error: vErr } = await supabase
+    .from('template_versions')
+    .select('id')
+    .eq('template_id', templateId)
+    .eq('status', 'published')
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (vErr || !version) throw vErr ?? new Error('No published version found')
+
+  // Build insert rows — one per group
+  const rows = groupIds.map((groupId) => ({
+    readable_id: generateReadableId(),
+    template_version_id: version.id,
+    group_id: groupId,
+    created_by: user.id,
+  }))
+
+  const { data, error } = await supabase
+    .from('form_instances')
+    .insert(rows)
+    .select('id, readable_id, group_id, short_url_edit')
+
+  if (error) throw error
+  return data ?? []
+}
+
+// ---------------------------------------------------------------------------
+// Schedule queries
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch the existing schedule for a template (one-to-one), including group targets.
+ * Returns null if no schedule exists.
+ */
+export async function fetchTemplateSchedule(
+  templateId: string,
+): Promise<ScheduleData | null> {
+  const { data, error } = await supabase
+    .from('instance_schedules')
+    .select('id, start_date, repeat_interval, repeat_every, days_of_week, is_active, next_run_at')
+    .eq('template_id', templateId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+
+  // Fetch group targets
+  const { data: targets, error: tErr } = await supabase
+    .from('schedule_group_targets')
+    .select('group_id')
+    .eq('schedule_id', data.id)
+
+  if (tErr) throw tErr
+
+  return {
+    ...data,
+    days_of_week: data.days_of_week as string[] | null,
+    group_ids: (targets ?? []).map((t) => t.group_id),
+  }
+}
+
+/**
+ * Create a new instance schedule with group targets.
+ */
+export async function createInstanceSchedule(
+  input: CreateScheduleInput,
+): Promise<void> {
+  const user = await getCurrentAuthUser()
+
+  const { data: schedule, error: sErr } = await supabase
+    .from('instance_schedules')
+    .insert({
+      template_id: input.templateId,
+      start_date: input.startDate,
+      repeat_interval: input.repeatInterval,
+      repeat_every: input.repeatEvery,
+      days_of_week: input.daysOfWeek,
+      next_run_at: input.startDate,
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (sErr || !schedule) throw sErr ?? new Error('Failed to create schedule')
+
+  // Insert group targets
+  if (input.groupIds.length > 0) {
+    const targets = input.groupIds.map((groupId) => ({
+      schedule_id: schedule.id,
+      group_id: groupId,
+    }))
+
+    const { error: tErr } = await supabase
+      .from('schedule_group_targets')
+      .insert(targets)
+
+    if (tErr) throw tErr
+  }
+}
+
+/**
+ * Update an existing instance schedule and replace its group targets.
+ */
+export async function updateInstanceSchedule(
+  input: UpdateScheduleInput,
+): Promise<void> {
+  const { error: sErr } = await supabase
+    .from('instance_schedules')
+    .update({
+      start_date: input.startDate,
+      repeat_interval: input.repeatInterval,
+      repeat_every: input.repeatEvery,
+      days_of_week: input.daysOfWeek,
+      next_run_at: input.startDate,
+    })
+    .eq('id', input.scheduleId)
+
+  if (sErr) throw sErr
+
+  // Replace group targets: delete all, then re-insert
+  const { error: dErr } = await supabase
+    .from('schedule_group_targets')
+    .delete()
+    .eq('schedule_id', input.scheduleId)
+
+  if (dErr) throw dErr
+
+  if (input.groupIds.length > 0) {
+    const targets = input.groupIds.map((groupId) => ({
+      schedule_id: input.scheduleId,
+      group_id: groupId,
+    }))
+
+    const { error: tErr } = await supabase
+      .from('schedule_group_targets')
+      .insert(targets)
+
+    if (tErr) throw tErr
+  }
+}
+
+/**
+ * Delete an instance schedule. CASCADE deletes group targets.
+ */
+export async function deleteInstanceSchedule(
+  scheduleId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('instance_schedules')
+    .delete()
+    .eq('id', scheduleId)
+
+  if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Instance Page types
+// ---------------------------------------------------------------------------
+
+/** Full instance data loaded for the instance page. */
+export interface InstancePageData {
+  instance: {
+    id: string
+    readable_id: string
+    status: 'pending' | 'submitted'
+    group_id: string
+    group_name: string
+    created_at: string
+    submitted_at: string | null
+    submitted_by: string | null
+    template_version_id: string
+  }
+  template: {
+    id: string
+    name: string
+    description: string | null
+    version_number: number
+  }
+  sections: InstanceSection[]
+}
+
+export interface InstanceSection {
+  id: string
+  title: string
+  description: string | null
+  sort_order: number
+  fields: InstanceField[]
+}
+
+export interface InstanceField {
+  id: string
+  label: string
+  description: string | null
+  field_type: string
+  sort_order: number
+  is_required: boolean
+  options: string[] | null
+  validation_rules: Record<string, unknown> | null
+}
+
+export interface FieldValue {
+  id: string
+  template_field_id: string
+  value: string | null
+  assigned_to: string | null
+  assigned_by: string | null
+  change_log: ChangeLogEntry[]
+  updated_by: string
+  updated_at: string
+}
+
+export interface ChangeLogEntry {
+  old_value: string | null
+  new_value: string | null
+  changed_by: string
+  changed_by_name?: string
+  changed_at: string
+}
+
+export interface GroupMember {
+  id: string
+  full_name: string
+  role: string
+}
+
+// ---------------------------------------------------------------------------
+// Instance Page queries
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch full instance page data by readable_id.
+ * Assembles instance metadata, template info, sections, and fields.
+ */
+export async function fetchInstanceByReadableId(
+  readableId: string,
+): Promise<InstancePageData> {
+  // 1. Fetch instance with group name
+  const { data: instance, error: instErr } = await supabase
+    .from('form_instances')
+    .select(`
+      id,
+      readable_id,
+      status,
+      group_id,
+      created_at,
+      submitted_at,
+      submitted_by,
+      template_version_id,
+      groups!form_instances_group_id_fkey ( name )
+    `)
+    .eq('readable_id', readableId)
+    .single()
+
+  if (instErr) throw instErr
+
+  const group = instance.groups as unknown as { name: string } | null
+
+  // 2. Fetch template version with template name/description
+  const { data: version, error: verErr } = await supabase
+    .from('template_versions')
+    .select(`
+      id,
+      version_number,
+      form_templates!template_versions_template_id_fkey ( id, name, description )
+    `)
+    .eq('id', instance.template_version_id)
+    .single()
+
+  if (verErr) throw verErr
+
+  const tmpl = version.form_templates as unknown as {
+    id: string
+    name: string
+    description: string | null
+  } | null
+
+  // 3. Fetch sections for this template version
+  const { data: sections, error: secErr } = await supabase
+    .from('template_sections')
+    .select('id, title, description, sort_order')
+    .eq('template_version_id', instance.template_version_id)
+    .order('sort_order')
+
+  if (secErr) throw secErr
+
+  // 4. Fetch fields for all sections
+  const sectionIds = (sections ?? []).map((s) => s.id)
+  let allFields: Array<{
+    id: string
+    template_section_id: string
+    label: string
+    description: string | null
+    field_type: string
+    sort_order: number
+    is_required: boolean
+    options: Json | null
+    validation_rules: Json | null
+  }> = []
+
+  if (sectionIds.length > 0) {
+    const { data: fields, error: fieldsErr } = await supabase
+      .from('template_fields')
+      .select('id, template_section_id, label, description, field_type, sort_order, is_required, options, validation_rules')
+      .in('template_section_id', sectionIds)
+      .order('sort_order')
+
+    if (fieldsErr) throw fieldsErr
+    allFields = fields ?? []
+  }
+
+  // 5. Group fields by section
+  const assembledSections: InstanceSection[] = (sections ?? []).map((s) => ({
+    id: s.id,
+    title: s.title,
+    description: s.description,
+    sort_order: s.sort_order,
+    fields: allFields
+      .filter((f) => f.template_section_id === s.id)
+      .map((f) => ({
+        id: f.id,
+        label: f.label,
+        description: f.description,
+        field_type: f.field_type,
+        sort_order: f.sort_order,
+        is_required: f.is_required ?? false,
+        options: f.options as string[] | null,
+        validation_rules: f.validation_rules as Record<string, unknown> | null,
+      })),
+  }))
+
+  return {
+    instance: {
+      id: instance.id,
+      readable_id: instance.readable_id,
+      status: instance.status as 'pending' | 'submitted',
+      group_id: instance.group_id,
+      group_name: group?.name ?? 'Unknown',
+      created_at: instance.created_at,
+      submitted_at: instance.submitted_at,
+      submitted_by: instance.submitted_by,
+      template_version_id: instance.template_version_id,
+    },
+    template: {
+      id: tmpl?.id ?? '',
+      name: tmpl?.name ?? 'Unknown',
+      description: tmpl?.description ?? null,
+      version_number: version.version_number,
+    },
+    sections: assembledSections,
+  }
+}
+
+/**
+ * Fetch all field values for an instance.
+ * Parses the change_log JSONB column to typed array.
+ */
+export async function fetchFieldValues(
+  instanceId: string,
+): Promise<FieldValue[]> {
+  const { data, error } = await supabase
+    .from('field_values')
+    .select('id, template_field_id, value, assigned_to, assigned_by, change_log, updated_by, updated_at')
+    .eq('form_instance_id', instanceId)
+
+  if (error) throw error
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    template_field_id: row.template_field_id,
+    value: row.value,
+    assigned_to: row.assigned_to,
+    assigned_by: row.assigned_by,
+    change_log: (row.change_log ?? []) as unknown as ChangeLogEntry[],
+    updated_by: row.updated_by,
+    updated_at: row.updated_at,
+  }))
+}
+
+// ---------------------------------------------------------------------------
+// Instance Page mutations
+// ---------------------------------------------------------------------------
+
+/**
+ * Upsert a field value for an instance.
+ * If a row exists for (form_instance_id, template_field_id), updates value
+ * and appends to change_log. Otherwise, inserts a new row.
+ */
+export async function upsertFieldValue(
+  instanceId: string,
+  fieldId: string,
+  value: string | null,
+  oldValue: string | null,
+): Promise<FieldValue> {
+  const user = await getCurrentAuthUser()
+
+  // Check if a field_values row already exists
+  const { data: existing, error: findErr } = await supabase
+    .from('field_values')
+    .select('id, change_log')
+    .eq('form_instance_id', instanceId)
+    .eq('template_field_id', fieldId)
+    .maybeSingle()
+
+  if (findErr) throw findErr
+
+  const newEntry: ChangeLogEntry = {
+    old_value: oldValue,
+    new_value: value,
+    changed_by: user.id,
+    changed_at: new Date().toISOString(),
+  }
+
+  if (existing) {
+    // Update existing row
+    const currentLog = (existing.change_log ?? []) as unknown as ChangeLogEntry[]
+    const updatedLog = [...currentLog, newEntry]
+
+    const { data, error } = await supabase
+      .from('field_values')
+      .update({
+        value,
+        change_log: updatedLog as unknown as Json,
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+      .select('id, template_field_id, value, assigned_to, assigned_by, change_log, updated_by, updated_at')
+      .single()
+
+    if (error) throw error
+
+    return {
+      ...data,
+      change_log: (data.change_log ?? []) as unknown as ChangeLogEntry[],
+    }
+  }
+
+  // Insert new row
+  const { data, error } = await supabase
+    .from('field_values')
+    .insert({
+      form_instance_id: instanceId,
+      template_field_id: fieldId,
+      value,
+      change_log: [newEntry] as unknown as Json,
+      updated_by: user.id,
+    })
+    .select('id, template_field_id, value, assigned_to, assigned_by, change_log, updated_by, updated_at')
+    .single()
+
+  if (error) throw error
+
+  return {
+    ...data,
+    change_log: (data.change_log ?? []) as unknown as ChangeLogEntry[],
+  }
+}
+
+/**
+ * Assign (or unassign) a field to a user within an instance.
+ * If assignTo is null, clears both assigned_to and assigned_by (unassign).
+ * Creates a field_values row with value=null if none exists yet.
+ */
+export async function assignField(
+  instanceId: string,
+  fieldId: string,
+  assignTo: string | null,
+): Promise<void> {
+  const user = await getCurrentAuthUser()
+
+  // Check if a field_values row already exists
+  const { data: existing, error: findErr } = await supabase
+    .from('field_values')
+    .select('id')
+    .eq('form_instance_id', instanceId)
+    .eq('template_field_id', fieldId)
+    .maybeSingle()
+
+  if (findErr) throw findErr
+
+  if (existing) {
+    // Update existing row
+    const { error } = await supabase
+      .from('field_values')
+      .update({
+        assigned_to: assignTo,
+        assigned_by: assignTo ? user.id : null,
+      })
+      .eq('id', existing.id)
+
+    if (error) throw error
+    return
+  }
+
+  // Create new row with value=null
+  const { error } = await supabase
+    .from('field_values')
+    .insert({
+      form_instance_id: instanceId,
+      template_field_id: fieldId,
+      value: null,
+      assigned_to: assignTo,
+      assigned_by: assignTo ? user.id : null,
+      updated_by: user.id,
+    })
+
+  if (error) throw error
+}
+
+/**
+ * Submit a form instance — sets status to 'submitted' with timestamp.
+ */
+export async function submitInstance(
+  instanceId: string,
+): Promise<void> {
+  const user = await getCurrentAuthUser()
+
+  const { error } = await supabase
+    .from('form_instances')
+    .update({
+      status: 'submitted',
+      submitted_by: user.id,
+      submitted_at: new Date().toISOString(),
+    })
+    .eq('id', instanceId)
+
+  if (error) throw error
+}
+
+/**
+ * Fetch group members (admin + editor roles) for field assignment.
+ * Ordered alphabetically by full_name.
+ */
+export async function fetchGroupMembers(
+  groupId: string,
+): Promise<GroupMember[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, role')
+    .eq('group_id', groupId)
+    .in('role', ['admin', 'editor'])
+    .order('full_name')
+
+  if (error) throw error
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    full_name: row.full_name,
+    role: row.role,
+  }))
 }
