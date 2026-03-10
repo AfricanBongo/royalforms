@@ -3,6 +3,35 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.6.0](https://github.com/AfricanBongo/royalforms/compare/v0.5.0...v0.6.0) (2026-03-10)
+
+
+### Features
+
+* **db:** add RLS role targets and increase readable_id to 10 chars ([ac768f0](https://github.com/AfricanBongo/royalforms/commit/ac768f07f47213c723ee4219c487ec73e5634525))
+* **forms:** add create/schedule instance sheets and success dialogs ([162b814](https://github.com/AfricanBongo/royalforms/commit/162b814f511fae18cceffab2b10d1b1314b16cf8))
+* **forms:** add More dropdown, delete template, archived tab, and bottom pagination ([05f8ba3](https://github.com/AfricanBongo/royalforms/commit/05f8ba341b648056a6cb7b48c299450e944da80d))
+* **forms:** add version history service functions (fetch + restore) ([9234292](https://github.com/AfricanBongo/royalforms/commit/923429239e9d79da5bc6f1c06d0ce6b0b8d91e99))
+* **forms:** add VersionHistorySheet component with restore flow ([5ffcb41](https://github.com/AfricanBongo/royalforms/commit/5ffcb410b48c1a3409c405134e6e77aea1df7a47))
+* **forms:** wire Versions button to open version history sheet ([443c02d](https://github.com/AfricanBongo/royalforms/commit/443c02db0bb08cd1ef14a529d15ca0eb68108f99))
+* **instances:** add field input, assignment popover, change log, and section stepper components ([209b070](https://github.com/AfricanBongo/royalforms/commit/209b0706797f1bd581dda931bd30216056f632e7))
+* **instances:** build full instance page with wizard navigation and auto-save ([e49208c](https://github.com/AfricanBongo/royalforms/commit/e49208c600809c607a7f12694d5740b6f8ca639f))
+* **services:** add instance page data loading and mutation functions ([262acd8](https://github.com/AfricanBongo/royalforms/commit/262acd85c094e5600af229c5ebc6fdeb8f4ea889))
+
+
+### Bug Fixes
+
+* **db:** rename form instance status from 'draft' to 'pending' ([e131cab](https://github.com/AfricanBongo/royalforms/commit/e131cab0cfee4d605029e4d94ed23845ec08da97))
+* **instances:** fix edge function payload, URL patterns, and share sheet sharing mode ([7e268cc](https://github.com/AfricanBongo/royalforms/commit/7e268cc46fc2e58ec92a0b1a8f189e8b8762e85d))
+
+
+### Documentation
+
+* add design plans for instance creation and instance pages ([7bc6755](https://github.com/AfricanBongo/royalforms/commit/7bc67559cfc65753e91c069334f8a8eb671a151e))
+* **todo:** check off version history sheet ([dbd9a75](https://github.com/AfricanBongo/royalforms/commit/dbd9a7593e5d66d5bd73eb7100f5bf53a45641ee))
+* **todo:** update with delete/archive items and check off completed work ([a4387ae](https://github.com/AfricanBongo/royalforms/commit/a4387aeba9a9c5a1152413dd6532d336035470bd))
+* update TODO with completed form instance items ([3f45967](https://github.com/AfricanBongo/royalforms/commit/3f4596712665c61545133a851db20e7c56e93eda))
+
 ## [0.5.0](https://github.com/AfricanBongo/royalforms/compare/v0.4.0...v0.5.0) (2026-03-10)
 
 
