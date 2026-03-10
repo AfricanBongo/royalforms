@@ -20,8 +20,9 @@ import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedFormsIndexRouteImport } from './routes/_authenticated/forms/index'
 import { Route as AuthenticatedGroupsGroupIdRouteImport } from './routes/_authenticated/groups/$groupId'
 import { Route as AuthenticatedFormsNewRouteImport } from './routes/_authenticated/forms/new'
-import { Route as AuthenticatedFormsTemplateIdRouteImport } from './routes/_authenticated/forms/$templateId'
-import { Route as AuthenticatedFormsTemplateIdEditRouteImport } from './routes/_authenticated/forms.$templateId.edit'
+import { Route as AuthenticatedFormsTemplateIdRouteRouteImport } from './routes/_authenticated/forms/$templateId/route'
+import { Route as AuthenticatedFormsTemplateIdIndexRouteImport } from './routes/_authenticated/forms/$templateId/index'
+import { Route as AuthenticatedFormsTemplateIdEditRouteImport } from './routes/_authenticated/forms/$templateId/edit'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -80,17 +81,23 @@ const AuthenticatedFormsNewRoute = AuthenticatedFormsNewRouteImport.update({
   path: '/forms/new',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedFormsTemplateIdRoute =
-  AuthenticatedFormsTemplateIdRouteImport.update({
+const AuthenticatedFormsTemplateIdRouteRoute =
+  AuthenticatedFormsTemplateIdRouteRouteImport.update({
     id: '/forms/$templateId',
     path: '/forms/$templateId',
     getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFormsTemplateIdIndexRoute =
+  AuthenticatedFormsTemplateIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedFormsTemplateIdRouteRoute,
   } as any)
 const AuthenticatedFormsTemplateIdEditRoute =
   AuthenticatedFormsTemplateIdEditRouteImport.update({
     id: '/edit',
     path: '/edit',
-    getParentRoute: () => AuthenticatedFormsTemplateIdRoute,
+    getParentRoute: () => AuthenticatedFormsTemplateIdRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -99,13 +106,14 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/invite/accept': typeof InviteAcceptRoute
-  '/forms/$templateId': typeof AuthenticatedFormsTemplateIdRouteWithChildren
+  '/forms/$templateId': typeof AuthenticatedFormsTemplateIdRouteRouteWithChildren
   '/forms/new': typeof AuthenticatedFormsNewRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/forms/': typeof AuthenticatedFormsIndexRoute
   '/groups/': typeof AuthenticatedGroupsIndexRoute
   '/reports/': typeof AuthenticatedReportsIndexRoute
   '/forms/$templateId/edit': typeof AuthenticatedFormsTemplateIdEditRoute
+  '/forms/$templateId/': typeof AuthenticatedFormsTemplateIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
@@ -113,13 +121,13 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/invite/accept': typeof InviteAcceptRoute
   '/': typeof AuthenticatedIndexRoute
-  '/forms/$templateId': typeof AuthenticatedFormsTemplateIdRouteWithChildren
   '/forms/new': typeof AuthenticatedFormsNewRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/forms': typeof AuthenticatedFormsIndexRoute
   '/groups': typeof AuthenticatedGroupsIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/forms/$templateId/edit': typeof AuthenticatedFormsTemplateIdEditRoute
+  '/forms/$templateId': typeof AuthenticatedFormsTemplateIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -129,13 +137,14 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/invite/accept': typeof InviteAcceptRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/forms/$templateId': typeof AuthenticatedFormsTemplateIdRouteWithChildren
+  '/_authenticated/forms/$templateId': typeof AuthenticatedFormsTemplateIdRouteRouteWithChildren
   '/_authenticated/forms/new': typeof AuthenticatedFormsNewRoute
   '/_authenticated/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/_authenticated/forms/': typeof AuthenticatedFormsIndexRoute
   '/_authenticated/groups/': typeof AuthenticatedGroupsIndexRoute
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/forms/$templateId/edit': typeof AuthenticatedFormsTemplateIdEditRoute
+  '/_authenticated/forms/$templateId/': typeof AuthenticatedFormsTemplateIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/groups/'
     | '/reports/'
     | '/forms/$templateId/edit'
+    | '/forms/$templateId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forgot-password'
@@ -159,13 +169,13 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/invite/accept'
     | '/'
-    | '/forms/$templateId'
     | '/forms/new'
     | '/groups/$groupId'
     | '/forms'
     | '/groups'
     | '/reports'
     | '/forms/$templateId/edit'
+    | '/forms/$templateId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/_authenticated/groups/'
     | '/_authenticated/reports/'
     | '/_authenticated/forms/$templateId/edit'
+    | '/_authenticated/forms/$templateId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -274,37 +285,47 @@ declare module '@tanstack/react-router' {
       id: '/_authenticated/forms/$templateId'
       path: '/forms/$templateId'
       fullPath: '/forms/$templateId'
-      preLoaderRoute: typeof AuthenticatedFormsTemplateIdRouteImport
+      preLoaderRoute: typeof AuthenticatedFormsTemplateIdRouteRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/forms/$templateId/': {
+      id: '/_authenticated/forms/$templateId/'
+      path: '/'
+      fullPath: '/forms/$templateId/'
+      preLoaderRoute: typeof AuthenticatedFormsTemplateIdIndexRouteImport
+      parentRoute: typeof AuthenticatedFormsTemplateIdRouteRoute
     }
     '/_authenticated/forms/$templateId/edit': {
       id: '/_authenticated/forms/$templateId/edit'
       path: '/edit'
       fullPath: '/forms/$templateId/edit'
       preLoaderRoute: typeof AuthenticatedFormsTemplateIdEditRouteImport
-      parentRoute: typeof AuthenticatedFormsTemplateIdRoute
+      parentRoute: typeof AuthenticatedFormsTemplateIdRouteRoute
     }
   }
 }
 
-interface AuthenticatedFormsTemplateIdRouteChildren {
+interface AuthenticatedFormsTemplateIdRouteRouteChildren {
   AuthenticatedFormsTemplateIdEditRoute: typeof AuthenticatedFormsTemplateIdEditRoute
+  AuthenticatedFormsTemplateIdIndexRoute: typeof AuthenticatedFormsTemplateIdIndexRoute
 }
 
-const AuthenticatedFormsTemplateIdRouteChildren: AuthenticatedFormsTemplateIdRouteChildren =
+const AuthenticatedFormsTemplateIdRouteRouteChildren: AuthenticatedFormsTemplateIdRouteRouteChildren =
   {
     AuthenticatedFormsTemplateIdEditRoute:
       AuthenticatedFormsTemplateIdEditRoute,
+    AuthenticatedFormsTemplateIdIndexRoute:
+      AuthenticatedFormsTemplateIdIndexRoute,
   }
 
-const AuthenticatedFormsTemplateIdRouteWithChildren =
-  AuthenticatedFormsTemplateIdRoute._addFileChildren(
-    AuthenticatedFormsTemplateIdRouteChildren,
+const AuthenticatedFormsTemplateIdRouteRouteWithChildren =
+  AuthenticatedFormsTemplateIdRouteRoute._addFileChildren(
+    AuthenticatedFormsTemplateIdRouteRouteChildren,
   )
 
 interface AuthenticatedRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedFormsTemplateIdRoute: typeof AuthenticatedFormsTemplateIdRouteWithChildren
+  AuthenticatedFormsTemplateIdRouteRoute: typeof AuthenticatedFormsTemplateIdRouteRouteWithChildren
   AuthenticatedFormsNewRoute: typeof AuthenticatedFormsNewRoute
   AuthenticatedGroupsGroupIdRoute: typeof AuthenticatedGroupsGroupIdRoute
   AuthenticatedFormsIndexRoute: typeof AuthenticatedFormsIndexRoute
@@ -314,8 +335,8 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedFormsTemplateIdRoute:
-    AuthenticatedFormsTemplateIdRouteWithChildren,
+  AuthenticatedFormsTemplateIdRouteRoute:
+    AuthenticatedFormsTemplateIdRouteRouteWithChildren,
   AuthenticatedFormsNewRoute: AuthenticatedFormsNewRoute,
   AuthenticatedGroupsGroupIdRoute: AuthenticatedGroupsGroupIdRoute,
   AuthenticatedFormsIndexRoute: AuthenticatedFormsIndexRoute,

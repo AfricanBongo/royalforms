@@ -11,11 +11,11 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Badge } from '../../../components/ui/badge'
-import { Button } from '../../../components/ui/button'
-import { Checkbox } from '../../../components/ui/checkbox'
-import { Input } from '../../../components/ui/input'
-import { Separator } from '../../../components/ui/separator'
+import { Badge } from '../../../../components/ui/badge'
+import { Button } from '../../../../components/ui/button'
+import { Checkbox } from '../../../../components/ui/checkbox'
+import { Input } from '../../../../components/ui/input'
+import { Separator } from '../../../../components/ui/separator'
 import {
   Table,
   TableBody,
@@ -23,23 +23,23 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../../../components/ui/table'
-import { ShareFormSheet } from '../../../components/share-form-sheet'
-import { StatCard } from '../../../components/stat-card'
-import { useCurrentUser } from '../../../hooks/use-current-user'
-import { usePageTitle } from '../../../hooks/use-page-title'
+} from '../../../../components/ui/table'
+import { ShareFormSheet } from '../../../../components/share-form-sheet'
+import { StatCard } from '../../../../components/stat-card'
+import { useCurrentUser } from '../../../../hooks/use-current-user'
+import { usePageTitle } from '../../../../hooks/use-page-title'
 import {
   fetchGroupAccessCount,
   fetchTemplateDetail,
   fetchTemplateInstances,
-} from '../../../services/form-templates'
+} from '../../../../services/form-templates'
 import type {
   InstanceRow,
   TemplateDetail,
-} from '../../../services/form-templates'
-import { mapSupabaseError } from '../../../lib/supabase-errors'
+} from '../../../../services/form-templates'
+import { mapSupabaseError } from '../../../../lib/supabase-errors'
 
-export const Route = createFileRoute('/_authenticated/forms/$templateId')({
+export const Route = createFileRoute('/_authenticated/forms/$templateId/')({
   component: TemplateDetailPage,
 })
 

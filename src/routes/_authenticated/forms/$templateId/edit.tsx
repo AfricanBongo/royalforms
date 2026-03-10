@@ -1,20 +1,22 @@
 /**
  * /forms/:templateId/edit — Form builder page for editing an existing template.
  *
- * Creates a new version of the template when published (per system design:
- * editing creates new version, existing instances stay on their version).
+ * Auto-save: Changes are debounced (3s) and persisted automatically.
  *
- * Loads the latest version's sections and fields into the builder state,
- * then uses the same BuilderSection components as the /forms/new page.
+ * For draft templates (never published): auto-save updates in-place.
+ * For published templates: a draft version is created on first load,
+ * then auto-save updates that draft version in-place.
+ *
+ * Header shows: [Draft|Published] · vN · [save status] + action buttons
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { createFileRoute, useBlocker, useNavigate } from '@tanstack/react-router'
-import { SaveIcon } from 'lucide-react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { ShareIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { BuilderSection } from '../../components/builder-section'
-import { Button } from '../../components/ui/button'
+import { BuilderSection } from '../../../../components/builder-section'
+import { Button } from '../../../../components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -22,20 +24,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../../components/ui/dialog'
-import { useFormBuilder, FIELD_TYPE } from '../../hooks/use-form-builder'
-import { usePageTitle } from '../../hooks/use-page-title'
+} from '../../../../components/ui/dialog'
+import { useAutoSave } from '../../../../hooks/use-auto-save'
+import { useFormBuilder, FIELD_TYPE } from '../../../../hooks/use-form-builder'
+import { usePageTitle } from '../../../../hooks/use-page-title'
 import {
   fetchTemplateForEditing,
-  fetchTemplateDetail,
-  createTemplateVersion,
-  updateDraft,
+  createDraftVersion,
+  deleteDraftTemplate,
+  discardDraftVersion,
   publishDraft,
-} from '../../services/form-templates'
-import { mapSupabaseError } from '../../lib/supabase-errors'
+} from '../../../../services/form-templates'
+import { mapSupabaseError } from '../../../../lib/supabase-errors'
 
-import type { BuilderField, BuilderState, FieldType } from '../../hooks/use-form-builder'
-import type { TemplateVersionData } from '../../services/form-templates'
+import type { SaveStatus } from '../../../../hooks/use-auto-save'
+import type { BuilderField, BuilderState, FieldType } from '../../../../hooks/use-form-builder'
+import type { TemplateVersionData } from '../../../../services/form-templates'
 
 export const Route = createFileRoute('/_authenticated/forms/$templateId/edit')({
   component: EditFormPage,
@@ -54,9 +58,7 @@ function toBuilderState(data: TemplateVersionData): BuilderState {
 
   return {
     name: data.template.name,
-    abbreviation: data.template.abbreviation,
     description: data.template.description ?? '',
-    isAbbreviationManual: true,
     sections: data.sections.map((sec) => ({
       clientId: makeId(),
       title: sec.title,
@@ -86,88 +88,119 @@ function toBuilderState(data: TemplateVersionData): BuilderState {
 }
 
 // ---------------------------------------------------------------------------
+// Save status display
+// ---------------------------------------------------------------------------
+
+function saveStatusLabel(status: SaveStatus): string | null {
+  switch (status) {
+    case 'dirty': return 'Editing'
+    case 'saving': return 'Saving...'
+    case 'saved': return 'Saved'
+    case 'error': return 'Save failed'
+    default: return null
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
 function EditFormPage() {
   const { templateId } = Route.useParams()
   const navigate = useNavigate()
-  const { setPageTitle, setHeaderActions } = usePageTitle()
+  const { setBreadcrumbs, setHeaderActions } = usePageTitle()
 
   const [loading, setLoading] = useState(true)
-  const [isDraft, setIsDraft] = useState(false)
+  const [templateStatus, setTemplateStatus] = useState<'draft' | 'published'>('draft')
+  const [versionNumber, setVersionNumber] = useState(1)
   const [isPublishing, setIsPublishing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false)
 
   const builder = useFormBuilder()
   const { state } = builder
 
-  // Block navigation on draft pages with a confirmation dialog
-  const blocker = useBlocker({
-    shouldBlockFn: () => isDraft,
-    withResolver: true,
+  // Auto-save — templateId is always known on this page
+  const { saveStatus, flush } = useAutoSave({
+    templateId,
+    builderState: state,
+    toCreateInput: builder.toCreateInput,
   })
 
-  // Update breadcrumb dynamically with form name
-  useEffect(() => {
-    setPageTitle(state.name.trim() || 'Edit Form')
-  }, [state.name, setPageTitle])
+  // Refs to hold latest handlers so header buttons never use stale closures
+  const handlePublishRef = useRef<() => void>(() => {})
+  const handleDiscardRef = useRef<() => void>(() => {})
 
-  // Inject header buttons — conditional based on draft status
+  // Update breadcrumbs: Forms > [Form Name] > Edit
   useEffect(() => {
-    if (isDraft) {
-      setHeaderActions(
-        <>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSaveDraft}
-            disabled={isSaving || isPublishing}
-          >
-            {isSaving ? 'Saving...' : 'Save Draft'}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handlePublishDraft}
-            disabled={isSaving || isPublishing}
-            className="gap-2"
-          >
-            <SaveIcon className="size-4" />
-            {isPublishing ? 'Publishing...' : 'Publish'}
-          </Button>
-        </>,
-      )
-    } else {
-      setHeaderActions(
+    const formName = state.name.trim() || 'Untitled Form'
+    setBreadcrumbs([
+      { label: formName, path: `/forms/${templateId}` },
+      { label: 'Edit', path: `/forms/${templateId}/edit` },
+    ])
+    return () => {
+      setBreadcrumbs([])
+    }
+  }, [state.name, templateId, setBreadcrumbs])
+
+  // Inject header actions: status indicator + Discard Draft + Publish
+  useEffect(() => {
+    const statusText = saveStatusLabel(saveStatus)
+    const statusBadge = templateStatus === 'draft' ? 'Draft' : 'Published'
+    const publishLabel = templateStatus === 'published' ? 'Publish New Version' : 'Publish'
+
+    setHeaderActions(
+      <>
+        {/* Status indicator */}
+        <span className="mr-2 text-sm text-muted-foreground">
+          {statusBadge} · v{versionNumber}
+          {statusText && <> · {statusText}</>}
+        </span>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleDiscardRef.current()}
+          disabled={isPublishing}
+        >
+          Discard Draft
+        </Button>
         <Button
           size="sm"
-          onClick={handlePublish}
-          disabled={isPublishing}
+          onClick={() => handlePublishRef.current()}
+          disabled={isPublishing || saveStatus === 'saving'}
           className="gap-2"
         >
-          <SaveIcon className="size-4" />
-          {isPublishing ? 'Publishing...' : 'Publish New Version'}
-        </Button>,
-      )
-    }
+          <ShareIcon className="size-4" />
+          {isPublishing ? 'Publishing...' : publishLabel}
+        </Button>
+      </>,
+    )
     return () => {
-      setPageTitle(null)
       setHeaderActions(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDraft, isSaving, isPublishing, setHeaderActions])
+  }, [saveStatus, isPublishing, templateStatus, versionNumber, setHeaderActions])
 
   // Load existing template data
   useEffect(() => {
     async function load() {
       try {
-        const data = await fetchTemplateForEditing(templateId)
+        let data = await fetchTemplateForEditing(templateId)
+
+        // If this is a published template with a published latest version,
+        // create a draft version for editing
+        if (data.template.status === 'published' && data.version.status === 'published') {
+          const { versionNumber: newVerNum } = await createDraftVersion(templateId)
+          // Re-fetch to get the new draft version's sections/fields
+          data = await fetchTemplateForEditing(templateId)
+          setVersionNumber(newVerNum)
+        } else {
+          setVersionNumber(data.version.version_number)
+        }
+
+        setTemplateStatus(data.template.status as 'draft' | 'published')
         const initial = toBuilderState(data)
         builder.setState(initial)
-
-        // Check if this template is still a draft
-        const detail = await fetchTemplateDetail(templateId)
-        setIsDraft(detail.status === 'draft')
       } catch (err: unknown) {
         const error = err as { code?: string; message: string }
         const mapped = mapSupabaseError(error.code, error.message, 'database', 'read_record')
@@ -183,69 +216,31 @@ function EditFormPage() {
   }, [templateId])
 
   // -------------------------------------------------------------------------
-  // Save Draft (update existing draft in-place)
+  // Discard Draft
   // -------------------------------------------------------------------------
 
-  async function handleSaveDraft() {
-    if (!state.name.trim()) {
-      toast.error('Form title is required to save a draft.')
-      return
-    }
-
-    setIsSaving(true)
+  async function handleDiscard() {
+    setShowDiscardDialog(false)
     try {
-      const input = builder.toCreateInput()
-      await updateDraft(templateId, {
-        name: input.name,
-        abbreviation: input.abbreviation,
-        description: input.description,
-        sections: input.sections,
-      })
-      toast.success('Draft saved!')
+      if (templateStatus === 'draft') {
+        // Never-published template — delete entirely
+        await deleteDraftTemplate(templateId)
+        void navigate({ to: '/forms' })
+      } else {
+        // Published template — discard draft version, restore previous
+        await discardDraftVersion(templateId)
+        void navigate({ to: '/forms/$templateId', params: { templateId } })
+      }
     } catch (err: unknown) {
       const error = err as { code?: string; message: string }
-      const mapped = mapSupabaseError(error.code, error.message, 'database', 'create_record')
+      const mapped = mapSupabaseError(error.code, error.message, 'database', 'delete_record')
       toast.error(mapped.title, { description: mapped.description })
-    } finally {
-      setIsSaving(false)
     }
   }
+  handleDiscardRef.current = () => setShowDiscardDialog(true)
 
   // -------------------------------------------------------------------------
-  // Publish Draft (save then change status to published)
-  // -------------------------------------------------------------------------
-
-  async function handlePublishDraft() {
-    const errors = builder.validate()
-    if (errors.length > 0) {
-      errors.forEach((msg) => toast.error(msg))
-      return
-    }
-
-    setIsPublishing(true)
-    try {
-      const input = builder.toCreateInput()
-      await updateDraft(templateId, {
-        name: input.name,
-        abbreviation: input.abbreviation,
-        description: input.description,
-        sections: input.sections,
-      })
-      await publishDraft(templateId)
-      toast.success('Form published!')
-      blocker.proceed?.()
-      void navigate({ to: '/forms/$templateId', params: { templateId } })
-    } catch (err: unknown) {
-      const error = err as { code?: string; message: string }
-      const mapped = mapSupabaseError(error.code, error.message, 'database', 'create_record')
-      toast.error(mapped.title, { description: mapped.description })
-    } finally {
-      setIsPublishing(false)
-    }
-  }
-
-  // -------------------------------------------------------------------------
-  // Publish new version (for already-published templates)
+  // Publish / Publish New Version
   // -------------------------------------------------------------------------
 
   async function handlePublish() {
@@ -257,13 +252,14 @@ function EditFormPage() {
 
     setIsPublishing(true)
     try {
-      const input = builder.toCreateInput()
-      await createTemplateVersion(templateId, {
-        name: input.name,
-        description: input.description,
-        sections: input.sections,
-      })
-      toast.success('New version published successfully!')
+      // Flush any pending auto-save first
+      await flush()
+      await publishDraft(templateId)
+      toast.success(
+        templateStatus === 'published'
+          ? 'New version published!'
+          : 'Form published successfully!',
+      )
       void navigate({ to: '/forms/$templateId', params: { templateId } })
     } catch (err: unknown) {
       const error = err as { code?: string; message: string }
@@ -273,6 +269,7 @@ function EditFormPage() {
       setIsPublishing(false)
     }
   }
+  handlePublishRef.current = handlePublish
 
   // -------------------------------------------------------------------------
   // Render
@@ -315,14 +312,6 @@ function EditFormPage() {
               >
                 {state.description}
               </p>
-            </div>
-
-            {/* Abbreviation (read-only in edit mode) */}
-            <div className="mt-2 flex items-center gap-2">
-              <label className="text-sm text-muted-foreground">
-                Abbreviation:
-              </label>
-              <span className="text-sm font-medium">{state.abbreviation}</span>
             </div>
           </div>
 
@@ -377,21 +366,25 @@ function EditFormPage() {
         </div>
       </div>
 
-      {/* Navigation blocker confirmation dialog (draft only) */}
-      <Dialog open={blocker.status === 'blocked'} onOpenChange={(open) => { if (!open) blocker.reset?.() }}>
+      {/* Discard draft confirmation dialog */}
+      <Dialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Leave this page?</DialogTitle>
+            <DialogTitle>
+              {templateStatus === 'draft' ? 'Discard draft?' : 'Discard changes?'}
+            </DialogTitle>
             <DialogDescription>
-              Any unsaved changes to your draft will be lost.
+              {templateStatus === 'draft'
+                ? 'This form and all its fields will be permanently deleted. This action cannot be undone.'
+                : 'Your draft changes will be discarded and the previous published version will be restored.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => blocker.reset?.()}>
+            <Button variant="outline" onClick={() => setShowDiscardDialog(false)}>
               Keep editing
             </Button>
-            <Button variant="destructive" onClick={() => blocker.proceed?.()}>
-              Leave
+            <Button variant="destructive" onClick={() => void handleDiscard()}>
+              Discard
             </Button>
           </DialogFooter>
         </DialogContent>

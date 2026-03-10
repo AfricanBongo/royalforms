@@ -2,7 +2,9 @@
  * Page title context — allows child routes to communicate their page title
  * and optional header actions up to the authenticated layout.
  *
- * - `pageTitle` appears in the breadcrumb trail
+ * - `pageTitle` appears as the final breadcrumb crumb (simple single-crumb case)
+ * - `breadcrumbs` allows child routes to define multiple crumbs
+ *   (e.g. "Form Name" > "Edit") that the HeaderBar appends after known segments
  * - `headerActions` renders in the header bar, right-aligned (e.g. Publish button)
  */
 import {
@@ -15,11 +17,20 @@ import {
 
 import type { ReactNode } from 'react'
 
+export interface BreadcrumbSegment {
+  label: string
+  path: string
+}
+
 interface PageTitleContextValue {
-  /** The dynamic page title set by the current route */
+  /** The dynamic page title set by the current route (simple single-crumb) */
   pageTitle: string | null
-  /** Set the page title from a child route */
+  /** Set the page title from a child route (single crumb) */
   setPageTitle: (title: string | null) => void
+  /** Multi-segment breadcrumbs set by child routes */
+  breadcrumbs: BreadcrumbSegment[]
+  /** Set multiple breadcrumb segments from a child route */
+  setBreadcrumbs: (crumbs: BreadcrumbSegment[]) => void
   /** Optional ReactNode rendered right-aligned in the header bar */
   headerActions: ReactNode | null
   /** Set header action buttons from a child route */
@@ -30,10 +41,19 @@ const PageTitleContext = createContext<PageTitleContextValue | null>(null)
 
 export function PageTitleProvider({ children }: { children: ReactNode }) {
   const [pageTitle, setPageTitleState] = useState<string | null>(null)
+  const [breadcrumbs, setBreadcrumbsState] = useState<BreadcrumbSegment[]>([])
   const [headerActions, setHeaderActionsState] = useState<ReactNode | null>(null)
 
   const setPageTitle = useCallback((title: string | null) => {
     setPageTitleState(title)
+    // Clear breadcrumbs when using simple pageTitle
+    setBreadcrumbsState([])
+  }, [])
+
+  const setBreadcrumbs = useCallback((crumbs: BreadcrumbSegment[]) => {
+    setBreadcrumbsState(crumbs)
+    // Clear pageTitle when using breadcrumbs
+    setPageTitleState(null)
   }, [])
 
   const setHeaderActions = useCallback((actions: ReactNode | null) => {
@@ -41,8 +61,8 @@ export function PageTitleProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ pageTitle, setPageTitle, headerActions, setHeaderActions }),
-    [pageTitle, setPageTitle, headerActions, setHeaderActions],
+    () => ({ pageTitle, setPageTitle, breadcrumbs, setBreadcrumbs, headerActions, setHeaderActions }),
+    [pageTitle, setPageTitle, breadcrumbs, setBreadcrumbs, headerActions, setHeaderActions],
   )
 
   return (

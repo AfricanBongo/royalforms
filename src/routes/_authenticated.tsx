@@ -88,7 +88,7 @@ function AuthenticatedLayout() {
 
 function HeaderBar() {
   const matches = useMatches()
-  const { pageTitle, headerActions } = usePageTitle()
+  const { pageTitle, breadcrumbs: contextBreadcrumbs, headerActions } = usePageTitle()
 
   // Build breadcrumb trail from URL path
   const currentPath = matches[matches.length - 1]?.pathname ?? '/'
@@ -110,8 +110,10 @@ function HeaderBar() {
     }
   }
 
-  // If there's a dynamic page title (e.g. group name), add it as the last crumb
-  if (pageTitle && crumbs.length > 0) {
+  // Append child-route breadcrumbs (multi-segment) or pageTitle (single crumb)
+  if (contextBreadcrumbs.length > 0) {
+    crumbs.push(...contextBreadcrumbs)
+  } else if (pageTitle && crumbs.length > 0) {
     crumbs.push({ label: pageTitle, path: currentPath })
   }
 
