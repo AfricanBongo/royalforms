@@ -99,7 +99,7 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Field limits via "More" button (min/max chars, date range, file types, etc.)
 - [x] Editable field subtitle/description for all field types
 - [x] Draft badge and routing in templates list
-- [ ] Version history side sheet (view, restore)
+- [x] Version history side sheet (restore only; view deferred to form instances)
 - [x] Sharing settings side sheet (all vs restricted groups)
 
 ## Feature: Form Instances
