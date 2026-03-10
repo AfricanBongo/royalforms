@@ -102,6 +102,16 @@ export interface LoadedField {
   validation_rules: Json | null
 }
 
+/** Row returned by the version history query. */
+export interface VersionHistoryRow {
+  id: string
+  version_number: number
+  is_latest: boolean
+  restored_from: string | null
+  status: string
+  created_at: string
+}
+
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
@@ -929,4 +939,152 @@ export async function fetchTemplateForEditing(
     },
     sections: loadedSections,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Version History
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch the published version history for a template, newest first.
+ * Optionally filter by a date range.
+ */
+export async function fetchVersionHistory(
+  templateId: string,
+  dateRange?: { from?: Date; to?: Date },
+): Promise<VersionHistoryRow[]> {
+  let query = supabase
+    .from('template_versions')
+    .select('id, version_number, is_latest, restored_from, status, created_at')
+    .eq('template_id', templateId)
+    .eq('status', 'published')
+    .order('version_number', { ascending: false })
+
+  if (dateRange?.from) {
+    query = query.gte('created_at', dateRange.from.toISOString())
+  }
+  if (dateRange?.to) {
+    // Set to end of day for inclusive filtering
+    const endOfDay = new Date(dateRange.to)
+    endOfDay.setHours(23, 59, 59, 999)
+    query = query.lte('created_at', endOfDay.toISOString())
+  }
+
+  const { data, error } = await query
+
+  if (error) throw error
+  return data ?? []
+}
+
+/**
+ * Restore a previous version by creating a new published version that
+ * deep-copies sections and fields from the source version.
+ *
+ * Follows the same deep-copy pattern as `createDraftVersion`.
+ */
+export async function restoreVersion(
+  templateId: string,
+  sourceVersionId: string,
+): Promise<{ versionNumber: number; sourceVersionNumber: number }> {
+  const user = await getCurrentAuthUser()
+
+  // Get the source version's number for the return value
+  const { data: sourceVer, error: svErr } = await supabase
+    .from('template_versions')
+    .select('version_number')
+    .eq('id', sourceVersionId)
+    .single()
+
+  if (svErr) throw svErr
+
+  // Get current latest version to determine new version number
+  const { data: current, error: cvErr } = await supabase
+    .from('template_versions')
+    .select('id, version_number')
+    .eq('template_id', templateId)
+    .eq('is_latest', true)
+    .eq('status', 'published')
+    .single()
+
+  if (cvErr) throw cvErr
+
+  // Unset is_latest on current version
+  const { error: unErr } = await supabase
+    .from('template_versions')
+    .update({ is_latest: false })
+    .eq('id', current.id)
+
+  if (unErr) throw unErr
+
+  // Create new version as published, with restored_from pointing to source
+  const newNum = current.version_number + 1
+  const { data: newVer, error: nErr } = await supabase
+    .from('template_versions')
+    .insert({
+      template_id: templateId,
+      version_number: newNum,
+      is_latest: true,
+      status: 'published',
+      restored_from: sourceVersionId,
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (nErr) throw nErr
+
+  // Deep-copy sections and fields from the source version
+  const { data: sections, error: secErr } = await supabase
+    .from('template_sections')
+    .select('title, description, sort_order, template_fields(label, description, field_type, sort_order, is_required, options, validation_rules)')
+    .eq('template_version_id', sourceVersionId)
+    .order('sort_order')
+
+  if (secErr) throw secErr
+
+  for (const sec of sections ?? []) {
+    const { data: newSec, error: nsErr } = await supabase
+      .from('template_sections')
+      .insert({
+        template_version_id: newVer.id,
+        title: sec.title,
+        description: sec.description,
+        sort_order: sec.sort_order,
+      })
+      .select('id')
+      .single()
+
+    if (nsErr) throw nsErr
+
+    const fields = (sec.template_fields ?? []) as unknown as Array<{
+      label: string
+      description: string | null
+      field_type: string
+      sort_order: number
+      is_required: boolean
+      options: Json | null
+      validation_rules: Json | null
+    }>
+
+    if (fields.length > 0) {
+      const fieldRows = fields.map((f) => ({
+        template_section_id: newSec.id,
+        label: f.label,
+        description: f.description,
+        field_type: f.field_type,
+        sort_order: f.sort_order,
+        is_required: f.is_required,
+        options: f.options,
+        validation_rules: f.validation_rules,
+      }))
+
+      const { error: fErr } = await supabase
+        .from('template_fields')
+        .insert(fieldRows)
+
+      if (fErr) throw fErr
+    }
+  }
+
+  return { versionNumber: newNum, sourceVersionNumber: sourceVer.version_number }
 }
