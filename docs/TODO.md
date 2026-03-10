@@ -79,34 +79,66 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Apply `update_updated_at` trigger to form template tables
 
 ### Frontend
-- [ ] Template list page (`/forms`)
-- [ ] Template detail page (`/forms/:templateId`) with instance table
-- [ ] Form builder page (`/forms/new` and `/forms/:templateId/edit`)
-- [ ] Field type picker (text, choice, checkbox, date, rating, range, file, section)
-- [ ] Section management in builder
-- [ ] Version history side sheet (view, restore)
-- [ ] Sharing settings side sheet (all vs restricted groups)
+- [x] Template list page (`/forms`)
+- [x] Template detail page (`/forms/:templateId`) with instance table
+- [x] Form builder page (`/forms/new` and `/forms/:templateId/edit`)
+- [x] Field type picker (text, choice, checkbox, date, rating, range, file, section)
+- [x] Section management in builder
+- [x] Section delete with confirmation dialog
+- [x] Header action buttons (Cancel, Publish) in breadcrumb bar
+- [x] Navigation blocker on new form page (useBlocker)
+- [x] Auto-generate abbreviation from form title
+- [x] Remove abbreviation system (use random 8-char readable_id instead)
+- [x] Save draft button (save without publishing)
+- [x] Auto-save with debounced persistence (replaces manual Save Draft)
+- [x] Draft version support for published template editing
+- [x] Save status indicator in header (Draft/Published · vN · Saving.../Saved)
+- [x] Discard Draft button (delete draft template or draft version)
+- [x] "Editing" badge in templates list for published templates with draft versions
+- [x] Field-type-specific configuration (range selector, rating stars preview, etc.)
+- [x] Field limits via "More" button (min/max chars, date range, file types, etc.)
+- [x] Editable field subtitle/description for all field types
+- [x] Draft badge and routing in templates list
+- [x] Version history side sheet (restore only; view deferred to form instances)
+- [x] Sharing settings side sheet (all vs restricted groups)
+- [x] More dropdown (Versions, Share, Delete) with ellipsis icon button
+- [x] Hard delete form template (no instances)
+- [x] Archived tab in forms list page
+- [ ] Archive/hard-delete flow for templates WITH instances (see notes below)
+- [ ] Form builder preview button in header (depends on form instances)
+
+### Deferred: Delete form with instances
+
+When deleting a form template that has existing instances, present two options:
+
+1. **Archive (recommended)**: Set `is_active = false` on the template. The template and
+   its instances remain in the DB but are hidden from the active list. Shown under the
+   "Archived" tab in the forms list.
+
+2. **Hard delete**: Delete all form instances, field values, the form template, and all
+   versions (CASCADE). Keep already-existing reports but cancel any scheduled reports
+   that depend on this template. Requires a confirmation dialog explaining the impact.
 
 ## Feature: Form Instances
 
 ### Backend
-- [ ] `form_instances` table + RLS policies
-- [ ] `field_values` table + RLS policies
-- [ ] `instance_schedules` table + RLS policies
-- [ ] `schedule_group_targets` table + RLS policies
-- [ ] Apply `update_updated_at` trigger to form instance tables
-- [ ] `trigger_on_form_instance_created` (pg_net -> Edge Function)
+- [x] `form_instances` table + RLS policies
+- [x] `field_values` table + RLS policies
+- [x] `instance_schedules` table + RLS policies
+- [x] `schedule_group_targets` table + RLS policies
+- [x] Apply `update_updated_at` trigger to form instance tables
+- [x] `trigger_on_form_instance_created` (pg_net -> Edge Function)
 - [ ] `trigger_on_form_instance_submitted` (AFTER UPDATE, auto-report)
-- [ ] `on-instance-created` Edge Function -- generate short URLs (Shlink)
-- [ ] `create_scheduled_instances` pg_cron job
+- [x] `on-instance-created` Edge Function -- generate short URLs (Shlink)
+- [x] `create_scheduled_instances` pg_cron job
 
 ### Frontend
-- [ ] Form instance fill page (`/forms/:readableId/fill`)
-- [ ] Form instance view page (`/forms/:readableId/view`)
-- [ ] Section-as-page navigation
-- [ ] Field assignment side sheet
-- [ ] Field change log display
-- [ ] Required field validation on submit
+- [x] Form instance page (`/instances/:readableId?mode=view|edit`)
+- [x] Section-as-page wizard navigation
+- [x] Field assignment inline popover (Admin only)
+- [x] Field change log display (per-field popover)
+- [x] Required field validation on submit
+- [x] Auto-save on blur
 - [ ] Schedule management (create/edit schedule, add groups)
 
 ## Feature: Reports

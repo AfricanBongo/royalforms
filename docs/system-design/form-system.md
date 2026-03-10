@@ -91,10 +91,10 @@ Each form instance gets a human-readable ID combining the template abbreviation 
 
 Short URLs are generated via **Shlink JS SDK** called from an **Edge Function** (keeps API key server-side):
 
-- View: `https://short.domain/epr-001/view`
-- Edit: `https://short.domain/epr-001/edit`
+- View: `https://short.domain/f/epr-001-view` -> `https://app.domain/forms/epr-001?mode=view`
+- Edit: `https://short.domain/f/epr-001-edit` -> `https://app.domain/forms/epr-001?mode=edit`
 
-The abbreviated format keeps URLs short and readable. Short URLs are stored on the `form_instances` row.
+Shlink slugs use the `f/` prefix to namespace form short URLs (reports will use `r/`). The `-view`/`-edit` suffix is flat (no nested paths). The app route uses `?mode=view|edit` query param -- a single route component handles both modes. Short URLs are stored on the `form_instances` row.
 
 ---
 

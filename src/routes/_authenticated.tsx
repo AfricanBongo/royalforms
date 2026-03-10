@@ -88,7 +88,7 @@ function AuthenticatedLayout() {
 
 function HeaderBar() {
   const matches = useMatches()
-  const { pageTitle } = usePageTitle()
+  const { pageTitle, breadcrumbs: contextBreadcrumbs, headerActions } = usePageTitle()
 
   // Build breadcrumb trail from URL path
   const currentPath = matches[matches.length - 1]?.pathname ?? '/'
@@ -110,8 +110,10 @@ function HeaderBar() {
     }
   }
 
-  // If there's a dynamic page title (e.g. group name), add it as the last crumb
-  if (pageTitle && crumbs.length > 0) {
+  // Append child-route breadcrumbs (multi-segment) or pageTitle (single crumb)
+  if (contextBreadcrumbs.length > 0) {
+    crumbs.push(...contextBreadcrumbs)
+  } else if (pageTitle && crumbs.length > 0) {
     crumbs.push({ label: pageTitle, path: currentPath })
   }
 
@@ -133,7 +135,7 @@ function HeaderBar() {
               <BreadcrumbItem key={crumb.path}>
                 {index > 0 && <BreadcrumbSeparator />}
                 {isLast ? (
-                  <BreadcrumbPage className="text-sm text-muted-foreground">
+                  <BreadcrumbPage className="text-sm text-foreground">
                     {crumb.label}
                   </BreadcrumbPage>
                 ) : (
@@ -148,6 +150,13 @@ function HeaderBar() {
           })}
         </BreadcrumbList>
       </Breadcrumb>
+
+      {/* Right-aligned header actions injected by child routes */}
+      {headerActions && (
+        <div className="ml-auto flex items-center gap-2">
+          {headerActions}
+        </div>
+      )}
     </header>
   )
 }
