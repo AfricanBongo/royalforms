@@ -101,6 +101,23 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Draft badge and routing in templates list
 - [x] Version history side sheet (restore only; view deferred to form instances)
 - [x] Sharing settings side sheet (all vs restricted groups)
+- [x] More dropdown (Versions, Share, Delete) with ellipsis icon button
+- [x] Hard delete form template (no instances)
+- [x] Archived tab in forms list page
+- [ ] Archive/hard-delete flow for templates WITH instances (see notes below)
+- [ ] Form builder preview button in header (depends on form instances)
+
+### Deferred: Delete form with instances
+
+When deleting a form template that has existing instances, present two options:
+
+1. **Archive (recommended)**: Set `is_active = false` on the template. The template and
+   its instances remain in the DB but are hidden from the active list. Shown under the
+   "Archived" tab in the forms list.
+
+2. **Hard delete**: Delete all form instances, field values, the form template, and all
+   versions (CASCADE). Keep already-existing reports but cancel any scheduled reports
+   that depend on this template. Requires a confirmation dialog explaining the impact.
 
 ## Feature: Form Instances
 
