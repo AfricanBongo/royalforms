@@ -192,12 +192,10 @@ export type Database = {
       }
       form_templates: {
         Row: {
-          abbreviation: string
           created_at: string
           created_by: string
           description: string | null
           id: string
-          instance_counter: number
           is_active: boolean
           name: string
           sharing_mode: string
@@ -205,12 +203,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          abbreviation: string
           created_at?: string
           created_by: string
           description?: string | null
           id?: string
-          instance_counter?: number
           is_active?: boolean
           name: string
           sharing_mode?: string
@@ -218,12 +214,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          abbreviation?: string
           created_at?: string
           created_by?: string
           description?: string | null
           id?: string
-          instance_counter?: number
           is_active?: boolean
           name?: string
           sharing_mode?: string
@@ -652,6 +646,7 @@ export type Database = {
           id: string
           is_latest: boolean
           restored_from: string | null
+          status: string
           template_id: string
           version_number: number
         }
@@ -661,6 +656,7 @@ export type Database = {
           id?: string
           is_latest?: boolean
           restored_from?: string | null
+          status?: string
           template_id: string
           version_number: number
         }
@@ -670,6 +666,7 @@ export type Database = {
           id?: string
           is_latest?: boolean
           restored_from?: string | null
+          status?: string
           template_id?: string
           version_number?: number
         }
@@ -727,12 +724,12 @@ export type Database = {
       }
       templates_with_stats: {
         Row: {
-          abbreviation: string | null
           created_at: string | null
           description: string | null
           id: string | null
           is_active: boolean | null
           latest_version: number | null
+          latest_version_status: string | null
           name: string | null
           pending_count: number | null
           sharing_mode: string | null
