@@ -3,6 +3,19 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.5.0](https://github.com/AfricanBongo/royalforms/compare/v0.4.0...v0.5.0) (2026-03-10)
+
+
+### Features
+
+* **db:** remove abbreviation, add version status/cascades/delete policies ([d204fa3](https://github.com/AfricanBongo/royalforms/commit/d204fa392154eb6503a1dd8b3828e4983c4f4618))
+* **forms:** replace manual save with auto-save system ([d0171d0](https://github.com/AfricanBongo/royalforms/commit/d0171d0ed1570f8db7ebe8a22625086ec7998243))
+
+
+### Refactoring
+
+* **forms:** restructure template routes to directory layout with breadcrumb support ([e18d775](https://github.com/AfricanBongo/royalforms/commit/e18d77514002ac4f90b2294e2197b44c7a34f356))
+
 ## [0.4.0](https://github.com/AfricanBongo/royalforms/compare/v0.3.0...v0.4.0) (2026-03-09)
 
 
