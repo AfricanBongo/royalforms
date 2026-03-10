@@ -98,7 +98,7 @@ export function VersionHistorySheet({
   }, [open, loadVersions])
 
   async function handleRestore() {
-    if (!restoreTarget) return
+    if (!restoreTarget || restoring) return
     setRestoring(true)
     try {
       const { versionNumber, sourceVersionNumber } = await restoreVersion(

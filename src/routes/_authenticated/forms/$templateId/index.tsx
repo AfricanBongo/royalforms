@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '../../../../components/ui/table'
 import { ShareFormSheet } from '../../../../components/share-form-sheet'
+import { VersionHistorySheet } from '../../../../features/forms/VersionHistorySheet'
 import { StatCard } from '../../../../components/stat-card'
 import { useCurrentUser } from '../../../../hooks/use-current-user'
 import { usePageTitle } from '../../../../hooks/use-page-title'
@@ -67,6 +68,7 @@ function TemplateDetailPage() {
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [shareOpen, setShareOpen] = useState(false)
+  const [versionsOpen, setVersionsOpen] = useState(false)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
@@ -118,42 +120,43 @@ function TemplateDetailPage() {
     })
   }
 
+  // Load template data — extracted so it can be re-called after restore
+  const loadTemplate = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [tmpl, inst] = await Promise.all([
+        fetchTemplateDetail(templateId),
+        fetchTemplateInstances(templateId),
+      ])
+      setTemplate(tmpl)
+      setInstances(inst)
+      setPageTitle(tmpl.name)
+
+      // Fetch group access count separately (needs sharing_mode)
+      const count = await fetchGroupAccessCount(
+        templateId,
+        tmpl.sharing_mode,
+      )
+      setGroupCount(count)
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(
+        error.code,
+        error.message,
+        'database',
+        'read_record',
+      )
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setLoading(false)
+    }
+  }, [templateId, setPageTitle])
+
   // Load data on mount
   useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const [tmpl, inst] = await Promise.all([
-          fetchTemplateDetail(templateId),
-          fetchTemplateInstances(templateId),
-        ])
-        setTemplate(tmpl)
-        setInstances(inst)
-        setPageTitle(tmpl.name)
-
-        // Fetch group access count separately (needs sharing_mode)
-        const count = await fetchGroupAccessCount(
-          templateId,
-          tmpl.sharing_mode,
-        )
-        setGroupCount(count)
-      } catch (err: unknown) {
-        const error = err as { code?: string; message: string }
-        const mapped = mapSupabaseError(
-          error.code,
-          error.message,
-          'database',
-          'read_record',
-        )
-        toast.error(mapped.title, { description: mapped.description })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    void load()
+    void loadTemplate()
     return () => setPageTitle(null)
-  }, [templateId, setPageTitle])
+  }, [loadTemplate, setPageTitle])
 
   // Reset to page 1 when search changes
   useEffect(() => {
@@ -230,7 +233,7 @@ function TemplateDetailPage() {
         {isRootAdmin && (
           <div className="flex items-center gap-2">
             <Separator orientation="vertical" className="h-6" />
-            <Button variant="outline" size="default">
+            <Button variant="outline" size="default" onClick={() => setVersionsOpen(true)}>
               <ClockIcon className="size-4" />
               Versions
             </Button>
@@ -381,6 +384,14 @@ function TemplateDetailPage() {
         onOpenChange={setShareOpen}
         templateId={templateId}
         onUpdated={() => void refreshGroupCount()}
+      />
+
+      {/* Version history sheet */}
+      <VersionHistorySheet
+        open={versionsOpen}
+        onOpenChange={setVersionsOpen}
+        templateId={templateId}
+        onRestored={() => void loadTemplate()}
       />
     </div>
   )
