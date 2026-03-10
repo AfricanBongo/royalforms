@@ -122,13 +122,13 @@ export function VersionHistorySheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="flex flex-col sm:max-w-lg">
+        <SheetContent className="flex flex-col sm:max-w-xl">
           <SheetHeader>
             <SheetTitle>Form Versions</SheetTitle>
           </SheetHeader>
 
           {/* Date range filter */}
-          <div className="flex gap-2.5">
+          <div className="flex gap-2.5 px-3">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -148,7 +148,7 @@ export function VersionHistorySheet({
                   mode="single"
                   selected={startDate}
                   onSelect={setStartDate}
-                  initialFocus
+                  autoFocus
                 />
               </PopoverContent>
             </Popover>
@@ -172,14 +172,14 @@ export function VersionHistorySheet({
                   mode="single"
                   selected={endDate}
                   onSelect={setEndDate}
-                  initialFocus
+                  autoFocus
                 />
               </PopoverContent>
             </Popover>
           </div>
 
           {/* Versions table */}
-          <div className="flex-1 overflow-auto border rounded-lg">
+          <div className="flex-1 overflow-auto border rounded-lg mx-3">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
@@ -245,7 +245,7 @@ export function VersionHistorySheet({
 
           <SheetFooter>
             <SheetClose asChild>
-              <Button variant="outline">Close</Button>
+              <Button variant="outline" className='max-w-[80px]'>Close</Button>
             </SheetClose>
           </SheetFooter>
         </SheetContent>
