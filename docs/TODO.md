@@ -133,11 +133,12 @@ When deleting a form template that has existing instances, present two options:
 - [x] `create_scheduled_instances` pg_cron job
 
 ### Frontend
-- [ ] Form instance page (`/forms/:readableId?mode=view|edit`)
-- [ ] Section-as-page navigation
-- [ ] Field assignment side sheet
-- [ ] Field change log display
-- [ ] Required field validation on submit
+- [x] Form instance page (`/instances/:readableId?mode=view|edit`)
+- [x] Section-as-page wizard navigation
+- [x] Field assignment inline popover (Admin only)
+- [x] Field change log display (per-field popover)
+- [x] Required field validation on submit
+- [x] Auto-save on blur
 - [ ] Schedule management (create/edit schedule, add groups)
 
 ## Feature: Reports
