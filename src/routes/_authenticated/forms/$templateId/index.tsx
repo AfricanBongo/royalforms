@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
+  ChevronDownIcon,
   EllipsisVerticalIcon,
   FilePlus,
   FilterIcon,
@@ -45,6 +46,10 @@ import {
 } from '../../../../components/ui/table'
 import { ShareFormSheet } from '../../../../components/share-form-sheet'
 import { VersionHistorySheet } from '../../../../features/forms/VersionHistorySheet'
+import { CreateInstanceSheet } from '../../../../features/forms/CreateInstanceSheet'
+import { CreateInstanceSuccessDialog } from '../../../../features/forms/CreateInstanceSuccessDialog'
+import { ScheduleInstanceSheet } from '../../../../features/forms/ScheduleInstanceSheet'
+import { ScheduleInstanceSuccessDialog } from '../../../../features/forms/ScheduleInstanceSuccessDialog'
 import { StatCard } from '../../../../components/stat-card'
 import { useCurrentUser } from '../../../../hooks/use-current-user'
 import { usePageTitle } from '../../../../hooks/use-page-title'
@@ -53,9 +58,12 @@ import {
   fetchGroupAccessCount,
   fetchTemplateDetail,
   fetchTemplateInstances,
+  fetchTemplateSchedule,
 } from '../../../../services/form-templates'
 import type {
+  CreatedInstance,
   InstanceRow,
+  ScheduleData,
   TemplateDetail,
 } from '../../../../services/form-templates'
 import { mapSupabaseError } from '../../../../lib/supabase-errors'
@@ -91,6 +99,12 @@ function TemplateDetailPage() {
   const [versionsOpen, setVersionsOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createSuccessOpen, setCreateSuccessOpen] = useState(false)
+  const [createdInstances, setCreatedInstances] = useState<CreatedInstance[]>([])
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [scheduleSuccessOpen, setScheduleSuccessOpen] = useState(false)
+  const [schedule, setSchedule] = useState<ScheduleData | null>(null)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
@@ -146,12 +160,14 @@ function TemplateDetailPage() {
   const loadTemplate = useCallback(async () => {
     setLoading(true)
     try {
-      const [tmpl, inst] = await Promise.all([
+      const [tmpl, inst, sched] = await Promise.all([
         fetchTemplateDetail(templateId),
         fetchTemplateInstances(templateId),
+        fetchTemplateSchedule(templateId),
       ])
       setTemplate(tmpl)
       setInstances(inst)
+      setSchedule(sched)
       setPageTitle(tmpl.name)
 
       // Fetch group access count separately (needs sharing_mode)
@@ -289,10 +305,23 @@ function TemplateDetailPage() {
               <PencilIcon className="size-4" />
               Edit Form
             </Button>
-            <Button>
-              <FilePlus className="size-4" />
-              Create instance
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <FilePlus className="size-4" />
+                  Create instance
+                  <ChevronDownIcon className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setCreateOpen(true)}>
+                  Create instance
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setScheduleOpen(true)}>
+                  {schedule ? 'Edit schedule' : 'Schedule instance'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon">
@@ -446,6 +475,7 @@ function TemplateDetailPage() {
         open={shareOpen}
         onOpenChange={setShareOpen}
         templateId={templateId}
+        sharingMode={template.sharing_mode}
         onUpdated={() => void refreshGroupCount()}
       />
 
@@ -482,6 +512,51 @@ function TemplateDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create instance sheet */}
+      <CreateInstanceSheet
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        templateId={templateId}
+        templateName={template.name}
+        onCreated={(result) => {
+          setCreatedInstances(result)
+          setCreateSuccessOpen(true)
+          void loadTemplate()
+        }}
+      />
+
+      {/* Create instance success dialog */}
+      <CreateInstanceSuccessDialog
+        open={createSuccessOpen}
+        onOpenChange={(v) => {
+          setCreateSuccessOpen(v)
+          if (!v) setCreatedInstances([])
+        }}
+        instances={createdInstances}
+      />
+
+      {/* Schedule instance sheet */}
+      <ScheduleInstanceSheet
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        templateId={templateId}
+        templateName={template.name}
+        existingSchedule={schedule}
+        onSaved={() => {
+          setScheduleSuccessOpen(true)
+          void loadTemplate()
+        }}
+        onDeleted={() => {
+          setSchedule(null)
+        }}
+      />
+
+      {/* Schedule instance success dialog */}
+      <ScheduleInstanceSuccessDialog
+        open={scheduleSuccessOpen}
+        onOpenChange={setScheduleSuccessOpen}
+      />
     </div>
   )
 }
@@ -496,12 +571,8 @@ function StatusBadge({ status }: { status: string }) {
       className: 'bg-green-50 text-green-700 border-green-200',
       label: 'Submitted',
     },
-    draft: {
-      className: 'bg-amber-50 text-amber-700 border-amber-200',
-      label: 'Draft',
-    },
     pending: {
-      className: 'bg-blue-50 text-blue-700 border-blue-200',
+      className: 'bg-amber-50 text-amber-700 border-amber-200',
       label: 'Pending',
     },
   }
