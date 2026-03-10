@@ -2,18 +2,37 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
-  ClockIcon,
+  EllipsisVerticalIcon,
+  FilePlus,
   FilterIcon,
+  HistoryIcon,
   PencilIcon,
   SearchIcon,
-  SendIcon,
-  Share2Icon,
+  ShareIcon,
+  Trash2Icon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../../../components/ui/alert-dialog'
 import { Badge } from '../../../../components/ui/badge'
 import { Button } from '../../../../components/ui/button'
 import { Checkbox } from '../../../../components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../../../components/ui/dropdown-menu'
 import { Input } from '../../../../components/ui/input'
 import { Separator } from '../../../../components/ui/separator'
 import {
@@ -30,6 +49,7 @@ import { StatCard } from '../../../../components/stat-card'
 import { useCurrentUser } from '../../../../hooks/use-current-user'
 import { usePageTitle } from '../../../../hooks/use-page-title'
 import {
+  deleteTemplate,
   fetchGroupAccessCount,
   fetchTemplateDetail,
   fetchTemplateInstances,
@@ -69,6 +89,8 @@ function TemplateDetailPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [shareOpen, setShareOpen] = useState(false)
   const [versionsOpen, setVersionsOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
@@ -177,6 +199,29 @@ function TemplateDetailPage() {
     }
   }
 
+  // Delete template (hard delete — only when no instances)
+  async function handleDelete() {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      await deleteTemplate(templateId)
+      toast.success('Form template deleted')
+      void navigate({ to: '/forms' })
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(
+        error.code,
+        error.message,
+        'database',
+        'delete_record',
+      )
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setDeleting(false)
+      setDeleteOpen(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex flex-1 flex-col gap-4 p-4">
@@ -233,10 +278,6 @@ function TemplateDetailPage() {
         {isRootAdmin && (
           <div className="flex items-center gap-2">
             <Separator orientation="vertical" className="h-6" />
-            <Button variant="outline" size="default" onClick={() => setVersionsOpen(true)}>
-              <ClockIcon className="size-4" />
-              Versions
-            </Button>
             <Button
               variant="outline"
               size="default"
@@ -248,14 +289,36 @@ function TemplateDetailPage() {
               <PencilIcon className="size-4" />
               Edit Form
             </Button>
-            <Button variant="outline" size="default" onClick={() => setShareOpen(true)}>
-              <Share2Icon className="size-4" />
-              Share
-            </Button>
             <Button>
-              <SendIcon className="size-4" />
+              <FilePlus className="size-4" />
               Create instance
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <EllipsisVerticalIcon className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setVersionsOpen(true)}>
+                  <HistoryIcon className="size-4" />
+                  Versions
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShareOpen(true)}>
+                  <ShareIcon className="size-4" />
+                  Share
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  disabled={instances.length > 0}
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2Icon className="size-4" />
+                  {instances.length > 0 ? 'Delete Form...' : 'Delete Form'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
@@ -329,8 +392,8 @@ function TemplateDetailPage() {
             </TableBody>
           </Table>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-between">
+          {/* Pagination — pinned to bottom */}
+          <div className="mt-auto flex items-center justify-between pt-4">
             <p className="text-sm text-muted-foreground">
               Showing {startIndex + 1}-
               {Math.min(startIndex + PAGE_SIZE, totalItems)} of {totalItems}{' '}
@@ -393,6 +456,32 @@ function TemplateDetailPage() {
         templateId={templateId}
         onRestored={() => void loadTemplate()}
       />
+
+      {/* Delete confirmation dialog (hard delete — no instances) */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete form template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete &ldquo;{template.name}&rdquo; and all
+              its versions. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault()
+                void handleDelete()
+              }}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

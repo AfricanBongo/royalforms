@@ -121,11 +121,15 @@ export interface VersionHistoryRow {
  * with latest version number and instance counts.
  *
  * Uses the `templates_with_stats` view.
+ * @param archived — when true, returns only archived (is_active=false) templates
  */
-export async function fetchTemplates(): Promise<TemplateListRow[]> {
+export async function fetchTemplates(
+  archived = false,
+): Promise<TemplateListRow[]> {
   const { data, error } = await supabase
     .from('templates_with_stats')
     .select('id, name, description, sharing_mode, status, is_active, created_at, updated_at, latest_version, latest_version_status, submitted_count, pending_count')
+    .eq('is_active', !archived)
     .order('name')
 
   if (error) throw error
@@ -611,6 +615,43 @@ export async function deleteDraftTemplate(templateId: string): Promise<void> {
     .delete()
     .eq('id', templateId)
     .eq('status', 'draft')
+
+  if (error) throw error
+}
+
+/**
+ * Hard-delete a template that has zero form instances.
+ * CASCADE handles versions → sections → fields.
+ * Also deletes group access entries.
+ *
+ * NOTE: When instances exist, the caller should present archive vs hard-delete
+ * options instead. That flow is not yet implemented — see docs/TODO.md.
+ */
+export async function deleteTemplate(templateId: string): Promise<void> {
+  // Safety: verify no instances exist before deleting
+  const { count, error: countErr } = await supabase
+    .from('form_instances')
+    .select('id', { count: 'exact', head: true })
+    .eq('template_id', templateId)
+
+  if (countErr) throw countErr
+  if ((count ?? 0) > 0) {
+    throw new Error('Cannot hard-delete a template that has form instances')
+  }
+
+  // Delete group access entries first (no CASCADE from templates)
+  const { error: gaErr } = await supabase
+    .from('template_group_access')
+    .delete()
+    .eq('template_id', templateId)
+
+  if (gaErr) throw gaErr
+
+  // Delete the template (CASCADE handles versions → sections → fields)
+  const { error } = await supabase
+    .from('form_templates')
+    .delete()
+    .eq('id', templateId)
 
   if (error) throw error
 }

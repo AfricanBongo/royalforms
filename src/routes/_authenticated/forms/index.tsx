@@ -16,6 +16,11 @@ import {
   TableHeader,
   TableRow,
 } from '../../../components/ui/table'
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from '../../../components/ui/tabs'
 import { StatCard } from '../../../components/stat-card'
 import { useCurrentUser } from '../../../hooks/use-current-user'
 import { fetchTemplates } from '../../../services/form-templates'
@@ -40,6 +45,7 @@ function FormTemplateListPage() {
   const currentUser = useCurrentUser()
   const navigate = useNavigate()
 
+  const [tab, setTab] = useState<'active' | 'archived'>('active')
   const [templates, setTemplates] = useState<TemplateListRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -105,12 +111,12 @@ function FormTemplateListPage() {
     })
   }
 
-  // Load templates on mount
+  // Load templates on mount and when tab changes
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        const data = await fetchTemplates()
+        const data = await fetchTemplates(tab === 'archived')
         setTemplates(data)
       } catch (err: unknown) {
         const error = err as { code?: string; message: string }
@@ -127,12 +133,12 @@ function FormTemplateListPage() {
     }
 
     void load()
-  }, [])
+  }, [tab])
 
-  // Reset to page 1 when search changes
+  // Reset to page 1 when search or tab changes
   useEffect(() => {
     setPage(1)
-  }, [search])
+  }, [search, tab])
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -143,6 +149,17 @@ function FormTemplateListPage() {
         <StatCard label="Pending Instances" value={pendingInstances} />
         <StatCard label="Drafts" value={draftCount} />
       </div>
+
+      {/* Active / Archived tabs */}
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as 'active' | 'archived')}
+      >
+        <TabsList>
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="archived">Archived</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Toolbar */}
       <div className="flex items-center justify-between">
@@ -275,8 +292,8 @@ function FormTemplateListPage() {
             </TableBody>
           </Table>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-between">
+          {/* Pagination — pinned to bottom */}
+          <div className="mt-auto flex items-center justify-between pt-4">
             <p className="text-sm text-muted-foreground">
               Showing {startIndex + 1}-{Math.min(startIndex + PAGE_SIZE, totalItems)} of{' '}
               {totalItems} forms
