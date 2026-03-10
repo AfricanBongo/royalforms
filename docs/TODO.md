@@ -88,7 +88,13 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Header action buttons (Cancel, Publish) in breadcrumb bar
 - [x] Navigation blocker on new form page (useBlocker)
 - [x] Auto-generate abbreviation from form title
+- [x] Remove abbreviation system (use random 8-char readable_id instead)
 - [x] Save draft button (save without publishing)
+- [x] Auto-save with debounced persistence (replaces manual Save Draft)
+- [x] Draft version support for published template editing
+- [x] Save status indicator in header (Draft/Published · vN · Saving.../Saved)
+- [x] Discard Draft button (delete draft template or draft version)
+- [x] "Editing" badge in templates list for published templates with draft versions
 - [x] Field-type-specific configuration (range selector, rating stars preview, etc.)
 - [x] Field limits via "More" button (min/max chars, date range, file types, etc.)
 - [x] Editable field subtitle/description for all field types

@@ -2,17 +2,17 @@
  * /forms/new — Form builder page for creating a new form template.
  *
  * Layout:
- * - Header (from _authenticated layout): breadcrumb "Forms > New Form" + Cancel / Publish buttons (right)
+ * - Header (from _authenticated layout): "New Form" title + status indicator + Discard Draft / Publish buttons
  * - Body: bg-muted, scrollable content area (max-w-[816px])
  *   - Form title/description card (white, top, no top-rounding)
  *   - Section cards (white, rounded-lg) with fields inside
  *
- * Navigation away from this page is blocked with a confirmation dialog
- * via TanStack Router's useBlocker hook (breadcrumb, back button, etc.).
+ * Auto-save: Changes are debounced (3s) and persisted automatically.
+ * After the first save, URL silently swaps to /forms/$templateId/edit.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { createFileRoute, useBlocker, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { SaveIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -26,69 +26,100 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../../components/ui/dialog'
+import { useAutoSave } from '../../../hooks/use-auto-save'
 import { useFormBuilder } from '../../../hooks/use-form-builder'
 import { usePageTitle } from '../../../hooks/use-page-title'
-import { createTemplate, saveDraft } from '../../../services/form-templates'
+import { deleteDraftTemplate, publishDraft } from '../../../services/form-templates'
 import { mapSupabaseError } from '../../../lib/supabase-errors'
 
+import type { SaveStatus } from '../../../hooks/use-auto-save'
 import type { BuilderField, FieldType } from '../../../hooks/use-form-builder'
 
 export const Route = createFileRoute('/_authenticated/forms/new')({
   component: NewFormPage,
 })
 
+// ---------------------------------------------------------------------------
+// Save status display
+// ---------------------------------------------------------------------------
+
+function saveStatusLabel(status: SaveStatus): string | null {
+  switch (status) {
+    case 'dirty': return 'Editing'
+    case 'saving': return 'Saving...'
+    case 'saved': return 'Saved'
+    case 'error': return 'Save failed'
+    default: return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
 function NewFormPage() {
   const navigate = useNavigate()
   const { setPageTitle, setHeaderActions } = usePageTitle()
 
   const [isPublishing, setIsPublishing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false)
 
   const builder = useFormBuilder()
   const { state } = builder
 
-  // Block navigation away from the form builder with a custom dialog.
-  // Only block if the user has entered any content.
-  const blocker = useBlocker({
-    shouldBlockFn: () => {
-      return Boolean(
-        state.name.trim() ||
-        state.description.trim() ||
-        state.sections.some((s) => s.fields.some((f) => f.label.trim()))
-      )
-    },
-    withResolver: true,
+  // Auto-save (templateId starts as null for new forms)
+  const { saveStatus, persistedTemplateId, flush } = useAutoSave({
+    templateId: null,
+    builderState: state,
+    toCreateInput: builder.toCreateInput,
   })
-  const { status } = blocker
 
-  // Update breadcrumb: show form name when typed, fall back to "New Form"
+  // After first auto-save creates the template, silently swap URL
+  const hasSwapped = useRef(false)
+  useEffect(() => {
+    if (persistedTemplateId && !hasSwapped.current) {
+      hasSwapped.current = true
+      void navigate({
+        to: '/forms/$templateId/edit',
+        params: { templateId: persistedTemplateId },
+        replace: true,
+      })
+    }
+  }, [persistedTemplateId, navigate])
+
+  // Refs to hold latest handlers so header buttons never use stale closures
+  const handlePublishRef = useRef<() => void>(() => {})
+  const handleDiscardRef = useRef<() => void>(() => {})
+
+  // Update page title: show form name when typed, fall back to "New Form"
   useEffect(() => {
     setPageTitle(state.name.trim() || 'New Form')
   }, [state.name, setPageTitle])
 
-  // Inject Cancel + Save Draft + Publish buttons into the header bar
+  // Inject header actions: status indicator + Discard Draft + Publish
   useEffect(() => {
+    const statusText = saveStatusLabel(saveStatus)
+
     setHeaderActions(
       <>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void navigate({ to: '/forms' })}
-        >
-          Cancel
-        </Button>
+        {/* Status indicator */}
+        <span className="mr-2 text-sm text-muted-foreground">
+          Draft · v1
+          {statusText && <> · {statusText}</>}
+        </span>
+
         <Button
           variant="outline"
           size="sm"
-          onClick={handleSaveDraft}
-          disabled={isSaving || isPublishing}
+          onClick={() => handleDiscardRef.current()}
+          disabled={isPublishing}
         >
-          {isSaving ? 'Saving...' : 'Save Draft'}
+          Discard Draft
         </Button>
         <Button
           size="sm"
-          onClick={handlePublish}
-          disabled={isSaving || isPublishing}
+          onClick={() => handlePublishRef.current()}
+          disabled={isPublishing || saveStatus === 'saving'}
           className="gap-2"
         >
           <SaveIcon className="size-4" />
@@ -101,33 +132,26 @@ function NewFormPage() {
       setHeaderActions(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSaving, isPublishing, setHeaderActions])
+  }, [saveStatus, isPublishing, setHeaderActions])
 
   // -------------------------------------------------------------------------
-  // Save Draft
+  // Discard Draft
   // -------------------------------------------------------------------------
 
-  async function handleSaveDraft() {
-    if (!state.name.trim()) {
-      toast.error('Form title is required to save a draft.')
-      return
-    }
-
-    setIsSaving(true)
+  async function handleDiscard() {
+    setShowDiscardDialog(false)
     try {
-      const input = builder.toCreateInput()
-      const templateId = await saveDraft(input)
-      toast.success('Draft saved!')
-      blocker.proceed?.()
-      void navigate({ to: '/forms/$templateId/edit', params: { templateId } })
+      if (persistedTemplateId) {
+        await deleteDraftTemplate(persistedTemplateId)
+      }
+      void navigate({ to: '/forms' })
     } catch (err: unknown) {
       const error = err as { code?: string; message: string }
-      const mapped = mapSupabaseError(error.code, error.message, 'database', 'create_record')
+      const mapped = mapSupabaseError(error.code, error.message, 'database', 'delete_record')
       toast.error(mapped.title, { description: mapped.description })
-    } finally {
-      setIsSaving(false)
     }
   }
+  handleDiscardRef.current = () => setShowDiscardDialog(true)
 
   // -------------------------------------------------------------------------
   // Publish
@@ -142,11 +166,21 @@ function NewFormPage() {
 
     setIsPublishing(true)
     try {
-      const input = builder.toCreateInput()
-      const templateId = await createTemplate(input)
+      // Flush any pending auto-save first
+      await flush()
+
+      // If the form hasn't been persisted yet (unlikely but possible if debounce
+      // hasn't fired), we can't publish. The flush should have triggered a save.
+      const tid = persistedTemplateId
+      if (!tid) {
+        toast.error('Please wait for the form to save before publishing.')
+        setIsPublishing(false)
+        return
+      }
+
+      await publishDraft(tid)
       toast.success('Form published successfully!')
-      blocker.proceed?.()
-      void navigate({ to: '/forms/$templateId', params: { templateId } })
+      void navigate({ to: '/forms/$templateId', params: { templateId: tid } })
     } catch (err: unknown) {
       const error = err as { code?: string; message: string }
       const mapped = mapSupabaseError(error.code, error.message, 'database', 'create_record')
@@ -155,6 +189,7 @@ function NewFormPage() {
       setIsPublishing(false)
     }
   }
+  handlePublishRef.current = handlePublish
 
   // -------------------------------------------------------------------------
   // Render
@@ -189,21 +224,6 @@ function NewFormPage() {
               >
                 {state.description}
               </p>
-            </div>
-
-            {/* Abbreviation input */}
-            <div className="mt-2 flex items-center gap-2">
-              <label className="text-sm text-muted-foreground" htmlFor="abbreviation">
-                Abbreviation:
-              </label>
-              <input
-                id="abbreviation"
-                type="text"
-                value={state.abbreviation}
-                onChange={(e) => builder.setAbbreviation(e.target.value)}
-                placeholder="e.g. epr"
-                className="h-7 w-32 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              />
             </div>
           </div>
 
@@ -258,20 +278,20 @@ function NewFormPage() {
         </div>
       </div>
 
-      {/* Navigation blocker confirmation dialog */}
-      <Dialog open={status === 'blocked'} onOpenChange={(open) => { if (!open) blocker.reset?.() }}>
+      {/* Discard draft confirmation dialog */}
+      <Dialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Discard new form?</DialogTitle>
+            <DialogTitle>Discard draft?</DialogTitle>
             <DialogDescription>
-              Any fields and sections you have added will be lost. This action cannot be undone.
+              This form and all its fields will be permanently deleted. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => blocker.reset?.()}>
+            <Button variant="outline" onClick={() => setShowDiscardDialog(false)}>
               Keep editing
             </Button>
-            <Button variant="destructive" onClick={() => blocker.proceed?.()}>
+            <Button variant="destructive" onClick={() => void handleDiscard()}>
               Discard
             </Button>
           </DialogFooter>

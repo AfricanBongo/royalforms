@@ -14,7 +14,6 @@ import type { Json } from '../types/database'
 export interface TemplateListRow {
   id: string
   name: string
-  abbreviation: string
   description: string | null
   sharing_mode: string
   status: string
@@ -22,6 +21,7 @@ export interface TemplateListRow {
   created_at: string
   updated_at: string
   latest_version: number
+  latest_version_status: string
   submitted_count: number
   pending_count: number
 }
@@ -42,7 +42,6 @@ export interface InstanceRow {
 /** Input for creating a new template via the form builder. */
 export interface CreateTemplateInput {
   name: string
-  abbreviation: string
   description: string | null
   sections: CreateSectionInput[]
 }
@@ -71,12 +70,13 @@ export interface TemplateVersionData {
   template: {
     id: string
     name: string
-    abbreviation: string
     description: string | null
+    status: string
   }
   version: {
     id: string
     version_number: number
+    status: string
   }
   sections: LoadedSection[]
 }
@@ -115,7 +115,7 @@ export interface LoadedField {
 export async function fetchTemplates(): Promise<TemplateListRow[]> {
   const { data, error } = await supabase
     .from('templates_with_stats')
-    .select('id, name, abbreviation, description, sharing_mode, status, is_active, created_at, updated_at, latest_version, submitted_count, pending_count')
+    .select('id, name, description, sharing_mode, status, is_active, created_at, updated_at, latest_version, latest_version_status, submitted_count, pending_count')
     .order('name')
 
   if (error) throw error
@@ -124,7 +124,6 @@ export async function fetchTemplates(): Promise<TemplateListRow[]> {
   return (data ?? []).map((row) => ({
     id: row.id!,
     name: row.name!,
-    abbreviation: row.abbreviation!,
     description: row.description ?? null,
     sharing_mode: row.sharing_mode ?? 'all',
     status: row.status ?? 'draft',
@@ -132,6 +131,7 @@ export async function fetchTemplates(): Promise<TemplateListRow[]> {
     created_at: row.created_at!,
     updated_at: row.updated_at!,
     latest_version: row.latest_version ?? 0,
+    latest_version_status: row.latest_version_status ?? 'draft',
     submitted_count: row.submitted_count ?? 0,
     pending_count: row.pending_count ?? 0,
   }))
@@ -145,7 +145,7 @@ export async function fetchTemplateDetail(
 ): Promise<TemplateDetail> {
   const { data, error } = await supabase
     .from('templates_with_stats')
-    .select('id, name, abbreviation, description, sharing_mode, status, is_active, created_at, updated_at, latest_version, submitted_count, pending_count')
+    .select('id, name, description, sharing_mode, status, is_active, created_at, updated_at, latest_version, latest_version_status, submitted_count, pending_count')
     .eq('id', templateId)
     .single()
 
@@ -154,7 +154,6 @@ export async function fetchTemplateDetail(
   return {
     id: data.id!,
     name: data.name!,
-    abbreviation: data.abbreviation!,
     description: data.description ?? null,
     sharing_mode: data.sharing_mode ?? 'all',
     status: data.status ?? 'draft',
@@ -162,6 +161,7 @@ export async function fetchTemplateDetail(
     created_at: data.created_at!,
     updated_at: data.updated_at!,
     latest_version: data.latest_version ?? 0,
+    latest_version_status: data.latest_version_status ?? 'draft',
     submitted_count: data.submitted_count ?? 0,
     pending_count: data.pending_count ?? 0,
   }
@@ -258,7 +258,6 @@ export async function createTemplate(
     .from('form_templates')
     .insert({
       name: input.name.trim(),
-      abbreviation: input.abbreviation.trim().toLowerCase(),
       description: input.description?.trim() || null,
       created_by: user.id,
       status: 'published',
@@ -431,7 +430,6 @@ export async function saveDraft(
     .from('form_templates')
     .insert({
       name: input.name.trim(),
-      abbreviation: input.abbreviation.trim().toLowerCase(),
       description: input.description?.trim() || null,
       created_by: user.id,
       status: 'draft',
@@ -501,7 +499,6 @@ export async function updateDraft(
   templateId: string,
   input: {
     name: string
-    abbreviation: string
     description: string | null
     sections: CreateSectionInput[]
   },
@@ -511,7 +508,6 @@ export async function updateDraft(
     .from('form_templates')
     .update({
       name: input.name.trim(),
-      abbreviation: input.abbreviation.trim().toLowerCase(),
       description: input.description?.trim() || null,
     })
     .eq('id', templateId)
@@ -574,14 +570,175 @@ export async function updateDraft(
 
 /**
  * Publish a draft template by setting its status to 'published'.
+ * Also marks the latest version as 'published'.
  */
 export async function publishDraft(templateId: string): Promise<void> {
-  const { error } = await supabase
+  // Set template status to published
+  const { error: tErr } = await supabase
     .from('form_templates')
     .update({ status: 'published' })
     .eq('id', templateId)
 
+  if (tErr) throw tErr
+
+  // Set the latest version status to published
+  const { error: vErr } = await supabase
+    .from('template_versions')
+    .update({ status: 'published' })
+    .eq('template_id', templateId)
+    .eq('is_latest', true)
+
+  if (vErr) throw vErr
+}
+
+/**
+ * Delete a draft template that has never been published.
+ * CASCADE handles versions → sections → fields.
+ */
+export async function deleteDraftTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from('form_templates')
+    .delete()
+    .eq('id', templateId)
+    .eq('status', 'draft')
+
   if (error) throw error
+}
+
+/**
+ * Discard the draft version of a published template.
+ * Deletes the draft version (CASCADE handles sections/fields)
+ * and restores the previous published version as latest.
+ */
+export async function discardDraftVersion(templateId: string): Promise<void> {
+  // Find the draft version
+  const { data: draftVer, error: findErr } = await supabase
+    .from('template_versions')
+    .select('id, version_number')
+    .eq('template_id', templateId)
+    .eq('status', 'draft')
+    .eq('is_latest', true)
+    .single()
+
+  if (findErr) throw findErr
+
+  // Delete draft version (CASCADE handles sections/fields)
+  const { error: delErr } = await supabase
+    .from('template_versions')
+    .delete()
+    .eq('id', draftVer.id)
+
+  if (delErr) throw delErr
+
+  // Restore previous published version as latest
+  const { error: restoreErr } = await supabase
+    .from('template_versions')
+    .update({ is_latest: true })
+    .eq('template_id', templateId)
+    .eq('version_number', draftVer.version_number - 1)
+
+  if (restoreErr) throw restoreErr
+}
+
+/**
+ * Create a new draft version for a published template by copying
+ * sections/fields from the current published version.
+ * Returns the new version number.
+ */
+export async function createDraftVersion(
+  templateId: string,
+): Promise<{ versionNumber: number }> {
+  const user = await getCurrentAuthUser()
+
+  // Get current published version
+  const { data: current, error: cvErr } = await supabase
+    .from('template_versions')
+    .select('id, version_number')
+    .eq('template_id', templateId)
+    .eq('is_latest', true)
+    .eq('status', 'published')
+    .single()
+
+  if (cvErr) throw cvErr
+
+  // Unset is_latest on current
+  const { error: unErr } = await supabase
+    .from('template_versions')
+    .update({ is_latest: false })
+    .eq('id', current.id)
+
+  if (unErr) throw unErr
+
+  // Create new draft version
+  const newNum = current.version_number + 1
+  const { data: newVer, error: nErr } = await supabase
+    .from('template_versions')
+    .insert({
+      template_id: templateId,
+      version_number: newNum,
+      is_latest: true,
+      status: 'draft',
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (nErr) throw nErr
+
+  // Copy sections and fields from the current version
+  const { data: sections, error: secErr } = await supabase
+    .from('template_sections')
+    .select('title, description, sort_order, template_fields(label, description, field_type, sort_order, is_required, options, validation_rules)')
+    .eq('template_version_id', current.id)
+    .order('sort_order')
+
+  if (secErr) throw secErr
+
+  for (const sec of sections ?? []) {
+    const { data: newSec, error: nsErr } = await supabase
+      .from('template_sections')
+      .insert({
+        template_version_id: newVer.id,
+        title: sec.title,
+        description: sec.description,
+        sort_order: sec.sort_order,
+      })
+      .select('id')
+      .single()
+
+    if (nsErr) throw nsErr
+
+    const fields = (sec.template_fields ?? []) as unknown as Array<{
+      label: string
+      description: string | null
+      field_type: string
+      sort_order: number
+      is_required: boolean
+      options: Json | null
+      validation_rules: Json | null
+    }>
+
+    if (fields.length > 0) {
+      const fieldRows = fields.map((f) => ({
+        template_section_id: newSec.id,
+        label: f.label,
+        description: f.description,
+        field_type: f.field_type,
+        sort_order: f.sort_order,
+        is_required: f.is_required,
+        options: f.options,
+        validation_rules: f.validation_rules,
+      }))
+
+      const { error: fErr } = await supabase
+        .from('template_fields')
+        .insert(fieldRows)
+
+      if (fErr) throw fErr
+    }
+  }
+
+  return { versionNumber: newNum }
 }
 
 // ---------------------------------------------------------------------------
@@ -678,6 +835,9 @@ export async function updateTemplateAccess(
 /**
  * Fetch the latest version of a template with all sections and fields.
  * Used to load a template into the form builder for editing.
+ *
+ * For published templates: prefers a draft version (is_latest + status='draft')
+ * if one exists, otherwise loads the published latest version.
  */
 export async function fetchTemplateForEditing(
   templateId: string,
@@ -685,16 +845,16 @@ export async function fetchTemplateForEditing(
   // Fetch the template
   const { data: template, error: tmplError } = await supabase
     .from('form_templates')
-    .select('id, name, abbreviation, description')
+    .select('id, name, description, status')
     .eq('id', templateId)
     .single()
 
   if (tmplError) throw tmplError
 
-  // Fetch the latest version
+  // Fetch the latest version (which is the draft if one exists)
   const { data: version, error: verError } = await supabase
     .from('template_versions')
-    .select('id, version_number')
+    .select('id, version_number, status')
     .eq('template_id', templateId)
     .eq('is_latest', true)
     .single()
@@ -759,12 +919,13 @@ export async function fetchTemplateForEditing(
     template: {
       id: template.id,
       name: template.name,
-      abbreviation: template.abbreviation,
       description: template.description,
+      status: template.status,
     },
     version: {
       id: version.id,
       version_number: version.version_number,
+      status: version.status,
     },
     sections: loadedSections,
   }

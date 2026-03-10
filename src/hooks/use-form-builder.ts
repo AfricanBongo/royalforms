@@ -2,7 +2,7 @@
  * Form builder state management hook.
  *
  * Manages the local state for creating/editing a form template:
- * - Template metadata (name, description, abbreviation)
+ * - Template metadata (name, description)
  * - Sections with titles, descriptions, and sort order
  * - Fields within sections with type, label, options, and validation
  *
@@ -64,10 +64,7 @@ export interface BuilderSection {
 
 export interface BuilderState {
   name: string
-  abbreviation: string
   description: string
-  /** Whether the user has manually edited the abbreviation. */
-  isAbbreviationManual: boolean
   sections: BuilderSection[]
 }
 
@@ -109,33 +106,13 @@ function makeDefaultSection(sortOrder: number): BuilderSection {
 }
 
 // ---------------------------------------------------------------------------
-// Auto-abbreviation
-// ---------------------------------------------------------------------------
-
-const SKIP_WORDS = new Set([
-  'a', 'an', 'the', 'of', 'for', 'and', 'or', 'in', 'on', 'at', 'to',
-])
-
-/** Generate an abbreviation from a form title by taking the first letter of each significant word. */
-function generateAbbreviation(name: string): string {
-  const words = name.trim().toLowerCase().split(/\s+/).filter(Boolean)
-  const significant = words.filter((w) => !SKIP_WORDS.has(w))
-  const source = significant.length > 0 ? significant : words
-  return source.map((w) => w[0]).join('').slice(0, 10)
-}
-
-export { generateAbbreviation }
-
-// ---------------------------------------------------------------------------
 // Initial state builder
 // ---------------------------------------------------------------------------
 
 function createInitialState(): BuilderState {
   return {
     name: '',
-    abbreviation: '',
     description: '',
-    isAbbreviationManual: false,
     sections: [makeDefaultSection(1)],
   }
 }
@@ -150,17 +127,7 @@ export function useFormBuilder(initial?: BuilderState) {
   // -- Template metadata ----------------------------------------------------
 
   const setName = useCallback((name: string) => {
-    setState((s) => {
-      const updates: Partial<BuilderState> = { name }
-      if (!s.isAbbreviationManual) {
-        updates.abbreviation = generateAbbreviation(name)
-      }
-      return { ...s, ...updates }
-    })
-  }, [])
-
-  const setAbbreviation = useCallback((abbreviation: string) => {
-    setState((s) => ({ ...s, abbreviation, isAbbreviationManual: true }))
+    setState((s) => ({ ...s, name }))
   }, [])
 
   const setDescription = useCallback((description: string) => {
@@ -461,7 +428,6 @@ export function useFormBuilder(initial?: BuilderState) {
   /** Convert builder state to the service input format. */
   const toCreateInput = useCallback((): {
     name: string
-    abbreviation: string
     description: string | null
     sections: {
       title: string
@@ -480,7 +446,6 @@ export function useFormBuilder(initial?: BuilderState) {
   } => {
     return {
       name: state.name,
-      abbreviation: state.abbreviation,
       description: state.description || null,
       sections: state.sections.map((sec) => ({
         title: sec.title,
@@ -508,7 +473,6 @@ export function useFormBuilder(initial?: BuilderState) {
   const validate = useCallback((): string[] => {
     const errors: string[] = []
     if (!state.name.trim()) errors.push('Form title is required.')
-    if (!state.abbreviation.trim()) errors.push('Abbreviation is required.')
 
     for (const sec of state.sections) {
       if (!sec.title.trim()) {
@@ -537,7 +501,6 @@ export function useFormBuilder(initial?: BuilderState) {
     setState,
     // Metadata
     setName,
-    setAbbreviation,
     setDescription,
     // Sections
     addSection,

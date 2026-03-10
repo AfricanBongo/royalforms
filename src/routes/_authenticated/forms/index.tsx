@@ -220,7 +220,8 @@ function FormTemplateListPage() {
                   key={template.id}
                   className="cursor-pointer"
                   onClick={() => {
-                    if (template.status === 'draft') {
+                    // Navigate to edit for drafts or published templates being edited
+                    if (template.status === 'draft' || template.latest_version_status === 'draft') {
                       void navigate({
                         to: '/forms/$templateId/edit',
                         params: { templateId: template.id },
@@ -248,6 +249,9 @@ function FormTemplateListPage() {
                       {template.name}
                       {template.status === 'draft' && (
                         <Badge variant="secondary" className="text-xs">Draft</Badge>
+                      )}
+                      {template.status === 'published' && template.latest_version_status === 'draft' && (
+                        <Badge variant="outline" className="text-xs">Editing</Badge>
                       )}
                     </div>
                   </TableCell>
