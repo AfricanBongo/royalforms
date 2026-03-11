@@ -3,6 +3,28 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.8.0](https://github.com/AfricanBongo/royalforms/compare/v0.7.0...v0.8.0) (2026-03-11)
+
+
+### Features
+
+* **db:** add auto-report and short URL triggers for report instances ([7f9cfde](https://github.com/AfricanBongo/royalforms/commit/7f9cfde82516bea7b03636889fe32470a44645da))
+* **db:** add report_instances table with RLS and generation status ([9d09a7c](https://github.com/AfricanBongo/royalforms/commit/9d09a7c39bbda404bdbd04f2fd76939a98a891b7))
+* **db:** add report_template_sections and report_template_fields tables with RLS ([e37307b](https://github.com/AfricanBongo/royalforms/commit/e37307be29d2f325973bb3c7bb7fc98d0df5ca37))
+* **db:** add report_templates and report_template_versions tables with RLS ([4d63e51](https://github.com/AfricanBongo/royalforms/commit/4d63e518f69471d3042cc32da3a333a475c569f1))
+* **db:** add report-exports storage bucket with authenticated read access ([4f65ab5](https://github.com/AfricanBongo/royalforms/commit/4f65ab534e1bbd6b3aca1f76c453ab3f2e9d1103))
+* **edge-functions:** add export-report for PDF and DOCX generation with Storage caching ([33a0a60](https://github.com/AfricanBongo/royalforms/commit/33a0a605d3ae06cd34b6ed5fc2a635914cce57c6))
+* **edge-functions:** add generate-report with formula resolution and data snapshots ([43daf00](https://github.com/AfricanBongo/royalforms/commit/43daf00da05be55f6e3364a5c29c63243302e04b))
+* **edge-functions:** add on-report-instance-ready for Shlink short URLs ([a364f20](https://github.com/AfricanBongo/royalforms/commit/a364f20e5261a2c62b659877c7e85640057df841))
+* **reports:** merge reports backend (schema, triggers, Edge Functions, service layer) ([d46e9a5](https://github.com/AfricanBongo/royalforms/commit/d46e9a56fd8d11d0d2b4e778338577f7f878e50e))
+* **services:** add reports service layer with template CRUD and instance operations ([9e45668](https://github.com/AfricanBongo/royalforms/commit/9e45668fb2176ce59513b1a33046ec54f8b8f53e))
+
+
+### Documentation
+
+* **plans:** add reports backend design and implementation plan ([7453e07](https://github.com/AfricanBongo/royalforms/commit/7453e07b68b38507bc52553b33c00b8f150b94f4))
+* **todo:** check off completed report backend items ([1b6db1e](https://github.com/AfricanBongo/royalforms/commit/1b6db1e21fb1782730c1804ff7d6baa64454e20e))
+
 ## [0.7.0](https://github.com/AfricanBongo/royalforms/compare/v0.6.0...v0.7.0) (2026-03-11)
 
 
