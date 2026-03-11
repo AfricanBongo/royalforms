@@ -13,7 +13,13 @@ import { supabase } from './supabase'
  */
 export async function updateProfile(
   userId: string,
-  data: { full_name?: string; invite_status?: string },
+  data: {
+    full_name?: string
+    first_name?: string
+    last_name?: string
+    avatar_url?: string | null
+    invite_status?: string
+  },
 ) {
   const { error } = await supabase
     .from('profiles')
@@ -21,6 +27,20 @@ export async function updateProfile(
     .eq('id', userId)
 
   if (error) throw error
+}
+
+/**
+ * Fetch a user's profile by ID.
+ */
+export async function fetchProfile(userId: string) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email, full_name, first_name, last_name, avatar_url, role, group_id, is_active')
+    .eq('id', userId)
+    .single()
+
+  if (error) throw error
+  return data
 }
 
 // ---------------------------------------------------------------------------
@@ -69,4 +89,25 @@ export async function uploadAvatar(
     .getPublicUrl(filePath)
 
   return urlData.publicUrl
+}
+
+/**
+ * Delete the user's avatar from the storage bucket.
+ * Lists all files under the user's folder and removes them.
+ */
+export async function deleteAvatar(userId: string): Promise<void> {
+  const { data: files, error: listError } = await supabase.storage
+    .from('avatars')
+    .list(userId)
+
+  if (listError) throw listError
+
+  if (files && files.length > 0) {
+    const paths = files.map((f) => `${userId}/${f.name}`)
+    const { error: removeError } = await supabase.storage
+      .from('avatars')
+      .remove(paths)
+
+    if (removeError) throw removeError
+  }
 }
