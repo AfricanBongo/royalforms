@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
+  DownloadIcon,
   EllipsisVerticalIcon,
+  FileTextIcon,
   FilterIcon,
   HistoryIcon,
   Loader2Icon,
@@ -47,8 +49,10 @@ import { GenerateReportDialog } from '../../../../features/reports/GenerateRepor
 import { VersionHistorySheet } from '../../../../features/reports/VersionHistorySheet'
 import { useCurrentUser } from '../../../../hooks/use-current-user'
 import { usePageTitle } from '../../../../hooks/use-page-title'
+import { useReportGenerationWatch } from '../../../../hooks/use-report-generation-watch'
 import {
   deactivateReportTemplate,
+  exportReport,
   fetchReportInstances,
   fetchReportTemplateById,
   toggleAutoGenerate,
@@ -89,7 +93,9 @@ function ReportTemplateDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [togglingAutoGen, setTogglingAutoGen] = useState(false)
+  const [exportingId, setExportingId] = useState<string | null>(null)
 
+  const { watch } = useReportGenerationWatch()
   const isRootAdmin = currentUser?.role === 'root_admin'
 
   // Filter instances by search (readable_id or created_by_name)
@@ -195,6 +201,27 @@ function ReportTemplateDetailPage() {
     } finally {
       setDeleting(false)
       setDeleteOpen(false)
+    }
+  }
+
+  // Export a report instance
+  async function handleExportInstance(instanceId: string, format: 'pdf' | 'docx') {
+    if (exportingId) return
+    setExportingId(instanceId)
+    try {
+      const url = await exportReport(instanceId, format)
+      window.open(url, '_blank')
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(
+        error.code,
+        error.message,
+        'database',
+        'read_record',
+      )
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setExportingId(null)
     }
   }
 
@@ -375,16 +402,47 @@ function ReportTemplateDetailPage() {
                     {formatDate(instance.created_at)}
                   </TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void navigate({
-                        to: '/reports/$templateId/instances/$readableId',
-                        params: { templateId, readableId: instance.readable_id },
-                      })}
-                    >
-                      View
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void navigate({
+                          to: '/reports/$templateId/instances/$readableId',
+                          params: { templateId, readableId: instance.readable_id },
+                        })}
+                      >
+                        View
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={instance.status !== 'ready' || exportingId === instance.id}
+                          >
+                            {exportingId === instance.id ? (
+                              <Loader2Icon className="size-4 animate-spin" />
+                            ) : (
+                              <DownloadIcon className="size-4" />
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => void handleExportInstance(instance.id, 'pdf')}
+                          >
+                            <FileTextIcon className="size-4" />
+                            Export as PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => void handleExportInstance(instance.id, 'docx')}
+                          >
+                            <FileTextIcon className="size-4" />
+                            Export as Word
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -481,7 +539,10 @@ function ReportTemplateDetailPage() {
         onOpenChange={setGenerateOpen}
         reportTemplateId={templateId}
         formTemplateId={template.form_template_id}
-        onGenerated={() => void loadTemplate()}
+        onGenerated={(instanceId, readableId, tmplId) => {
+          watch({ instanceId, readableId, templateId: tmplId })
+          void loadTemplate()
+        }}
       />
     </div>
   )
