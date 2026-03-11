@@ -1,18 +1,11 @@
 /**
- * /reports/new — Report builder page for creating a new report template.
+ * /reports/new — Report WYSIWYG builder for creating a new report template.
  *
- * Layout:
- * - Header (from _authenticated layout): "New Report" title + status indicator + Discard Draft / Publish buttons
- * - Body: bg-muted, scrollable content area (max-w-[816px])
- *   - Report title/description card (white, top, no top-rounding)
- *   - Linked form select (enabled — must pick a form template)
- *   - Auto-generate switch
- *   - Section cards with report-specific fields
- *
+ * Uses BlockNote with custom blocks (Formula, Dynamic Variable, Data Table).
  * Auto-save: Changes are debounced (3s) and persisted automatically.
  * After the first save, URL silently swaps to /reports/$templateId/edit.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { SaveIcon } from 'lucide-react'
@@ -36,9 +29,9 @@ import {
   SelectValue,
 } from '../../../components/ui/select'
 import { Switch } from '../../../components/ui/switch'
-import { ReportBuilderSection } from '../../../components/report-builder-section'
+import { ReportEditor } from '../../../features/reports/editor/ReportEditor'
+import { editorToCreateInput } from '../../../features/reports/editor/serialization'
 import { useReportAutoSave } from '../../../hooks/use-report-auto-save'
-import { useReportBuilder } from '../../../hooks/use-report-builder'
 import { usePageTitle } from '../../../hooks/use-page-title'
 import { deactivateReportTemplate } from '../../../services/reports'
 import {
@@ -49,11 +42,8 @@ import { mapSupabaseError } from '../../../lib/supabase-errors'
 
 import type { SaveStatus } from '../../../hooks/use-report-auto-save'
 import type { TemplateListRow } from '../../../services/form-templates'
-import type {
-  FormFieldOption,
-  ReportBuilderField,
-  ReportFieldType,
-} from '../../../hooks/use-report-builder'
+import type { ReportMetadata } from '../../../features/reports/editor/serialization'
+import type { FormFieldOption } from '../../../features/reports/editor/types'
 
 export const Route = createFileRoute('/_authenticated/reports/new')({
   component: NewReportTemplatePage,
@@ -86,14 +76,46 @@ function NewReportTemplatePage() {
   const [formTemplates, setFormTemplates] = useState<TemplateListRow[]>([])
   const [formFields, setFormFields] = useState<FormFieldOption[]>([])
 
-  const builder = useReportBuilder()
-  const { state } = builder
+  // Editor content from BlockNote
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorDocumentRef = useRef<any[]>([])
+
+  // Report metadata (lives above the editor)
+  const [metadata, setMetadata] = useState<ReportMetadata>({
+    name: '',
+    abbreviation: '',
+    description: null,
+    linkedFormTemplateId: '',
+    autoGenerate: false,
+  })
+
+  // Refs for latest metadata
+  const metadataRef = useRef(metadata)
+  useEffect(() => {
+    metadataRef.current = metadata
+  }, [metadata])
+
+  // toCreateInput — converts current BlockNote document + metadata to service format
+  const toCreateInput = useCallback(() => {
+    return editorToCreateInput(editorDocumentRef.current, metadataRef.current)
+  }, [])
+
+  // Build a faux builderState proxy for the auto-save hook fingerprinting
+  const builderStateProxy = {
+    name: metadata.name,
+    description: metadata.description ?? '',
+    abbreviation: metadata.abbreviation,
+    linkedFormTemplateId: metadata.linkedFormTemplateId,
+    autoGenerate: metadata.autoGenerate,
+    sections: [],
+    _editorFingerprint: JSON.stringify(editorDocumentRef.current),
+  }
 
   // Auto-save (templateId starts as null for new reports)
   const { saveStatus, persistedTemplateId, flush } = useReportAutoSave({
     templateId: null,
-    builderState: state,
-    toCreateInput: builder.toCreateInput,
+    builderState: builderStateProxy as never,
+    toCreateInput,
   })
 
   // After first auto-save creates the template, silently swap URL
@@ -109,22 +131,24 @@ function NewReportTemplatePage() {
     }
   }, [persistedTemplateId, navigate])
 
-  // Refs to hold latest handlers so header buttons never use stale closures
+  // Refs for header button handlers
   const handlePublishRef = useRef<() => void>(() => {})
   const handleDiscardRef = useRef<() => void>(() => {})
 
-  // Update page title: show report name when typed, fall back to "New Report"
-  useEffect(() => {
-    setPageTitle(state.name.trim() || 'New Report')
-  }, [state.name, setPageTitle])
+  // Track editor changes to trigger auto-save re-evaluation
+  const [, setEditorChangeCounter] = useState(0)
 
-  // Inject header actions: status indicator + Discard Draft + Publish
+  // Update page title
+  useEffect(() => {
+    setPageTitle(metadata.name.trim() || 'New Report')
+  }, [metadata.name, setPageTitle])
+
+  // Inject header actions
   useEffect(() => {
     const statusText = saveStatusLabel(saveStatus)
 
     setHeaderActions(
       <>
-        {/* Status indicator */}
         <span className="mr-2 text-sm text-muted-foreground">
           Draft · v1
           {statusText && <> · {statusText}</>}
@@ -156,12 +180,11 @@ function NewReportTemplatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveStatus, isPublishing, setHeaderActions])
 
-  // Load available form templates for the linked form dropdown
+  // Load available form templates
   useEffect(() => {
     async function loadFormTemplates() {
       try {
         const templates = await fetchTemplates(false)
-        // Only show published templates
         setFormTemplates(templates.filter((t) => t.status === 'published'))
       } catch {
         console.warn('Failed to load form templates')
@@ -172,7 +195,7 @@ function NewReportTemplatePage() {
 
   // When user selects a linked form template, load its fields
   async function handleFormTemplateSelect(formTemplateId: string) {
-    builder.setLinkedFormTemplateId(formTemplateId)
+    setMetadata((m) => ({ ...m, linkedFormTemplateId: formTemplateId }))
 
     try {
       const formData = await fetchTemplateForEditing(formTemplateId)
@@ -192,6 +215,13 @@ function NewReportTemplatePage() {
       console.warn('Failed to load form template fields')
       setFormFields([])
     }
+  }
+
+  // Handle editor content changes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleEditorChange(document: any[]) {
+    editorDocumentRef.current = document
+    setEditorChangeCounter((c) => c + 1)
   }
 
   // -------------------------------------------------------------------------
@@ -218,18 +248,19 @@ function NewReportTemplatePage() {
   // -------------------------------------------------------------------------
 
   async function handlePublish() {
-    const { valid, errors } = builder.validate()
-    if (!valid) {
-      errors.forEach((msg) => toast.error(msg))
+    if (!metadata.name.trim()) {
+      toast.error('Report name is required.')
+      return
+    }
+    if (!metadata.linkedFormTemplateId) {
+      toast.error('A linked form template must be selected.')
       return
     }
 
     setIsPublishing(true)
     try {
-      // Flush any pending auto-save first
       await flush()
 
-      // If the report hasn't been persisted yet, the flush should have triggered a save.
       const tid = persistedTemplateId
       if (!tid) {
         toast.error('Please wait for the report to save before publishing.')
@@ -257,7 +288,7 @@ function NewReportTemplatePage() {
     <>
       <div className="flex h-full flex-col items-center overflow-auto bg-muted px-16">
         <div className="flex w-full max-w-[816px] flex-col gap-6 pb-16">
-          {/* Report title / description card */}
+          {/* Report metadata card */}
           <div className="flex flex-col gap-4 rounded-b-lg bg-background px-6 py-4">
             <div className="flex flex-col gap-1">
               <h3
@@ -266,30 +297,26 @@ function NewReportTemplatePage() {
                 suppressContentEditableWarning
                 onBlur={(e) => {
                   const text = e.currentTarget.textContent?.trim() ?? ''
-                  builder.setName(text)
+                  setMetadata((m) => ({ ...m, name: text }))
                 }}
-              >
-                {state.name}
-              </h3>
+              />
               <p
                 className="text-lg outline-none empty:before:content-['Report_Description'] empty:before:text-muted-foreground/50"
                 contentEditable
                 suppressContentEditableWarning
                 onBlur={(e) => {
                   const text = e.currentTarget.textContent?.trim() ?? ''
-                  builder.setDescription(text)
+                  setMetadata((m) => ({ ...m, description: text || null }))
                 }}
-              >
-                {state.description}
-              </p>
+              />
             </div>
 
             {/* Linked form select */}
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-medium">Linked Form Template</Label>
               <Select
-                value={state.linkedFormTemplateId ?? ''}
-                onValueChange={handleFormTemplateSelect}
+                value={metadata.linkedFormTemplateId}
+                onValueChange={(v) => void handleFormTemplateSelect(v)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a form template..." />
@@ -311,8 +338,10 @@ function NewReportTemplatePage() {
             <div className="flex items-center gap-3">
               <Switch
                 id="auto-generate"
-                checked={state.autoGenerate}
-                onCheckedChange={builder.setAutoGenerate}
+                checked={metadata.autoGenerate}
+                onCheckedChange={(checked) =>
+                  setMetadata((m) => ({ ...m, autoGenerate: checked }))
+                }
               />
               <Label htmlFor="auto-generate" className="text-sm">
                 Auto-generate reports when form instances are submitted
@@ -320,46 +349,13 @@ function NewReportTemplatePage() {
             </div>
           </div>
 
-          {/* Sections */}
-          {state.sections.map((section) => (
-            <ReportBuilderSection
-              key={section.clientId}
-              section={section}
-              totalSections={state.sections.length}
+          {/* BlockNote WYSIWYG Editor */}
+          <div className="rounded-lg bg-background">
+            <ReportEditor
               formFields={formFields}
-              onUpdateSection={(updates) =>
-                builder.updateSection(section.clientId, updates)
-              }
-              onRemoveSection={() =>
-                builder.removeSection(section.clientId)
-              }
-              onShowFieldTypePicker={(atIndex) =>
-                builder.showFieldTypePicker(section.clientId, atIndex)
-              }
-              onCancelFieldTypePicker={() =>
-                builder.cancelFieldTypePicker(section.clientId)
-              }
-              onInsertField={(fieldType: ReportFieldType) =>
-                builder.insertField(section.clientId, fieldType)
-              }
-              onAddSection={builder.addSection}
-              onUpdateField={(fieldClientId: string, updates: Partial<ReportBuilderField>) =>
-                builder.updateField(fieldClientId, updates)
-              }
-              onRemoveField={(fieldClientId: string) =>
-                builder.removeField(fieldClientId)
-              }
-              onDuplicateField={(fieldClientId: string) =>
-                builder.duplicateField(fieldClientId)
-              }
-              onMoveField={(fieldClientId: string, direction: 'up' | 'down') =>
-                builder.moveField(fieldClientId, direction)
-              }
-              onSetFieldEditing={(fieldClientId: string, editing: boolean) =>
-                builder.setFieldEditing(fieldClientId, editing)
-              }
+              onChange={handleEditorChange}
             />
-          ))}
+          </div>
         </div>
       </div>
 
