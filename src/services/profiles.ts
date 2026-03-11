@@ -2,6 +2,7 @@
  * Profiles service — data access for user profiles, avatar uploads,
  * and group name lookups used during onboarding.
  */
+import { compressImage } from '../lib/compress'
 import { supabase } from './supabase'
 
 // ---------------------------------------------------------------------------
@@ -69,18 +70,19 @@ export async function fetchGroupName(
 
 /**
  * Upload an avatar image to the `avatars` storage bucket.
- * Returns the public URL of the uploaded file.
+ * Compresses the image before upload. Returns the public URL.
  */
 export async function uploadAvatar(
   userId: string,
   file: File,
 ): Promise<string> {
-  const ext = file.name.split('.').pop() ?? 'png'
+  const compressed = await compressImage(file, 'avatar')
+  const ext = compressed.name.split('.').pop() ?? 'png'
   const filePath = `${userId}/avatar.${ext}`
 
   const { error } = await supabase.storage
     .from('avatars')
-    .upload(filePath, file, { upsert: true })
+    .upload(filePath, compressed, { upsert: true })
 
   if (error) throw error
 
