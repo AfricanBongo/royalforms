@@ -171,18 +171,19 @@ When deleting a form template that has existing instances, present two options:
 - [x] Report service layer (`src/services/reports.ts`)
 
 ### Frontend
-- [ ] Report template list page (`/reports/templates`)
-- [ ] Report template detail page (`/reports/templates/:id`)
-- [ ] Report template builder (`/reports/templates/new` and `edit`)
-- [ ] Formula editor (aggregates + arithmetic)
-- [ ] Dynamic variable field picker
-- [ ] Table column configuration
-- [ ] Static text editor
-- [ ] Version history side sheet
-- [ ] Report instance list page (`/reports`)
-- [ ] Report instance viewer (`/reports/:readableId`)
-- [ ] Manual report creation (select form instances, generate)
-- [ ] Export buttons (PDF / Word) with download
+- [x] Report template list page (`/reports`)
+- [x] Report template detail page (`/reports/:templateId`)
+- [x] Report template builder (`/reports/new` and `/reports/:templateId/edit`)
+- [x] Formula editor (visual block builder with aggregates + arithmetic)
+- [x] Dynamic variable field picker
+- [x] Table column configuration
+- [x] Static text editor
+- [x] Version history side sheet
+- [x] Report instance viewer (`/reports/:templateId/instances/:readableId`)
+- [x] Manual report creation (select form instances, generate)
+- [x] Export buttons (PDF / Word) with download
+- [x] Realtime generation watch with toast notifications
+- [x] Auto-save for report template builder
 
 ## Feature: Notifications
 
