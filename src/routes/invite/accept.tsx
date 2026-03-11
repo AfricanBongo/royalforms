@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react'
 
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import type { User } from '@supabase/supabase-js'
 import {
   CheckIcon,
@@ -40,6 +40,11 @@ import { getDefaultAvatarUri } from '../../lib/avatar'
 import type { UserRole } from '../../types/auth'
 
 export const Route = createFileRoute('/invite/accept')({
+  beforeLoad: ({ context }) => {
+    if (context.setup.isSetupComplete === false) {
+      throw redirect({ to: '/setup' })
+    }
+  },
   component: InviteAcceptPage,
 })
 

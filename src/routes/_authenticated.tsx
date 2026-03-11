@@ -23,6 +23,11 @@ import { ReportGenerationWatchProvider } from '../hooks/use-report-generation-wa
 
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: ({ context }) => {
+    // Setup not complete -- redirect to setup wizard
+    if (context.setup.isSetupComplete === false) {
+      throw redirect({ to: '/setup' })
+    }
+
     // Still loading auth state -- let it resolve
     if (context.auth.isLoading) return
 

@@ -1,6 +1,6 @@
 import { type SubmitEvent, useState } from 'react'
 
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { CheckIcon, Loader2Icon, LockIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -22,6 +22,11 @@ import { updatePassword } from '../services/auth'
 import { mapSupabaseError } from '../lib/supabase-errors'
 
 export const Route = createFileRoute('/reset-password')({
+  beforeLoad: ({ context }) => {
+    if (context.setup.isSetupComplete === false) {
+      throw redirect({ to: '/setup' })
+    }
+  },
   component: ResetPasswordPage,
 })
 

@@ -24,6 +24,9 @@ import { isValidEmail } from '../lib/validation'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: ({ context }) => {
+    if (context.setup.isSetupComplete === false) {
+      throw redirect({ to: '/setup' })
+    }
     if (context.auth.session) {
       throw redirect({ to: '/' })
     }
