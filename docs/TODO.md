@@ -58,6 +58,18 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Invite lifecycle UI (Invite Sent badge, resend, change email, delete in members tab)
 - [x] Cancelled request badge in requests tab
 
+## Feature: Profile Settings
+
+### Backend
+- [x] `avatar_url`, `first_name`, `last_name` columns on profiles table
+- [x] Email change confirmation template (`supabase/templates/email-change.html`)
+
+### Frontend
+- [x] Settings page (`/settings`) with avatar, name, email, password sections
+- [x] Fix sidebar to show real avatar with DiceBear fallback
+- [x] Update "View Profile" link to point to `/settings`
+- [x] `avatarUrl` added to `CurrentUser` type and parsed from JWT metadata
+
 ## Feature: Groups
 
 ### Backend
