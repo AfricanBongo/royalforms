@@ -1,15 +1,17 @@
 /**
  * Auto-save hook for the report builder.
  *
- * Debounces builder state changes and persists them to the database.
+ * Debounces content changes and persists them to the database.
  * Handles both new reports (createReportTemplate -> URL swap) and existing (updateReportTemplate).
  *
  * State machine: idle -> dirty -> saving -> saved -> idle
  * If user edits while saving, queues another save after current completes.
+ *
+ * Accepts a generic "content state" object for fingerprinting — works with
+ * both the old ReportBuilderState and the new BlockNote editor content.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { ReportBuilderState } from './use-report-builder'
 import type { CreateReportTemplateInput } from '../services/reports'
 import { createReportTemplate, updateReportTemplate } from '../services/reports'
 
@@ -22,10 +24,12 @@ export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 export interface UseReportAutoSaveOptions {
   /** Template ID, or null for new (not yet persisted) report templates. */
   templateId: string | null
-  /** Current builder state to watch for changes. */
-  builderState: ReportBuilderState
-  /** Serialiser — converts builder state to service input format. */
+  /** Content state to watch for changes. Serialized via JSON.stringify for fingerprinting. */
+  contentState: Record<string, unknown>
+  /** Serialiser — converts current state to service input format. */
   toCreateInput: () => CreateReportTemplateInput
+  /** Whether the content has meaningful data worth saving (prevents saving empty reports). */
+  hasMeaningfulContent: boolean
 }
 
 export interface UseReportAutoSaveReturn {
@@ -45,64 +49,14 @@ const DEBOUNCE_MS = 3_000
 const SAVED_DISPLAY_MS = 2_000
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Serialise the parts of ReportBuilderState that matter for change detection.
- * Strips transient UI fields (isEditing, insertingAtIndex, clientId).
- */
-function stateFingerprint(s: ReportBuilderState): string {
-  return JSON.stringify({
-    name: s.name,
-    description: s.description,
-    abbreviation: s.abbreviation,
-    linkedFormTemplateId: s.linkedFormTemplateId,
-    autoGenerate: s.autoGenerate,
-    sections: s.sections.map((sec) => ({
-      title: sec.title,
-      description: sec.description,
-      sort_order: sec.sort_order,
-      fields: sec.fields.map((f) => ({
-        label: f.label,
-        field_type: f.field_type,
-        sort_order: f.sort_order,
-        formulaBlocks: f.formulaBlocks,
-        dynamicVariableFieldId: f.dynamicVariableFieldId,
-        tableColumns: f.tableColumns,
-        tableGroupBy: f.tableGroupBy,
-        staticTextContent: f.staticTextContent,
-      })),
-    })),
-  })
-}
-
-/**
- * A change is "meaningful" when any of these are non-empty after trim:
- * - Report name
- * - Any field label in any section
- *
- * This prevents creating empty records when users visit /reports/new
- * and immediately leave.
- */
-function hasMeaningfulContent(s: ReportBuilderState): boolean {
-  if (s.name.trim()) return true
-  for (const sec of s.sections) {
-    for (const f of sec.fields) {
-      if (f.label.trim()) return true
-    }
-  }
-  return false
-}
-
-// ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
 export function useReportAutoSave({
   templateId,
-  builderState,
+  contentState,
   toCreateInput,
+  hasMeaningfulContent,
 }: UseReportAutoSaveOptions): UseReportAutoSaveReturn {
   // -- Persisted template ID (starts as prop, updated after first save) ------
   const [persistedTemplateId, setPersistedTemplateId] = useState<string | null>(templateId)
@@ -134,6 +88,12 @@ export function useReportAutoSave({
   useEffect(() => {
     toCreateInputRef.current = toCreateInput
   }, [toCreateInput])
+
+  // Latest hasMeaningfulContent ref
+  const hasMeaningfulRef = useRef(hasMeaningfulContent)
+  useEffect(() => {
+    hasMeaningfulRef.current = hasMeaningfulContent
+  }, [hasMeaningfulContent])
 
   // -- Core save function (via ref to allow self-scheduling) -----------------
   const performSaveRef = useRef<() => Promise<void>>(async () => {})
@@ -197,9 +157,9 @@ export function useReportAutoSave({
     void performSaveRef.current()
   }, [])
 
-  // -- Watch for builder state changes ---------------------------------------
+  // -- Watch for content state changes ---------------------------------------
   useEffect(() => {
-    const fp = stateFingerprint(builderState)
+    const fp = JSON.stringify(contentState)
 
     // Skip the initial render (loading data is not a change)
     if (isInitialRender.current) {
@@ -214,7 +174,7 @@ export function useReportAutoSave({
     prevFingerprint.current = fp
 
     // Gate: don't persist empty reports
-    if (!hasMeaningfulContent(builderState)) return
+    if (!hasMeaningfulRef.current) return
 
     // Mark dirty and start/reset debounce timer
     setSaveStatus((prev) => (prev === 'saving' ? prev : 'dirty'))
@@ -225,7 +185,7 @@ export function useReportAutoSave({
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(triggerSave, DEBOUNCE_MS)
-  }, [builderState, triggerSave])
+  }, [contentState, triggerSave])
 
   // -- Flush: immediate save (for publish / navigate) -----------------------
   const flush = useCallback(async () => {
@@ -235,8 +195,8 @@ export function useReportAutoSave({
       debounceTimer.current = null
     }
 
-    // Only save if there are pending changes
-    if (!hasMeaningfulContent(builderState)) return
+    // Only save if there is meaningful content
+    if (!hasMeaningfulRef.current) return
 
     // Wait for any in-flight save to finish
     if (isSaving.current) {
@@ -256,12 +216,12 @@ export function useReportAutoSave({
       await performSaveRef.current()
     } else {
       // Check if current state differs from what was last saved
-      const fp = stateFingerprint(builderState)
+      const fp = JSON.stringify(contentState)
       if (fp !== prevFingerprint.current || persistedIdRef.current === null) {
         await performSaveRef.current()
       }
     }
-  }, [builderState])
+  }, [contentState])
 
   // -- Cleanup timers on unmount --------------------------------------------
   useEffect(() => {

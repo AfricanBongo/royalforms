@@ -1,12 +1,13 @@
 /**
- * /reports/:templateId/edit — Report builder page for editing an existing report template.
+ * /reports/:templateId/edit — Report WYSIWYG builder for editing an existing template.
  *
- * Auto-save: Changes are debounced (3s) and persisted automatically.
- * Each save creates a new version via updateReportTemplate.
+ * Uses BlockNote with custom blocks (Formula, Dynamic Variable, Data Table).
+ * Auto-save: Changes are debounced (3s) and persisted automatically via
+ * the serialization layer that converts BlockNote content to service format.
  *
- * Header shows: [Draft|Published] · vN · [save status] + action buttons
+ * Header shows: vN · [save status] + action buttons
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ShareIcon } from 'lucide-react'
@@ -23,12 +24,13 @@ import {
 } from '../../../../components/ui/dialog'
 import { Label } from '../../../../components/ui/label'
 import { Switch } from '../../../../components/ui/switch'
-import { ReportBuilderSection } from '../../../../components/report-builder-section'
-import { useReportAutoSave } from '../../../../hooks/use-report-auto-save'
+import { ReportEditor } from '../../../../features/reports/editor/ReportEditor'
 import {
-  useReportBuilder,
-  toBuilderState,
-} from '../../../../hooks/use-report-builder'
+  editorToCreateInput,
+  resolveVariableLabels,
+  templateDetailToEditorContent,
+} from '../../../../features/reports/editor/serialization'
+import { useReportAutoSave } from '../../../../hooks/use-report-auto-save'
 import { usePageTitle } from '../../../../hooks/use-page-title'
 import {
   fetchReportTemplateById,
@@ -38,11 +40,8 @@ import { fetchTemplateForEditing } from '../../../../services/form-templates'
 import { mapSupabaseError } from '../../../../lib/supabase-errors'
 
 import type { SaveStatus } from '../../../../hooks/use-report-auto-save'
-import type {
-  FormFieldOption,
-  ReportBuilderField,
-  ReportFieldType,
-} from '../../../../hooks/use-report-builder'
+import type { ReportMetadata } from '../../../../features/reports/editor/serialization'
+import type { FormFieldOption } from '../../../../features/reports/editor/types'
 
 export const Route = createFileRoute('/_authenticated/reports/$templateId/edit')({
   component: EditReportTemplatePage,
@@ -78,23 +77,60 @@ function EditReportTemplatePage() {
   const [formFields, setFormFields] = useState<FormFieldOption[]>([])
   const [linkedFormName, setLinkedFormName] = useState('')
 
-  const builder = useReportBuilder()
-  const { state } = builder
+  // Editor content from BlockNote
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [initialContent, setInitialContent] = useState<any[] | undefined>(undefined)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorDocumentRef = useRef<any[]>([])
 
-  // Auto-save — templateId is always known on this page
-  const { saveStatus, flush } = useReportAutoSave({
-    templateId,
-    builderState: state,
-    toCreateInput: builder.toCreateInput,
+  // Report metadata (lives above the editor)
+  const [metadata, setMetadata] = useState<ReportMetadata>({
+    name: '',
+    abbreviation: '',
+    description: null,
+    linkedFormTemplateId: '',
+    autoGenerate: false,
   })
 
-  // Refs to hold latest handlers so header buttons never use stale closures
+  // Refs for latest metadata + editor document (for serialization)
+  const metadataRef = useRef(metadata)
+  useEffect(() => {
+    metadataRef.current = metadata
+  }, [metadata])
+
+  // toCreateInput — converts current BlockNote document + metadata to service format
+  const toCreateInput = useCallback(() => {
+    return editorToCreateInput(editorDocumentRef.current, metadataRef.current)
+  }, [])
+
+  // Content state for auto-save fingerprinting
+  const contentState = {
+    name: metadata.name,
+    description: metadata.description ?? '',
+    abbreviation: metadata.abbreviation,
+    linkedFormTemplateId: metadata.linkedFormTemplateId,
+    autoGenerate: metadata.autoGenerate,
+    editorDocument: JSON.stringify(editorDocumentRef.current),
+  }
+
+  // Auto-save
+  const { saveStatus, flush } = useReportAutoSave({
+    templateId,
+    contentState,
+    toCreateInput,
+    hasMeaningfulContent: !!metadata.name.trim(),
+  })
+
+  // Refs for header button handlers
   const handlePublishRef = useRef<() => void>(() => {})
   const handleDiscardRef = useRef<() => void>(() => {})
 
-  // Update breadcrumbs: Reports > Template Name > Edit
+  // Track editor changes to trigger auto-save re-evaluation
+  const [, setEditorChangeCounter] = useState(0)
+
+  // Update breadcrumbs
   useEffect(() => {
-    const reportName = state.name.trim() || 'Untitled Report'
+    const reportName = metadata.name.trim() || 'Untitled Report'
     setBreadcrumbs([
       { label: reportName, path: `/reports/${templateId}` },
       { label: 'Edit', path: `/reports/${templateId}/edit` },
@@ -102,16 +138,15 @@ function EditReportTemplatePage() {
     return () => {
       setBreadcrumbs([])
     }
-  }, [state.name, templateId, setBreadcrumbs])
+  }, [metadata.name, templateId, setBreadcrumbs])
 
-  // Inject header actions: status indicator + Discard Draft + Publish
+  // Inject header actions
   useEffect(() => {
     const statusText = saveStatusLabel(saveStatus)
     const publishLabel = 'Publish New Version'
 
     setHeaderActions(
       <>
-        {/* Status indicator */}
         <span className="mr-2 text-sm text-muted-foreground">
           v{versionNumber}
           {statusText && <> · {statusText}</>}
@@ -149,13 +184,29 @@ function EditReportTemplatePage() {
         setVersionNumber(data.latest_version.version_number)
         setLinkedFormName(data.form_template_name)
 
-        const initial = toBuilderState(data)
-        builder.setState(initial)
+        // Set metadata
+        setMetadata({
+          name: data.name,
+          abbreviation: data.abbreviation,
+          description: data.description,
+          linkedFormTemplateId: data.form_template_id,
+          autoGenerate: data.auto_generate,
+        })
 
-        // Load linked form template's fields for formula/variable/table pickers
+        // Convert service format to BlockNote editor content
+        let editorContent = templateDetailToEditorContent(data)
+
+        // Load linked form fields
         if (data.form_template_id) {
-          await loadFormFields(data.form_template_id)
+          const fields = await loadFormFields(data.form_template_id)
+          if (fields.length > 0) {
+            // Resolve dynamic variable labels
+            editorContent = resolveVariableLabels(editorContent, fields)
+          }
         }
+
+        setInitialContent(editorContent)
+        editorDocumentRef.current = editorContent
       } catch (err: unknown) {
         const error = err as { code?: string; message: string }
         const mapped = mapSupabaseError(error.code, error.message, 'database', 'read_record')
@@ -166,12 +217,10 @@ function EditReportTemplatePage() {
     }
 
     void load()
-    // Only load once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId])
 
   // Load form fields from a form template
-  async function loadFormFields(formTemplateId: string) {
+  async function loadFormFields(formTemplateId: string): Promise<FormFieldOption[]> {
     try {
       const formData = await fetchTemplateForEditing(formTemplateId)
       const options: FormFieldOption[] = []
@@ -186,14 +235,23 @@ function EditReportTemplatePage() {
         }
       }
       setFormFields(options)
+      return options
     } catch {
-      // Non-critical — builder still works, just can't pick form fields
       console.warn('Failed to load form template fields for report builder')
+      return []
     }
   }
 
+  // Handle editor content changes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleEditorChange(document: any[]) {
+    editorDocumentRef.current = document
+    // Bump counter to trigger auto-save re-evaluation
+    setEditorChangeCounter((c) => c + 1)
+  }
+
   // -------------------------------------------------------------------------
-  // Discard Draft — deactivates the report template and navigates away
+  // Discard Draft
   // -------------------------------------------------------------------------
 
   async function handleDiscard() {
@@ -210,13 +268,17 @@ function EditReportTemplatePage() {
   handleDiscardRef.current = () => setShowDiscardDialog(true)
 
   // -------------------------------------------------------------------------
-  // Publish — flush auto-save then navigate to detail page
+  // Publish
   // -------------------------------------------------------------------------
 
   async function handlePublish() {
-    const { valid, errors } = builder.validate()
-    if (!valid) {
-      errors.forEach((msg) => toast.error(msg))
+    // Basic validation
+    if (!metadata.name.trim()) {
+      toast.error('Report name is required.')
+      return
+    }
+    if (!metadata.linkedFormTemplateId) {
+      toast.error('A linked form template must be selected.')
       return
     }
 
@@ -251,7 +313,7 @@ function EditReportTemplatePage() {
     <>
       <div className="flex h-full flex-col items-center overflow-auto bg-muted px-16">
         <div className="flex w-full max-w-[816px] flex-col gap-6 pb-16">
-          {/* Report title / description card */}
+          {/* Report metadata card */}
           <div className="flex flex-col gap-4 rounded-b-lg bg-background px-6 py-4">
             <div className="flex flex-col gap-1">
               <h3
@@ -260,10 +322,10 @@ function EditReportTemplatePage() {
                 suppressContentEditableWarning
                 onBlur={(e) => {
                   const text = e.currentTarget.textContent?.trim() ?? ''
-                  builder.setName(text)
+                  setMetadata((m) => ({ ...m, name: text }))
                 }}
               >
-                {state.name}
+                {metadata.name}
               </h3>
               <p
                 className="text-lg outline-none empty:before:content-['Report_Description'] empty:before:text-muted-foreground/50"
@@ -271,10 +333,10 @@ function EditReportTemplatePage() {
                 suppressContentEditableWarning
                 onBlur={(e) => {
                   const text = e.currentTarget.textContent?.trim() ?? ''
-                  builder.setDescription(text)
+                  setMetadata((m) => ({ ...m, description: text || null }))
                 }}
               >
-                {state.description}
+                {metadata.description ?? ''}
               </p>
             </div>
 
@@ -290,8 +352,10 @@ function EditReportTemplatePage() {
             <div className="flex items-center gap-3">
               <Switch
                 id="auto-generate"
-                checked={state.autoGenerate}
-                onCheckedChange={builder.setAutoGenerate}
+                checked={metadata.autoGenerate}
+                onCheckedChange={(checked) =>
+                  setMetadata((m) => ({ ...m, autoGenerate: checked }))
+                }
               />
               <Label htmlFor="auto-generate" className="text-sm">
                 Auto-generate reports when form instances are submitted
@@ -299,46 +363,14 @@ function EditReportTemplatePage() {
             </div>
           </div>
 
-          {/* Sections */}
-          {state.sections.map((section) => (
-            <ReportBuilderSection
-              key={section.clientId}
-              section={section}
-              totalSections={state.sections.length}
+          {/* BlockNote WYSIWYG Editor */}
+          <div className="rounded-lg bg-background">
+            <ReportEditor
+              initialContent={initialContent}
               formFields={formFields}
-              onUpdateSection={(updates) =>
-                builder.updateSection(section.clientId, updates)
-              }
-              onRemoveSection={() =>
-                builder.removeSection(section.clientId)
-              }
-              onShowFieldTypePicker={(atIndex) =>
-                builder.showFieldTypePicker(section.clientId, atIndex)
-              }
-              onCancelFieldTypePicker={() =>
-                builder.cancelFieldTypePicker(section.clientId)
-              }
-              onInsertField={(fieldType: ReportFieldType) =>
-                builder.insertField(section.clientId, fieldType)
-              }
-              onAddSection={builder.addSection}
-              onUpdateField={(fieldClientId: string, updates: Partial<ReportBuilderField>) =>
-                builder.updateField(fieldClientId, updates)
-              }
-              onRemoveField={(fieldClientId: string) =>
-                builder.removeField(fieldClientId)
-              }
-              onDuplicateField={(fieldClientId: string) =>
-                builder.duplicateField(fieldClientId)
-              }
-              onMoveField={(fieldClientId: string, direction: 'up' | 'down') =>
-                builder.moveField(fieldClientId, direction)
-              }
-              onSetFieldEditing={(fieldClientId: string, editing: boolean) =>
-                builder.setFieldEditing(fieldClientId, editing)
-              }
+              onChange={handleEditorChange}
             />
-          ))}
+          </div>
         </div>
       </div>
 
