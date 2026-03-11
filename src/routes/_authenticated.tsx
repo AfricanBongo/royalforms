@@ -19,6 +19,7 @@ import {
   SidebarTrigger,
 } from '../components/ui/sidebar'
 import { PageTitleProvider, usePageTitle } from '../hooks/use-page-title'
+import { ReportGenerationWatchProvider } from '../hooks/use-report-generation-watch'
 
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: ({ context }) => {
@@ -68,17 +69,19 @@ function AuthenticatedLayout() {
 
   return (
     <PageTitleProvider>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <HeaderBar />
+      <ReportGenerationWatchProvider>
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset>
+            <HeaderBar />
 
-          {/* Page content */}
-          <div className="flex-1 overflow-auto">
-            <Outlet />
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+            {/* Page content */}
+            <div className="flex-1 overflow-auto">
+              <Outlet />
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      </ReportGenerationWatchProvider>
     </PageTitleProvider>
   )
 }
