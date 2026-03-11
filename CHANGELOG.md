@@ -3,6 +3,37 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.7.0](https://github.com/AfricanBongo/royalforms/compare/v0.6.0...v0.7.0) (2026-03-11)
+
+
+### Features
+
+* **auth:** add avatarUrl to CurrentUser type ([c7f091a](https://github.com/AfricanBongo/royalforms/commit/c7f091a1620493759c00e5b5fb056b69f286f9d2))
+* **auth:** add email change confirmation template ([b8937a3](https://github.com/AfricanBongo/royalforms/commit/b8937a3314f9b81a603c60cd34f78013306ae8d3))
+* **db:** add avatar_url, first_name, last_name columns to profiles ([187cbdb](https://github.com/AfricanBongo/royalforms/commit/187cbdb4cd97132ad9f2f5ca9a3162e1cac96f5b))
+* **instances:** add atomic upsert function and enable realtime for field values ([ede2bf1](https://github.com/AfricanBongo/royalforms/commit/ede2bf111d2b733eb3684c33d334b3f8c7f427ed))
+* **instances:** file upload, realtime sync, rating fix, and character limits ([472a2a3](https://github.com/AfricanBongo/royalforms/commit/472a2a32af2b8969fe0f0950e9d681014484f2f0))
+* **lib:** add client-side image compression for storage uploads ([4be6df4](https://github.com/AfricanBongo/royalforms/commit/4be6df4089620283a0260501246543cacd02bef8))
+* **services:** expand profile service with delete avatar and fetch profile ([252336a](https://github.com/AfricanBongo/royalforms/commit/252336a0faed0b5d48fbc32a9e01871aa1f87214))
+* **sidebar:** show real avatar and link to settings page ([d144788](https://github.com/AfricanBongo/royalforms/commit/d144788b1ea176ecba9f6034361542633c6f7252))
+* **storage:** create form-uploads bucket with RLS policies ([17ee810](https://github.com/AfricanBongo/royalforms/commit/17ee8109ff8a0495dfb51bf47b2f43d35bfb1112))
+
+
+### Bug Fixes
+
+* **groups:** show real avatar in members tab instead of always using DiceBear ([f8ad381](https://github.com/AfricanBongo/royalforms/commit/f8ad381da5fc166999da54c2c663dd56e24577c5))
+* **settings:** remove duplicate Settings breadcrumb from page title context ([ab65dc4](https://github.com/AfricanBongo/royalforms/commit/ab65dc430fe13ca539ff905ae1dbb7400e653b4d))
+* **sidebar:** remove settings route cast now that route file exists ([c06110b](https://github.com/AfricanBongo/royalforms/commit/c06110b63fd3d6f11e27880bbf3fe5642c09bc4c))
+* **storage:** add SELECT policy for avatars bucket to fix upsert RLS violation ([d090626](https://github.com/AfricanBongo/royalforms/commit/d090626c99c634e8f8c51584763b0699ecedaef1))
+
+
+### Documentation
+
+* **plans:** add instance bugfix and file upload implementation plans ([a1a6c2c](https://github.com/AfricanBongo/royalforms/commit/a1a6c2cf228922ad2878e1b435f3a0e7480c2a41))
+* **plans:** add profile settings implementation plan ([0053de1](https://github.com/AfricanBongo/royalforms/commit/0053de13b811e042eaaea839978727c599dc4593))
+* **plans:** add profile settings page design ([c244b7c](https://github.com/AfricanBongo/royalforms/commit/c244b7ccd09452fc2947d65c008d1b26beda86bc))
+* **todo:** add profile settings feature items ([03373c8](https://github.com/AfricanBongo/royalforms/commit/03373c817ad6bc6919ada92e8121f7449a14d2a3))
+
 ## [0.6.0](https://github.com/AfricanBongo/royalforms/compare/v0.5.0...v0.6.0) (2026-03-10)
 
 
