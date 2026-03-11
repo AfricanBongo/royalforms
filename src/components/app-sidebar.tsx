@@ -64,7 +64,7 @@ export function AppSidebar() {
     .join('')
 
   // Avatar: use uploaded URL from user_metadata, or DiceBear default
-  const avatarUrl = getDefaultAvatarUri(displayName)
+  const avatarUrl = currentUser?.avatarUrl ?? getDefaultAvatarUri(displayName)
 
   // Org / group display
   const orgInitial = 'R'
@@ -129,7 +129,8 @@ export function AppSidebar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-[--radix-dropdown-menu-trigger-width]">
             <DropdownMenuItem asChild>
-              <Link to="/">
+              {/* Route created in settings feature; cast until route file exists */}
+              <Link to={'/settings' as '/'}> 
                 <UserIcon className="size-4" />
                 View Profile
               </Link>

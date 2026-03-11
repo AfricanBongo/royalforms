@@ -46,6 +46,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   groups: 'Groups',
   forms: 'Forms',
   reports: 'Reports',
+  settings: 'Settings',
 }
 
 // ---------------------------------------------------------------------------
