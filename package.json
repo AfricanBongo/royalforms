@@ -19,6 +19,9 @@
     "release:dry": "commit-and-tag-version --dry-run"
   },
   "dependencies": {
+    "@blocknote/core": "^0.47.1",
+    "@blocknote/react": "^0.47.1",
+    "@blocknote/shadcn": "^0.47.1",
     "@dicebear/core": "^9.4.0",
     "@dicebear/thumbs": "^9.4.0",
     "@supabase/supabase-js": "^2.98.0",
