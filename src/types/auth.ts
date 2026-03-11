@@ -12,6 +12,7 @@ export interface CurrentUser {
   email: string
   firstName: string
   lastName: string
+  avatarUrl: string | null
   role: UserRole
   groupId: string | null
   isActive: boolean
