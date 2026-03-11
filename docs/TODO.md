@@ -151,7 +151,7 @@ When deleting a form template that has existing instances, present two options:
 - [x] Field change log display (per-field popover)
 - [x] Required field validation on submit
 - [x] Auto-save on blur
-- [ ] Schedule management (create/edit schedule, add groups)
+- [x] Schedule management (create/edit schedule, add groups)
 
 ## Feature: Reports
 
