@@ -217,7 +217,6 @@ function EditReportTemplatePage() {
     }
 
     void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId])
 
   // Load form fields from a form template

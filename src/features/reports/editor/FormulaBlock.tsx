@@ -74,6 +74,87 @@ function buildExpression(blocks: FormulaBlockType[], formFields: FormFieldOption
 }
 
 // ---------------------------------------------------------------------------
+// Render component (PascalCase to satisfy eslint react-hooks rules)
+// ---------------------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function FormulaBlockRender(props: any) {
+  const { formFields } = useFormFields()
+  const [isEditing, setIsEditing] = useState(false)
+
+  const blocks: FormulaBlockType[] = (() => {
+    try {
+      return JSON.parse(props.block.props.formulaBlocks) as FormulaBlockType[]
+    } catch {
+      return []
+    }
+  })()
+
+  const expression = buildExpression(blocks, formFields)
+
+  function updateBlocks(newBlocks: FormulaBlockType[]) {
+    props.editor.updateBlock(props.block, {
+      props: { formulaBlocks: JSON.stringify(newBlocks) },
+    })
+  }
+
+  function handleUpdate(index: number, updated: FormulaBlockType) {
+    const next = blocks.map((b, i) => (i === index ? updated : b))
+    updateBlocks(next)
+  }
+
+  function handleRemove(index: number) {
+    updateBlocks(blocks.filter((_, i) => i !== index))
+  }
+
+  return (
+    <div
+      className="my-1 rounded-lg border border-border bg-card p-3 transition-colors hover:border-primary/30"
+      onClick={(e) => {
+        e.stopPropagation()
+        if (!isEditing) setIsEditing(true)
+      }}
+    >
+      {/* Preview row */}
+      <div className="flex items-center gap-2">
+        <CalculatorIcon className="size-4 shrink-0 text-orange-600" />
+        {expression ? (
+          <code className="text-sm font-mono text-foreground">= {expression}</code>
+        ) : (
+          <span className="text-sm text-muted-foreground">Click to configure formula</span>
+        )}
+      </div>
+
+      {/* Editing UI */}
+      {isEditing && (
+        <div className="mt-3 border-t border-border pt-3">
+          <FormulaEditor
+            blocks={blocks}
+            formFields={formFields}
+            onUpdate={handleUpdate}
+            onRemove={handleRemove}
+            onAdd={(block) => updateBlocks([...blocks, block])}
+          />
+          <div className="mt-2 flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsEditing(false)
+              }}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Block spec
 // ---------------------------------------------------------------------------
 
@@ -86,81 +167,7 @@ export const FormulaBlock = createReactBlockSpec(
     content: 'none' as const,
   },
   {
-    render: (props) => {
-      const { formFields } = useFormFields()
-      const [isEditing, setIsEditing] = useState(false)
-
-      const blocks: FormulaBlockType[] = (() => {
-        try {
-          return JSON.parse(props.block.props.formulaBlocks) as FormulaBlockType[]
-        } catch {
-          return []
-        }
-      })()
-
-      const expression = buildExpression(blocks, formFields)
-
-      function updateBlocks(newBlocks: FormulaBlockType[]) {
-        props.editor.updateBlock(props.block, {
-          props: { formulaBlocks: JSON.stringify(newBlocks) },
-        })
-      }
-
-      function handleUpdate(index: number, updated: FormulaBlockType) {
-        const next = blocks.map((b, i) => (i === index ? updated : b))
-        updateBlocks(next)
-      }
-
-      function handleRemove(index: number) {
-        updateBlocks(blocks.filter((_, i) => i !== index))
-      }
-
-      return (
-        <div
-          className="my-1 rounded-lg border border-border bg-card p-3 transition-colors hover:border-primary/30"
-          onClick={(e) => {
-            e.stopPropagation()
-            if (!isEditing) setIsEditing(true)
-          }}
-        >
-          {/* Preview row */}
-          <div className="flex items-center gap-2">
-            <CalculatorIcon className="size-4 shrink-0 text-orange-600" />
-            {expression ? (
-              <code className="text-sm font-mono text-foreground">= {expression}</code>
-            ) : (
-              <span className="text-sm text-muted-foreground">Click to configure formula</span>
-            )}
-          </div>
-
-          {/* Editing UI */}
-          {isEditing && (
-            <div className="mt-3 border-t border-border pt-3">
-              <FormulaEditor
-                blocks={blocks}
-                formFields={formFields}
-                onUpdate={handleUpdate}
-                onRemove={handleRemove}
-                onAdd={(block) => updateBlocks([...blocks, block])}
-              />
-              <div className="mt-2 flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsEditing(false)
-                  }}
-                >
-                  Done
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )
-    },
+    render: FormulaBlockRender,
   },
 )
 
