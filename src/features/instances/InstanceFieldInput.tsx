@@ -450,13 +450,15 @@ function FileUploadInput({
           next.delete(tempId)
           return next
         })
-      } catch {
+      } catch (err) {
+        console.error('[FileUpload] Upload failed:', err)
         setUploading((prev) => {
           const next = new Map(prev)
           next.delete(tempId)
           return next
         })
-        toast.error(`Failed to upload "${file.name}"`)
+        const message = err instanceof Error ? err.message : 'Unknown error'
+        toast.error(`Failed to upload "${file.name}"`, { description: message })
         return
       }
     }

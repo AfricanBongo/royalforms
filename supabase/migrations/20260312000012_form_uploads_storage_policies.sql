@@ -1,6 +1,11 @@
--- Storage policies for the 'form-uploads' bucket.
+-- Storage bucket and policies for 'form-uploads'.
 -- Path pattern: {instance_id}/{field_id}/{timestamp}-{filename}
 -- Access: authenticated users who belong to the instance's group.
+
+-- Create the bucket (idempotent)
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('form-uploads', 'form-uploads', false, 10485760)
+ON CONFLICT (id) DO NOTHING;
 
 -- Upload: authenticated users can upload to form-uploads
 -- (Fine-grained access via group membership is handled at the application level;
