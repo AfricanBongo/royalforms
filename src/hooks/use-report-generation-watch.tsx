@@ -56,7 +56,10 @@ export function ReportGenerationWatchProvider({
   const [watched, setWatched] = useState<WatchedReport[]>([])
   const navigate = useNavigate()
   const navigateRef = useRef(navigate)
-  navigateRef.current = navigate
+
+  useEffect(() => {
+    navigateRef.current = navigate
+  }, [navigate])
 
   const watch = useCallback((report: WatchedReport) => {
     setWatched((prev) => {

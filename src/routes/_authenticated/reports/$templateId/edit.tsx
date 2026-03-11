@@ -139,7 +139,6 @@ function EditReportTemplatePage() {
     return () => {
       setHeaderActions(null)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveStatus, isPublishing, versionNumber, setHeaderActions])
 
   // Load existing report template data + linked form fields
@@ -301,11 +300,10 @@ function EditReportTemplatePage() {
           </div>
 
           {/* Sections */}
-          {state.sections.map((section, sectionIndex) => (
+          {state.sections.map((section) => (
             <ReportBuilderSection
               key={section.clientId}
               section={section}
-              sectionIndex={sectionIndex}
               totalSections={state.sections.length}
               formFields={formFields}
               onUpdateSection={(updates) =>

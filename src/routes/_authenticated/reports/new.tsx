@@ -321,11 +321,10 @@ function NewReportTemplatePage() {
           </div>
 
           {/* Sections */}
-          {state.sections.map((section, sectionIndex) => (
+          {state.sections.map((section) => (
             <ReportBuilderSection
               key={section.clientId}
               section={section}
-              sectionIndex={sectionIndex}
               totalSections={state.sections.length}
               formFields={formFields}
               onUpdateSection={(updates) =>

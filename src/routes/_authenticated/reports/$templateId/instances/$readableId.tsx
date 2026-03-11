@@ -102,6 +102,8 @@ function ReportInstanceViewerPage() {
     return () => {
       void supabase.removeChannel(channel)
     }
+    // We intentionally depend on instance?.id and instance?.status, not the whole object
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instance?.id, instance?.status, loadInstance])
 
   // Export handler

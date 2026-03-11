@@ -38,7 +38,6 @@ import type {
 
 interface ReportBuilderSectionProps {
   section: ReportBuilderSectionType
-  sectionIndex: number
   totalSections: number
   formFields: FormFieldOption[]
   onUpdateSection: (updates: Partial<Pick<ReportBuilderSectionType, 'title' | 'description'>>) => void
@@ -62,7 +61,6 @@ interface ReportBuilderSectionProps {
 
 export function ReportBuilderSection({
   section,
-  sectionIndex: _sectionIndex,
   totalSections,
   formFields,
   onUpdateSection,
