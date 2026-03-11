@@ -43,6 +43,8 @@ import {
   TableRow,
 } from '../../../../components/ui/table'
 import { StatCard } from '../../../../components/stat-card'
+import { GenerateReportDialog } from '../../../../features/reports/GenerateReportDialog'
+import { VersionHistorySheet } from '../../../../features/reports/VersionHistorySheet'
 import { useCurrentUser } from '../../../../hooks/use-current-user'
 import { usePageTitle } from '../../../../hooks/use-page-title'
 import {
@@ -465,15 +467,22 @@ function ReportTemplateDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Placeholder: Version history sheet — will be wired in a later task */}
-      {versionsOpen && (
-        <div className="hidden" data-placeholder="version-history-sheet" />
-      )}
+      {/* Version history sheet */}
+      <VersionHistorySheet
+        open={versionsOpen}
+        onOpenChange={setVersionsOpen}
+        templateId={templateId}
+        onRestored={() => void loadTemplate()}
+      />
 
-      {/* Placeholder: Generate report dialog — will be wired in Task 5 */}
-      {generateOpen && (
-        <div className="hidden" data-placeholder="generate-report-dialog" />
-      )}
+      {/* Generate report dialog */}
+      <GenerateReportDialog
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        reportTemplateId={templateId}
+        formTemplateId={template.form_template_id}
+        onGenerated={() => void loadTemplate()}
+      />
     </div>
   )
 }
