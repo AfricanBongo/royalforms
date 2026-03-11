@@ -6,6 +6,16 @@
 --   Email:    admin@royalforms.local
 --   Password: password123
 
+-- 0. Bootstrap group — the root admin's home group (undeletable)
+INSERT INTO public.groups (id, name, created_by, is_active, is_bootstrap)
+VALUES (
+  '00000000-0000-0000-0000-000000000002',
+  'RoyalHouse Root',
+  NULL,  -- created_by set after profiles row exists
+  true,
+  true   -- marks this group as undeletable
+);
+
 -- 1. Insert into auth.users (Supabase Auth)
 INSERT INTO auth.users (
   id,
@@ -33,6 +43,7 @@ INSERT INTO auth.users (
   jsonb_build_object(
     'full_name', 'Root Admin',
     'role', 'root_admin',
+    'group_id', '00000000-0000-0000-0000-000000000002',
     'is_active', true
   ),
   now(),
@@ -67,7 +78,7 @@ INSERT INTO auth.identities (
   now()
 );
 
--- 3. Insert matching profiles row
+-- 3. Insert matching profiles row (in bootstrap group)
 INSERT INTO public.profiles (
   id,
   email,
@@ -80,9 +91,14 @@ INSERT INTO public.profiles (
   'admin@royalforms.local',
   'Root Admin',
   'root_admin',
-  NULL,
+  '00000000-0000-0000-0000-000000000002',
   true
 );
+
+-- 4. Backfill created_by on the bootstrap group now that profiles row exists
+UPDATE public.groups
+SET created_by = '00000000-0000-0000-0000-000000000001'
+WHERE id = '00000000-0000-0000-0000-000000000002';
 
 -- ============================================================================
 -- 4. Sample Form Template (Demo)

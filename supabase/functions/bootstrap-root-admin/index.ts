@@ -64,12 +64,111 @@ Deno.serve(async (req) => {
     }
 
     if (existingAdmin) {
-      console.info("[bootstrap-root-admin] Root admin already exists, skipping creation")
+      console.info("[bootstrap-root-admin] Root admin already exists, checking bootstrap group")
+
+      // Check if a bootstrap group already exists
+      const { data: existingGroup } = await supabase
+        .from("groups")
+        .select("id")
+        .eq("is_bootstrap", true)
+        .limit(1)
+        .maybeSingle()
+
+      if (existingGroup) {
+        // Check if admin is already assigned to the bootstrap group
+        const { data: adminProfile } = await supabase
+          .from("profiles")
+          .select("group_id")
+          .eq("id", existingAdmin.id)
+          .single()
+
+        if (adminProfile?.group_id === existingGroup.id) {
+          console.info("[bootstrap-root-admin] Bootstrap group already assigned, nothing to do")
+          return new Response(
+            JSON.stringify({ created: false, message: "Root admin and bootstrap group already set up" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          )
+        }
+
+        // Assign existing admin to existing bootstrap group
+        console.info("[bootstrap-root-admin] Assigning root admin to existing bootstrap group:", existingGroup.id)
+        await supabase
+          .from("profiles")
+          .update({ group_id: existingGroup.id })
+          .eq("id", existingAdmin.id)
+
+        // Sync JWT metadata
+        await supabase.auth.admin.updateUserById(existingAdmin.id, {
+          user_metadata: { group_id: existingGroup.id },
+        })
+
+        return new Response(
+          JSON.stringify({ created: false, message: "Root admin assigned to existing bootstrap group" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        )
+      }
+
+      // No bootstrap group exists — create one and assign
+      console.info("[bootstrap-root-admin] Creating bootstrap group for existing root admin")
+      const { data: newGroup, error: newGroupError } = await supabase
+        .from("groups")
+        .insert({
+          name: "RoyalHouse Root",
+          created_by: existingAdmin.id,
+          is_active: true,
+          is_bootstrap: true,
+        })
+        .select("id")
+        .single()
+
+      if (newGroupError) {
+        console.info("[bootstrap-root-admin] Bootstrap group creation failed:", newGroupError.message)
+        return new Response(
+          JSON.stringify({ success: false, error: newGroupError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        )
+      }
+
+      // Assign root admin to the new bootstrap group
+      await supabase
+        .from("profiles")
+        .update({ group_id: newGroup.id })
+        .eq("id", existingAdmin.id)
+
+      // Sync JWT metadata
+      await supabase.auth.admin.updateUserById(existingAdmin.id, {
+        user_metadata: { group_id: newGroup.id },
+      })
+
+      console.info("[bootstrap-root-admin] Bootstrap group created and assigned:", newGroup.id)
       return new Response(
-        JSON.stringify({ created: false, message: "Root admin already exists" }),
+        JSON.stringify({ created: false, bootstrapGroupCreated: true, message: "Bootstrap group created and assigned to existing root admin" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       )
     }
+
+    // Create the bootstrap group first
+    console.info("[bootstrap-root-admin] Creating bootstrap group")
+    const { data: groupData, error: groupError } = await supabase
+      .from("groups")
+      .insert({
+        name: "RoyalHouse Root",
+        is_active: true,
+        is_bootstrap: true,
+      })
+      .select("id")
+      .single()
+
+    if (groupError) {
+      console.info("[bootstrap-root-admin] Bootstrap group creation failed:", groupError.message)
+      return new Response(
+        JSON.stringify({ success: false, error: groupError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      )
+    }
+
+    const bootstrapGroupId = groupData.id
+    console.info("[bootstrap-root-admin] Bootstrap group created:", bootstrapGroupId)
 
     // Create the auth user
     console.info("[bootstrap-root-admin] Creating auth user")
@@ -80,12 +179,15 @@ Deno.serve(async (req) => {
       user_metadata: {
         full_name: "Root Admin",
         role: "root_admin",
+        group_id: bootstrapGroupId,
         is_active: true,
       },
     })
 
     if (createError) {
       console.info("[bootstrap-root-admin] Auth user creation failed:", createError.message)
+      // Clean up the bootstrap group since we failed
+      await supabase.from("groups").delete().eq("id", bootstrapGroupId)
       return new Response(
         JSON.stringify({ success: false, error: createError.message }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -94,14 +196,14 @@ Deno.serve(async (req) => {
 
     console.info("[bootstrap-root-admin] Auth user created:", authData.user.id)
 
-    // Insert the profiles row
+    // Insert the profiles row (assigned to bootstrap group)
     console.info("[bootstrap-root-admin] Inserting profiles row")
     const { error: insertError } = await supabase.from("profiles").insert({
       id: authData.user.id,
       email: rootAdminEmail,
       full_name: "Root Admin",
       role: "root_admin",
-      group_id: null,
+      group_id: bootstrapGroupId,
       is_active: true,
     })
 
@@ -112,6 +214,12 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       )
     }
+
+    // Backfill created_by on the bootstrap group
+    await supabase
+      .from("groups")
+      .update({ created_by: authData.user.id })
+      .eq("id", bootstrapGroupId)
 
     console.info("[bootstrap-root-admin] Completed successfully — root admin created:", authData.user.id)
     return new Response(

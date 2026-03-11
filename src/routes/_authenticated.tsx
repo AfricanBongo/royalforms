@@ -72,7 +72,7 @@ function AuthenticatedLayout() {
       <ReportGenerationWatchProvider>
         <SidebarProvider>
           <AppSidebar />
-          <SidebarInset>
+          <SidebarInset className="max-h-svh overflow-hidden">
             <HeaderBar />
 
             {/* Page content */}

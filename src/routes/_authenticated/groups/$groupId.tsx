@@ -210,23 +210,26 @@ function GroupDetailPage() {
               Edit Name
             </Button>
 
-            {group.is_active ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive"
-                onClick={() => void handleDeactivate()}
-              >
-                Deactivate
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleReactivate()}
-              >
-                Reactivate
-              </Button>
+            {/* Bootstrap groups cannot be deactivated */}
+            {!group.is_bootstrap && (
+              group.is_active ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={() => void handleDeactivate()}
+                >
+                  Deactivate
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleReactivate()}
+                >
+                  Reactivate
+                </Button>
+              )
             )}
           </div>
         )}

@@ -44,6 +44,17 @@ function GroupListPage() {
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
+  // Non-root-admin users get redirected to their own group detail page
+  useEffect(() => {
+    if (currentUser && !isRootAdmin && currentUser.groupId) {
+      void navigate({
+        to: '/groups/$groupId',
+        params: { groupId: currentUser.groupId },
+        replace: true,
+      })
+    }
+  }, [currentUser, isRootAdmin, navigate])
+
   // Filter groups by search term (UI-only logic)
   const filteredGroups = search.trim()
     ? groups.filter((g) =>
