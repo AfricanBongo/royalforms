@@ -116,8 +116,8 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] More dropdown (Versions, Share, Delete) with ellipsis icon button
 - [x] Hard delete form template (no instances)
 - [x] Archived tab in forms list page
-- [ ] Archive/hard-delete flow for templates WITH instances (see notes below)
-- [ ] Form builder preview button in header (depends on form instances)
+- [x] Archive/hard-delete flow for templates WITH instances (see notes below)
+- [x] Form builder preview button in header (depends on form instances)
 
 ### Deferred: Delete form with instances
 
@@ -187,15 +187,15 @@ When deleting a form template that has existing instances, present two options:
 ## Feature: Notifications
 
 ### Backend
-- [ ] `send-notification-email` Edge Function -- custom emails via Resend SDK
+- [x] `send-notification-email` Edge Function -- custom emails via Resend SDK
 
 ## Feature: Dashboard
 
-- [ ] Adaptive dashboard (`/`)
-- [ ] Root Admin widgets (pending requests, recent submissions, schedules, stats)
-- [ ] Admin widgets (group members, draft instances, submissions)
-- [ ] Editor widgets (assigned fields, draft instances)
-- [ ] Viewer widgets (recent submissions, reports)
+- [x] Adaptive dashboard (`/`)
+- [x] Root Admin widgets (pending requests, recent submissions, schedules, stats)
+- [x] Admin widgets (group members, draft instances, submissions)
+- [x] Editor widgets (assigned fields, draft instances)
+- [x] Viewer widgets (recent submissions, reports)
 
 ## External Services
 
