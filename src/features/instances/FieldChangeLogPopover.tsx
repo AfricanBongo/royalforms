@@ -13,17 +13,28 @@ import type { ChangeLogEntry, GroupMember } from '../../services/form-templates'
 interface FieldChangeLogPopoverProps {
   changeLog: ChangeLogEntry[]
   members: GroupMember[]
+  /** Current user ID — used to show "You" for own changes */
+  currentUserId?: string
+  /** Whether the viewer is admin/root_admin — admins see all names */
+  isAdmin?: boolean
 }
 
 function resolveUserName(
   userId: string,
   members: GroupMember[],
+  currentUserId?: string,
+  isAdmin?: boolean,
   fallbackName?: string,
 ): string {
-  const member = members.find((m) => m.id === userId)
-  if (member) return member.full_name
-  if (fallbackName) return fallbackName
-  return 'Unknown user'
+  if (currentUserId && userId === currentUserId) return 'You'
+  if (isAdmin) {
+    const member = members.find((m) => m.id === userId)
+    if (member) return member.full_name
+    if (fallbackName) return fallbackName
+    return 'Unknown user'
+  }
+  // Non-admins see generic label for other users
+  return 'Another user'
 }
 
 function formatTimestamp(iso: string): string {
@@ -45,6 +56,8 @@ function DisplayValue({ value }: { value: string | null }) {
 export function FieldChangeLogPopover({
   changeLog,
   members,
+  currentUserId,
+  isAdmin,
 }: FieldChangeLogPopoverProps) {
   const sorted = [...changeLog].sort(
     (a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime(),
@@ -81,7 +94,7 @@ export function FieldChangeLogPopover({
                 >
                   <div className="flex items-center justify-between gap-2 text-muted-foreground mb-1">
                     <span className="truncate">
-                      {resolveUserName(entry.changed_by, members, entry.changed_by_name)}
+                      {resolveUserName(entry.changed_by, members, currentUserId, isAdmin, entry.changed_by_name)}
                     </span>
                     <span className="shrink-0">{formatTimestamp(entry.changed_at)}</span>
                   </div>

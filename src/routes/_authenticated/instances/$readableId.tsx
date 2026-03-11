@@ -691,11 +691,21 @@ function InstancePage() {
                         disabled={false}
                       />
                     )}
+                    {/* "Assigned to someone else" badge for editors */}
+                    {!canAssign &&
+                      fv?.assigned_to &&
+                      fv.assigned_to !== currentUser?.id && (
+                        <span className="text-xs text-muted-foreground italic">
+                          Assigned to someone else
+                        </span>
+                      )}
                     {/* Change log popover */}
                     {(fv?.change_log?.length ?? 0) > 0 && (
                       <FieldChangeLogPopover
                         changeLog={fv?.change_log ?? []}
                         members={members}
+                        currentUserId={currentUser?.id}
+                        isAdmin={canAssign}
                       />
                     )}
                   </div>
