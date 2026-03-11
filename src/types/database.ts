@@ -473,6 +473,255 @@ export type Database = {
           },
         ]
       }
+      report_instances: {
+        Row: {
+          created_at: string
+          created_by: string
+          data_snapshot: Json | null
+          error_message: string | null
+          export_docx_path: string | null
+          export_pdf_path: string | null
+          form_instances_included: Json
+          id: string
+          readable_id: string
+          report_template_version_id: string
+          short_url: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          data_snapshot?: Json | null
+          error_message?: string | null
+          export_docx_path?: string | null
+          export_pdf_path?: string | null
+          form_instances_included: Json
+          id?: string
+          readable_id: string
+          report_template_version_id: string
+          short_url?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          data_snapshot?: Json | null
+          error_message?: string | null
+          export_docx_path?: string | null
+          export_pdf_path?: string | null
+          form_instances_included?: Json
+          id?: string
+          readable_id?: string
+          report_template_version_id?: string
+          short_url?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_instances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_instances_report_template_version_id_fkey"
+            columns: ["report_template_version_id"]
+            isOneToOne: false
+            referencedRelation: "report_template_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_template_fields: {
+        Row: {
+          config: Json
+          created_at: string
+          field_type: string
+          id: string
+          label: string
+          report_template_section_id: string
+          sort_order: number
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          field_type: string
+          id?: string
+          label: string
+          report_template_section_id: string
+          sort_order: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          field_type?: string
+          id?: string
+          label?: string
+          report_template_section_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_template_fields_report_template_section_id_fkey"
+            columns: ["report_template_section_id"]
+            isOneToOne: false
+            referencedRelation: "report_template_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_template_sections: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          report_template_version_id: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          report_template_version_id: string
+          sort_order: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          report_template_version_id?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_template_sections_report_template_version_id_fkey"
+            columns: ["report_template_version_id"]
+            isOneToOne: false
+            referencedRelation: "report_template_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_template_versions: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_latest: boolean
+          report_template_id: string
+          restored_from: string | null
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_latest?: boolean
+          report_template_id: string
+          restored_from?: string | null
+          version_number: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_latest?: boolean
+          report_template_id?: string
+          restored_from?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_template_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_template_versions_report_template_id_fkey"
+            columns: ["report_template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_template_versions_restored_from_fkey"
+            columns: ["restored_from"]
+            isOneToOne: false
+            referencedRelation: "report_template_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_templates: {
+        Row: {
+          abbreviation: string
+          auto_generate: boolean
+          created_at: string
+          created_by: string
+          description: string | null
+          form_template_id: string
+          id: string
+          instance_counter: number
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          abbreviation: string
+          auto_generate?: boolean
+          created_at?: string
+          created_by: string
+          description?: string | null
+          form_template_id: string
+          id?: string
+          instance_counter?: number
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          abbreviation?: string
+          auto_generate?: boolean
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          form_template_id?: string
+          id?: string
+          instance_counter?: number
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_templates_form_template_id_fkey"
+            columns: ["form_template_id"]
+            isOneToOne: true
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_templates_form_template_id_fkey"
+            columns: ["form_template_id"]
+            isOneToOne: true
+            referencedRelation: "templates_with_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schedule_group_targets: {
         Row: {
           created_at: string

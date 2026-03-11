@@ -140,7 +140,7 @@ When deleting a form template that has existing instances, present two options:
 - [x] `schedule_group_targets` table + RLS policies
 - [x] Apply `update_updated_at` trigger to form instance tables
 - [x] `trigger_on_form_instance_created` (pg_net -> Edge Function)
-- [ ] `trigger_on_form_instance_submitted` (AFTER UPDATE, auto-report)
+- [x] `trigger_on_form_instance_submitted` (AFTER UPDATE, auto-report)
 - [x] `on-instance-created` Edge Function -- generate short URLs (Shlink)
 - [x] `create_scheduled_instances` pg_cron job
 
@@ -156,16 +156,19 @@ When deleting a form template that has existing instances, present two options:
 ## Feature: Reports
 
 ### Backend
-- [ ] `report_templates` table + RLS policies
-- [ ] `report_template_versions` table + RLS policies
-- [ ] `report_template_sections` table + RLS policies
-- [ ] `report_template_fields` table + RLS policies
-- [ ] `report_instances` table + RLS policies
-- [ ] Apply `update_updated_at` trigger to report tables
-- [ ] `trigger_on_report_instance_created` (pg_net -> Edge Function)
-- [ ] `on-report-instance-created` Edge Function -- generate short URL (Shlink)
-- [ ] `generate-report` Edge Function -- compute report data + create instance
-- [ ] `export-report` Edge Function -- generate PDF/Word, cache in Storage
+- [x] `report_templates` table + RLS policies
+- [x] `report_template_versions` table + RLS policies
+- [x] `report_template_sections` table + RLS policies
+- [x] `report_template_fields` table + RLS policies
+- [x] `report_instances` table + RLS policies (with generation status)
+- [x] Apply `update_updated_at` trigger to report tables
+- [x] `trigger_on_report_instance_ready` (pg_net -> Edge Function, fires on status='ready')
+- [x] `trigger_on_form_instance_submitted` (auto-report generation)
+- [x] `on-report-instance-ready` Edge Function -- generate short URL (Shlink)
+- [x] `generate-report` Edge Function -- compute report data + create instance
+- [x] `export-report` Edge Function -- generate PDF/Word, cache in Storage
+- [x] `report-exports` storage bucket with authenticated read access
+- [x] Report service layer (`src/services/reports.ts`)
 
 ### Frontend
 - [ ] Report template list page (`/reports/templates`)
