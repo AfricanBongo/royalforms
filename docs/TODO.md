@@ -202,5 +202,8 @@ When deleting a form template that has existing instances, present two options:
 
 - [ ] Shlink setup (self-hosted or cloud) + API key
 - [ ] Resend SMTP configuration in Supabase Auth settings
-- [ ] Resend SDK API key for Edge Functions
+- [x] Resend SDK API key for Edge Functions
+- [x] Resend contact/segment sync (sync-resend-contacts Edge Function + pg_net triggers)
+- [ ] Create "General" segment in Resend dashboard and set RESEND_GENERAL_SEGMENT_ID env var
+- [ ] Backfill existing users/groups into Resend (one-time migration script)
 - [x] Supabase Storage buckets (form-uploads, report-exports)
