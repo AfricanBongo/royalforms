@@ -3,6 +3,22 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.9.0](https://github.com/AfricanBongo/royalforms/compare/v0.8.0...v0.9.0) (2026-03-11)
+
+
+### Features
+
+* **builder:** add form preview side sheet ([9cea691](https://github.com/AfricanBongo/royalforms/commit/9cea691a912c865fe2a485a76c5341f6be1aab50))
+* **dashboard:** add role-adaptive dashboard with widgets ([827c773](https://github.com/AfricanBongo/royalforms/commit/827c773d29d53aabade7773d6b11024b49e16667))
+* **notifications:** add send-notification-email Edge Function via Resend ([c962a00](https://github.com/AfricanBongo/royalforms/commit/c962a0038b1dbff9ca8d94e794f65c3e9414b7be))
+* **templates:** archive and hard-delete for templates with instances ([31a8225](https://github.com/AfricanBongo/royalforms/commit/31a8225fe1ccf7d469e3ca6a7a2bd6ffa8c2191a))
+
+
+### Documentation
+
+* **todo:** mark archive/delete, preview, notifications, and dashboard as complete ([a222b8b](https://github.com/AfricanBongo/royalforms/commit/a222b8b6ccfab2b629f4a97706227108e2d7b8ef))
+* **todo:** mark schedule management as complete ([7860862](https://github.com/AfricanBongo/royalforms/commit/78608622d899491de05e2ae59aea6435eba81569))
+
 ## [0.8.0](https://github.com/AfricanBongo/royalforms/compare/v0.7.0...v0.8.0) (2026-03-11)
 
 
