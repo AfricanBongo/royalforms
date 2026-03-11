@@ -624,8 +624,7 @@ export async function deleteDraftTemplate(templateId: string): Promise<void> {
  * CASCADE handles versions → sections → fields.
  * Also deletes group access entries.
  *
- * NOTE: When instances exist, the caller should present archive vs hard-delete
- * options instead. That flow is not yet implemented — see docs/TODO.md.
+ * For templates WITH instances, use `archiveTemplate` or `hardDeleteTemplate`.
  */
 export async function deleteTemplate(templateId: string): Promise<void> {
   // Safety: verify no instances exist before deleting
@@ -652,6 +651,53 @@ export async function deleteTemplate(templateId: string): Promise<void> {
     .from('form_templates')
     .delete()
     .eq('id', templateId)
+
+  if (error) throw error
+}
+
+/**
+ * Archive a template (soft-delete) by setting is_active=false.
+ * Also deactivates any active schedule for this template.
+ */
+export async function archiveTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from('form_templates')
+    .update({ is_active: false })
+    .eq('id', templateId)
+
+  if (error) throw error
+
+  // Deactivate any active schedule for this template
+  const { error: schedErr } = await supabase
+    .from('instance_schedules')
+    .update({ is_active: false })
+    .eq('template_id', templateId)
+
+  if (schedErr) throw schedErr
+}
+
+/**
+ * Restore an archived template by setting is_active=true.
+ */
+export async function restoreTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from('form_templates')
+    .update({ is_active: true })
+    .eq('id', templateId)
+
+  if (error) throw error
+}
+
+/**
+ * Hard-delete a template and ALL related data (instances, field values,
+ * schedules, group access, versions, sections, fields).
+ * Uses a Postgres SECURITY DEFINER function for transactional cascade.
+ */
+export async function hardDeleteTemplate(templateId: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('hard_delete_template', {
+    p_template_id: templateId,
+  })
 
   if (error) throw error
 }

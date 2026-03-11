@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { FilterIcon, PlusIcon, SearchIcon } from 'lucide-react'
+import { FilterIcon, PlusIcon, RotateCcwIcon, SearchIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '../../../components/ui/badge'
@@ -23,7 +23,7 @@ import {
 } from '../../../components/ui/tabs'
 import { StatCard } from '../../../components/stat-card'
 import { useCurrentUser } from '../../../hooks/use-current-user'
-import { fetchTemplates } from '../../../services/form-templates'
+import { fetchTemplates, restoreTemplate } from '../../../services/form-templates'
 import type { TemplateListRow } from '../../../services/form-templates'
 import { mapSupabaseError } from '../../../lib/supabase-errors'
 
@@ -51,6 +51,7 @@ function FormTemplateListPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [restoringId, setRestoringId] = useState<string | null>(null)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
@@ -109,6 +110,26 @@ function FormTemplateListPage() {
       }
       return next
     })
+  }
+
+  async function handleRestore(templateId: string) {
+    setRestoringId(templateId)
+    try {
+      await restoreTemplate(templateId)
+      toast.success('Template restored')
+      setTemplates((prev) => prev.filter((t) => t.id !== templateId))
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(
+        error.code,
+        error.message,
+        'database',
+        'update_record',
+      )
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setRestoringId(null)
+    }
   }
 
   // Load templates on mount and when tab changes
@@ -229,6 +250,11 @@ function FormTemplateListPage() {
                 <TableHead className="text-right font-medium">
                   Created On
                 </TableHead>
+                {tab === 'archived' && isRootAdmin && (
+                  <TableHead className="w-[100px] text-right font-medium">
+                    Actions
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -287,6 +313,22 @@ function FormTemplateListPage() {
                   <TableCell className="text-right">
                     {formatDate(template.created_at)}
                   </TableCell>
+                  {tab === 'archived' && isRootAdmin && (
+                    <TableCell
+                      className="text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={restoringId === template.id}
+                        onClick={() => void handleRestore(template.id)}
+                      >
+                        <RotateCcwIcon className="size-4" />
+                        {restoringId === template.id ? 'Restoring...' : 'Restore'}
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
