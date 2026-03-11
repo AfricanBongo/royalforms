@@ -129,8 +129,7 @@ export function AppSidebar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-[--radix-dropdown-menu-trigger-width]">
             <DropdownMenuItem asChild>
-              {/* Route created in settings feature; cast until route file exists */}
-              <Link to={'/settings' as '/'}> 
+              <Link to="/settings">
                 <UserIcon className="size-4" />
                 View Profile
               </Link>
