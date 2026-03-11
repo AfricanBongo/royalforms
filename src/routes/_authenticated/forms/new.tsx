@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { SaveIcon } from 'lucide-react'
+import { EyeIcon, SaveIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { BuilderSection } from '../../../components/builder-section'
@@ -29,6 +29,7 @@ import {
 import { useAutoSave } from '../../../hooks/use-auto-save'
 import { useFormBuilder } from '../../../hooks/use-form-builder'
 import { usePageTitle } from '../../../hooks/use-page-title'
+import { PreviewSheet } from '../../../features/forms/PreviewSheet.tsx'
 import { deleteDraftTemplate, publishDraft } from '../../../services/form-templates'
 import { mapSupabaseError } from '../../../lib/supabase-errors'
 
@@ -63,6 +64,7 @@ function NewFormPage() {
 
   const [isPublishing, setIsPublishing] = useState(false)
   const [showDiscardDialog, setShowDiscardDialog] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   const builder = useFormBuilder()
   const { state } = builder
@@ -90,6 +92,7 @@ function NewFormPage() {
   // Refs to hold latest handlers so header buttons never use stale closures
   const handlePublishRef = useRef<() => void>(() => {})
   const handleDiscardRef = useRef<() => void>(() => {})
+  const handlePreviewRef = useRef<() => void>(() => {})
 
   // Update page title: show form name when typed, fall back to "New Form"
   useEffect(() => {
@@ -108,6 +111,15 @@ function NewFormPage() {
           {statusText && <> · {statusText}</>}
         </span>
 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePreviewRef.current()}
+          className="gap-2"
+        >
+          <EyeIcon className="size-4" />
+          Preview
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -152,6 +164,7 @@ function NewFormPage() {
     }
   }
   handleDiscardRef.current = () => setShowDiscardDialog(true)
+  handlePreviewRef.current = () => setShowPreview(true)
 
   // -------------------------------------------------------------------------
   // Publish
@@ -297,6 +310,15 @@ function NewFormPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Form preview side sheet */}
+      <PreviewSheet
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        formName={state.name}
+        formDescription={state.description}
+        sections={state.sections}
+      />
     </>
   )
 }

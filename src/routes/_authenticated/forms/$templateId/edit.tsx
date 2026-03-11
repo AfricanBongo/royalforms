@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { ShareIcon } from 'lucide-react'
+import { EyeIcon, ShareIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { BuilderSection } from '../../../../components/builder-section'
@@ -28,6 +28,7 @@ import {
 import { useAutoSave } from '../../../../hooks/use-auto-save'
 import { useFormBuilder, FIELD_TYPE } from '../../../../hooks/use-form-builder'
 import { usePageTitle } from '../../../../hooks/use-page-title'
+import { PreviewSheet } from '../../../../features/forms/PreviewSheet.tsx'
 import {
   fetchTemplateForEditing,
   createDraftVersion,
@@ -115,6 +116,7 @@ function EditFormPage() {
   const [versionNumber, setVersionNumber] = useState(1)
   const [isPublishing, setIsPublishing] = useState(false)
   const [showDiscardDialog, setShowDiscardDialog] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   const builder = useFormBuilder()
   const { state } = builder
@@ -129,6 +131,7 @@ function EditFormPage() {
   // Refs to hold latest handlers so header buttons never use stale closures
   const handlePublishRef = useRef<() => void>(() => {})
   const handleDiscardRef = useRef<() => void>(() => {})
+  const handlePreviewRef = useRef<() => void>(() => {})
 
   // Update breadcrumbs: Forms > [Form Name] > Edit
   useEffect(() => {
@@ -156,6 +159,15 @@ function EditFormPage() {
           {statusText && <> · {statusText}</>}
         </span>
 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePreviewRef.current()}
+          className="gap-2"
+        >
+          <EyeIcon className="size-4" />
+          Preview
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -238,6 +250,7 @@ function EditFormPage() {
     }
   }
   handleDiscardRef.current = () => setShowDiscardDialog(true)
+  handlePreviewRef.current = () => setShowPreview(true)
 
   // -------------------------------------------------------------------------
   // Publish / Publish New Version
@@ -389,6 +402,15 @@ function EditFormPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Form preview side sheet */}
+      <PreviewSheet
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        formName={state.name}
+        formDescription={state.description}
+        sections={state.sections}
+      />
     </>
   )
 }
