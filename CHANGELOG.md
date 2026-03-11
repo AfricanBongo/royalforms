@@ -3,6 +3,41 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.10.0](https://github.com/AfricanBongo/royalforms/compare/v0.9.0...v0.10.0) (2026-03-11)
+
+
+### Features
+
+* **db:** add trigger to sync auth.users changes to profiles table ([e89631f](https://github.com/AfricanBongo/royalforms/commit/e89631f7e5a3d40451e71a774042bfac8dcebd7d))
+* **reports:** add auto-save hook for report template builder ([f11de79](https://github.com/AfricanBongo/royalforms/commit/f11de7965f9b8f9c02e206ea5673de20f8238e93))
+* **reports:** add generate report dialog with form instance selection ([553aa98](https://github.com/AfricanBongo/royalforms/commit/553aa983d2dae7ec776a8987a33c486504b1068f))
+* **reports:** add PDF and DOCX export with download ([6e1027a](https://github.com/AfricanBongo/royalforms/commit/6e1027a4be727c58bc2fb5dbc461a558e4dfe35e))
+* **reports:** add realtime report generation watch with toast notifications ([b1c7d58](https://github.com/AfricanBongo/royalforms/commit/b1c7d58b98030bc8b34dcbf7d18d504630c57405))
+* **reports:** add report builder state management hook ([706c879](https://github.com/AfricanBongo/royalforms/commit/706c8797b037e3f5125faf4377675afa1cd0ecf7))
+* **reports:** add report builder UI components with formula block builder ([2707f37](https://github.com/AfricanBongo/royalforms/commit/2707f37fee8e4a89b712d8a6534e697dd43487e0))
+* **reports:** add report instance viewer with document renderer ([3cdd5d2](https://github.com/AfricanBongo/royalforms/commit/3cdd5d209cced2fc3b3700c9e9493522ae31e0d6))
+* **reports:** add version history sheet for report templates ([9340c28](https://github.com/AfricanBongo/royalforms/commit/9340c28b056598ede8daa6a41d86cdb67bd1915f))
+* **reports:** implement report template builder pages with auto-save ([f2634e6](https://github.com/AfricanBongo/royalforms/commit/f2634e64354d20d02047bfafe7725bdcce6b161b))
+* **reports:** implement report template detail page with instance table ([b9d4838](https://github.com/AfricanBongo/royalforms/commit/b9d48385c6b2fb585df9cd4bd2e7efe57173871c))
+* **reports:** implement report template list page ([33e8128](https://github.com/AfricanBongo/royalforms/commit/33e81288e2798c702275f4b5b32f9bfb974d6270))
+* **reports:** scaffold report frontend routes ([f1709e1](https://github.com/AfricanBongo/royalforms/commit/f1709e11846ba9fa98808b96c1ec494e7f9b799c))
+
+
+### Bug Fixes
+
+* **reports:** resolve lint errors in builder section, generation watch, and viewer ([d76c309](https://github.com/AfricanBongo/royalforms/commit/d76c309594e349e51055333b24bb1006a38e1975))
+
+
+### Refactoring
+
+* **groups:** restructure group detail page layout and interactions ([f852c65](https://github.com/AfricanBongo/royalforms/commit/f852c657ee8210d69a4aee9c6ba61a4843f2b92f))
+
+
+### Documentation
+
+* **plans:** add reports frontend, WYSIWYG builder, and resend contact sync plans ([c91f240](https://github.com/AfricanBongo/royalforms/commit/c91f240eda53995485184939f1e41793be947084))
+* **todo:** check off completed report frontend items ([8b4c67b](https://github.com/AfricanBongo/royalforms/commit/8b4c67bdb418f9b87080aef1fc748c96ee965156))
+
 ## [0.9.0](https://github.com/AfricanBongo/royalforms/compare/v0.8.0...v0.9.0) (2026-03-11)
 
 
