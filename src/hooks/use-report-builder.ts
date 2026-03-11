@@ -45,6 +45,17 @@ type FormulaBlock =
 export type { FormulaBlock }
 
 // ---------------------------------------------------------------------------
+// Form field option (passed down from linked form template)
+// ---------------------------------------------------------------------------
+
+export interface FormFieldOption {
+  id: string
+  label: string
+  sectionTitle: string
+  field_type: string
+}
+
+// ---------------------------------------------------------------------------
 // Builder state types
 // ---------------------------------------------------------------------------
 
