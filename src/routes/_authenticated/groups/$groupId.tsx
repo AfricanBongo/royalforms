@@ -1,11 +1,15 @@
-import { type SubmitEvent, useEffect, useState } from 'react'
+import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
 
 import { createFileRoute } from '@tanstack/react-router'
-import { Loader2Icon, PencilIcon } from 'lucide-react'
+import { Loader2Icon, PencilIcon, PlusIcon, RefreshCwIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { MemberRequestSheet } from '../../../components/member-request-sheet'
+import { MembersTab } from '../../../components/members-tab'
+import { RequestsTab } from '../../../components/requests-tab'
 import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
+import { Card, CardContent } from '../../../components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -21,10 +25,9 @@ import {
   TabsList,
   TabsTrigger,
 } from '../../../components/ui/tabs'
-import { MembersTab } from '../../../components/members-tab'
-import { RequestsTab } from '../../../components/requests-tab'
 import { useCurrentUser } from '../../../hooks/use-current-user'
 import { usePageTitle } from '../../../hooks/use-page-title'
+import { mapSupabaseError } from '../../../lib/supabase-errors'
 import {
   deactivateGroup,
   fetchGroup,
@@ -32,7 +35,6 @@ import {
   updateGroupName,
 } from '../../../services/groups'
 import type { GroupDetail } from '../../../services/groups'
-import { mapSupabaseError } from '../../../lib/supabase-errors'
 
 export const Route = createFileRoute('/_authenticated/groups/$groupId')({
   component: GroupDetailPage,
@@ -51,9 +53,16 @@ function GroupDetailPage() {
   const [editName, setEditName] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const [reloadKey, setReloadKey] = useState(0)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
   const isRootAdmin = currentUser?.role === 'root_admin'
   const isAdminOrAbove =
     currentUser?.role === 'root_admin' || currentUser?.role === 'admin'
+
+  const handleReload = useCallback(() => {
+    setReloadKey((k) => k + 1)
+  }, [])
 
   // Set breadcrumb title when group loads
   useEffect(() => {
@@ -170,7 +179,7 @@ function GroupDetailPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <div className="flex flex-1 flex-col gap-3 p-3">
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -191,6 +200,7 @@ function GroupDetailPage() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
+              size="sm"
               onClick={() => {
                 setEditName(group.name)
                 setEditDialogOpen(true)
@@ -203,6 +213,7 @@ function GroupDetailPage() {
             {group.is_active ? (
               <Button
                 variant="outline"
+                size="sm"
                 className="text-destructive"
                 onClick={() => void handleDeactivate()}
               >
@@ -211,6 +222,7 @@ function GroupDetailPage() {
             ) : (
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => void handleReactivate()}
               >
                 Reactivate
@@ -220,25 +232,57 @@ function GroupDetailPage() {
         )}
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="members">
-        <TabsList>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          {isAdminOrAbove && (
-            <TabsTrigger value="requests">Requests</TabsTrigger>
-          )}
-        </TabsList>
+      {/* Tabs in a card */}
+      <Card className="flex-1">
+        <CardContent className="p-3">
+          <Tabs defaultValue="members">
+            <div className="flex items-center justify-between">
+              <TabsList>
+                <TabsTrigger value="members">Members</TabsTrigger>
+                {isAdminOrAbove && (
+                  <TabsTrigger value="requests">Requests</TabsTrigger>
+                )}
+              </TabsList>
 
-        <TabsContent value="members">
-          <MembersTab groupId={groupId} isRootAdmin={isRootAdmin} />
-        </TabsContent>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleReload}
+                >
+                  <RefreshCwIcon className="size-4" />
+                </Button>
 
-        {isAdminOrAbove && (
-          <TabsContent value="requests">
-            <RequestsTab groupId={groupId} isRootAdmin={isRootAdmin} />
-          </TabsContent>
-        )}
-      </Tabs>
+                {isAdminOrAbove && (
+                  <Button size="sm" onClick={() => setSheetOpen(true)}>
+                    <PlusIcon className="mr-1.5 size-4" />
+                    {isRootAdmin ? 'Add Member' : 'Request Member'}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <TabsContent value="members" className="mt-3">
+              <MembersTab groupId={groupId} isRootAdmin={isRootAdmin} reloadKey={reloadKey} />
+            </TabsContent>
+
+            {isAdminOrAbove && (
+              <TabsContent value="requests" className="mt-3">
+                <RequestsTab groupId={groupId} isRootAdmin={isRootAdmin} reloadKey={reloadKey} />
+              </TabsContent>
+            )}
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* Member Request Sheet */}
+      <MemberRequestSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        groupId={groupId}
+        isRootAdmin={isRootAdmin}
+        onCreated={handleReload}
+      />
 
       {/* Edit Name Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

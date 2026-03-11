@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 
-import { CheckIcon, PlusIcon, XIcon } from 'lucide-react'
+import { CheckIcon, XIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { mapSupabaseError } from '../lib/supabase-errors'
@@ -15,9 +15,9 @@ import {
   rejectRequest,
 } from '../services/member-requests'
 import type { MemberRequestRow } from '../services/member-requests'
-import { MemberRequestSheet } from './member-request-sheet'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
+import { ScrollArea, ScrollBar } from './ui/scroll-area'
 import {
   Table,
   TableBody,
@@ -34,6 +34,7 @@ import {
 interface RequestsTabProps {
   groupId: string
   isRootAdmin: boolean
+  reloadKey: number
 }
 
 // ---------------------------------------------------------------------------
@@ -68,10 +69,9 @@ function capitalize(value: string): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export function RequestsTab({ groupId, isRootAdmin }: RequestsTabProps) {
+export function RequestsTab({ groupId, isRootAdmin, reloadKey }: RequestsTabProps) {
   const [requests, setRequests] = useState<MemberRequestRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [sheetOpen, setSheetOpen] = useState(false)
 
   const loadRequests = useCallback(async () => {
     setLoading(true)
@@ -89,7 +89,7 @@ export function RequestsTab({ groupId, isRootAdmin }: RequestsTabProps) {
 
   useEffect(() => {
     void loadRequests()
-  }, [loadRequests])
+  }, [loadRequests, reloadKey])
 
   async function handleApprove(requestId: string) {
     try {
@@ -124,20 +124,13 @@ export function RequestsTab({ groupId, isRootAdmin }: RequestsTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-end">
-        <Button size="sm" onClick={() => setSheetOpen(true)}>
-          <PlusIcon className="mr-1.5 size-4" />
-          {isRootAdmin ? 'Add Member' : 'Request Member'}
-        </Button>
-      </div>
-
       {/* Table / Empty */}
       {requests.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">No member requests yet.</p>
       ) : (
-        <div className="rounded-md border">
-          <Table>
+        <ScrollArea className="w-full">
+          <div className="rounded-md border">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="font-normal">Full Name</TableHead>
@@ -192,18 +185,11 @@ export function RequestsTab({ groupId, isRootAdmin }: RequestsTabProps) {
                 </TableRow>
               ))}
             </TableBody>
-          </Table>
-        </div>
+            </Table>
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       )}
-
-      {/* Member Request Sheet */}
-      <MemberRequestSheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        groupId={groupId}
-        isRootAdmin={isRootAdmin}
-        onCreated={() => void loadRequests()}
-      />
     </div>
   )
 }

@@ -41,6 +41,7 @@ import {
 } from './ui/dialog'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
+import { ScrollArea, ScrollBar } from './ui/scroll-area'
 import {
   Table,
   TableBody,
@@ -54,11 +55,12 @@ import { MoveToGroupDialog } from './move-to-group-dialog'
 interface MembersTabProps {
   groupId: string
   isRootAdmin: boolean
+  reloadKey: number
 }
 
 const ASSIGNABLE_ROLES = ['admin', 'editor', 'viewer'] as const
 
-export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
+export function MembersTab({ groupId, isRootAdmin, reloadKey }: MembersTabProps) {
   const [members, setMembers] = useState<MemberRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -103,8 +105,7 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
 
   useEffect(() => {
     void loadMembers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupId])
+  }, [groupId, reloadKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleChangeRole(memberId: string, newRole: string) {
     try {
@@ -240,8 +241,9 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-muted-foreground">No members found.</p>
       ) : (
-        <Table>
-          <TableHeader>
+        <ScrollArea className="w-full">
+          <Table>
+            <TableHeader>
             <TableRow>
               <TableHead className="font-normal">Name</TableHead>
               <TableHead className="font-normal">Email</TableHead>
@@ -420,7 +422,9 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+          </Table>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       )}
 
       {/* Move to Group dialog */}
