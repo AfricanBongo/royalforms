@@ -25,6 +25,8 @@ import { SectionStepper } from '../../../features/instances/SectionStepper'
 import { useCurrentUser } from '../../../hooks/use-current-user'
 import { usePageTitle } from '../../../hooks/use-page-title'
 import { mapSupabaseError } from '../../../lib/supabase-errors'
+import { supabase } from '../../../services/supabase'
+
 import {
   assignField,
   fetchFieldValues,
@@ -34,6 +36,7 @@ import {
   upsertFieldValue,
 } from '../../../services/form-templates'
 import type {
+  ChangeLogEntry,
   FieldValue,
   GroupMember,
   InstancePageData,
@@ -77,7 +80,7 @@ function InstancePage() {
   const { mode } = Route.useSearch()
   const navigate = useNavigate()
   const currentUser = useCurrentUser()
-  const { setPageTitle } = usePageTitle()
+  const { setBreadcrumbs } = usePageTitle()
 
   // Core data
   const [data, setData] = useState<InstancePageData | null>(null)
@@ -108,7 +111,11 @@ function InstancePage() {
     try {
       const pageData = await fetchInstanceByReadableId(readableId)
       setData(pageData)
-      setPageTitle(pageData.template.name)
+      setBreadcrumbs([
+        { label: 'Forms', path: '/forms' },
+        { label: pageData.template.name, path: `/forms/${pageData.template.id}` },
+        { label: pageData.instance.readable_id, path: `/instances/${readableId}` },
+      ])
 
       const [values, groupMembers] = await Promise.all([
         fetchFieldValues(pageData.instance.id),
@@ -129,18 +136,18 @@ function InstancePage() {
     } finally {
       setLoading(false)
     }
-  }, [readableId, setPageTitle])
+  }, [readableId, setBreadcrumbs])
 
   useEffect(() => {
     void loadData()
     return () => {
-      setPageTitle(null)
+      setBreadcrumbs([])
       // Cleanup saved timers
       for (const timer of savedTimers.current.values()) {
         clearTimeout(timer)
       }
     }
-  }, [loadData, setPageTitle])
+  }, [loadData, setBreadcrumbs])
 
   // -------------------------------------------------------------------------
   // Access control redirects
@@ -159,6 +166,108 @@ function InstancePage() {
       })
     }
   }, [data, currentUser, mode, navigate, readableId])
+
+  // -------------------------------------------------------------------------
+  // Real-time subscription for field values and instance status
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!data || !currentUser) return
+
+    const channel = supabase
+      .channel(`instance-${data.instance.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'field_values',
+          filter: `form_instance_id=eq.${data.instance.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const row = payload.new as {
+              id: string
+              template_field_id: string
+              value: string | null
+              assigned_to: string | null
+              assigned_by: string | null
+              change_log: unknown
+              updated_by: string
+              updated_at: string
+            }
+
+            // Skip if this change was made by the current user
+            // (they already have it in local state)
+            if (row.updated_by === currentUser.id) return
+
+            const fieldValue: FieldValue = {
+              id: row.id,
+              template_field_id: row.template_field_id,
+              value: row.value,
+              assigned_to: row.assigned_to,
+              assigned_by: row.assigned_by,
+              change_log: (row.change_log ?? []) as unknown as ChangeLogEntry[],
+              updated_by: row.updated_by,
+              updated_at: row.updated_at,
+            }
+
+            setFieldValues((prev) => {
+              const next = new Map(prev)
+              next.set(fieldValue.template_field_id, fieldValue)
+              return next
+            })
+
+            // Clear any local value for that field
+            // (another user's change takes precedence)
+            setLocalValues((prev) => {
+              if (!prev.has(fieldValue.template_field_id)) return prev
+              const next = new Map(prev)
+              next.delete(fieldValue.template_field_id)
+              return next
+            })
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'form_instances',
+          filter: `id=eq.${data.instance.id}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            status: string
+            submitted_by: string | null
+            submitted_at: string | null
+          }
+          if (row.status === 'submitted') {
+            setData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    instance: {
+                      ...prev.instance,
+                      status: 'submitted' as const,
+                      submitted_by: row.submitted_by,
+                      submitted_at: row.submitted_at,
+                    },
+                  }
+                : prev,
+            )
+            toast.info('This form has been submitted')
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-subscribe when instance or user changes, not on every state update
+  }, [data?.instance.id, currentUser?.id])
 
   // -------------------------------------------------------------------------
   // Derived state
@@ -244,15 +353,20 @@ function InstancePage() {
     })
   }
 
-  async function handleFieldBlur(fieldId: string) {
+  async function handleFieldBlur(fieldId: string, valueOverride?: string | null) {
     if (!data) return
-    const localVal = localValues.get(fieldId)
-    // No local change for this field
-    if (localVal === undefined) return
+
+    // Use override if provided (instant fields like rating, checkbox, select)
+    // Otherwise read from localValues (text/textarea fields that blur separately)
+    const hasOverride = valueOverride !== undefined
+    const localVal = hasOverride ? valueOverride : localValues.get(fieldId)
+    if (!hasOverride && localVal === undefined) return
+
+    // After the guard above, localVal is guaranteed to be string | null
+    const saveValue = localVal as string | null
 
     const dbVal = fieldValues.get(fieldId)?.value ?? null
-    // Value hasn't changed from DB
-    if (localVal === dbVal) return
+    if (saveValue === dbVal) return
 
     setSavingFields((prev) => new Set(prev).add(fieldId))
 
@@ -260,7 +374,7 @@ function InstancePage() {
       const result = await upsertFieldValue(
         data.instance.id,
         fieldId,
-        localVal,
+        saveValue,
         dbVal,
       )
 
@@ -598,8 +712,9 @@ function InstancePage() {
                     field={field}
                     value={getDisplayValue(field.id)}
                     disabled={disabled}
+                    instanceId={instance.id}
                     onChange={(val) => handleFieldChange(field.id, val)}
-                    onBlur={() => void handleFieldBlur(field.id)}
+                    onBlur={(valueOverride) => void handleFieldBlur(field.id, valueOverride)}
                   />
 
                   {/* Save indicator */}

@@ -169,11 +169,16 @@ function FieldPreview({ field }: { field: BuilderField }) {
     case FIELD_TYPE.TEXT:
     case FIELD_TYPE.NUMBER:
       return (
-        <Input
-          disabled
-          placeholder={field.field_type === FIELD_TYPE.NUMBER ? 'Enter a number' : 'Enter your answer'}
-          className="opacity-50"
-        />
+        <div className="space-y-1">
+          <Input
+            disabled
+            placeholder={field.field_type === FIELD_TYPE.NUMBER ? 'Enter a number' : 'Enter your answer'}
+            className="opacity-50"
+          />
+          {field.field_type === FIELD_TYPE.TEXT && (
+            <p className="text-xs text-muted-foreground">Maximum 1,000 characters</p>
+          )}
+        </div>
       )
 
     case FIELD_TYPE.TEXTAREA:
@@ -314,6 +319,8 @@ function FieldLimitsSection({
 
   switch (field.field_type) {
     case FIELD_TYPE.TEXT:
+      return <p className="text-xs text-muted-foreground">Maximum 1,000 characters</p>
+
     case FIELD_TYPE.TEXTAREA:
       return (
         <>
@@ -332,10 +339,15 @@ function FieldLimitsSection({
             <Input
               type="number"
               value={(rules.max_length as number) ?? ''}
-              onChange={(e) => updateRule('max_length', e.target.value ? Number(e.target.value) : null)}
-              placeholder="∞"
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : null
+                updateRule('max_length', val != null ? Math.min(val, 5000) : null)
+              }}
+              placeholder="2000"
+              max={5000}
               className="h-8 w-24"
             />
+            <p className="text-xs text-muted-foreground">Default 2,000 · Max 5,000</p>
           </div>
         </>
       )
@@ -393,6 +405,14 @@ function FieldLimitsSection({
     case FIELD_TYPE.FILE:
       return (
         <>
+          <div className="flex items-center gap-2">
+            <Switch
+              size="sm"
+              checked={(rules.allow_multiple as boolean) ?? false}
+              onCheckedChange={(checked: boolean) => updateRule('allow_multiple', checked)}
+            />
+            <label className="text-xs text-muted-foreground">Allow multiple files</label>
+          </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted-foreground">Accepted types</label>
             <Input

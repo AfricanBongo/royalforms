@@ -390,7 +390,15 @@ function TemplateDetailPage() {
             </TableHeader>
             <TableBody>
               {paged.map((instance) => (
-                <TableRow key={instance.id} className="cursor-pointer">
+                <TableRow
+                  key={instance.id}
+                  className="cursor-pointer"
+                  onClick={() => void navigate({
+                    to: '/instances/$readableId',
+                    params: { readableId: instance.readable_id },
+                    search: { mode: getInstanceMode(instance.status, currentUser?.role) },
+                  })}
+                >
                   <TableCell
                     className="w-[40px]"
                     onClick={(e) => e.stopPropagation()}
@@ -592,6 +600,12 @@ function StatusBadge({ status }: { status: string }) {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function getInstanceMode(status: string, role: string | undefined): 'view' | 'edit' {
+  if (!role || role === 'root_admin' || role === 'viewer') return 'view'
+  if (status === 'submitted') return 'view'
+  return 'edit'
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', {

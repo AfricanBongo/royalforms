@@ -1624,8 +1624,8 @@ export async function fetchFieldValues(
 
 /**
  * Upsert a field value for an instance.
- * If a row exists for (form_instance_id, template_field_id), updates value
- * and appends to change_log. Otherwise, inserts a new row.
+ * Uses a Postgres function for atomic INSERT ... ON CONFLICT with
+ * change_log append, eliminating the read-modify-write race condition.
  */
 export async function upsertFieldValue(
   instanceId: string,
@@ -1635,66 +1635,38 @@ export async function upsertFieldValue(
 ): Promise<FieldValue> {
   const user = await getCurrentAuthUser()
 
-  // Check if a field_values row already exists
-  const { data: existing, error: findErr } = await supabase
-    .from('field_values')
-    .select('id, change_log')
-    .eq('form_instance_id', instanceId)
-    .eq('template_field_id', fieldId)
-    .maybeSingle()
-
-  if (findErr) throw findErr
-
-  const newEntry: ChangeLogEntry = {
-    old_value: oldValue,
-    new_value: value,
-    changed_by: user.id,
-    changed_at: new Date().toISOString(),
-  }
-
-  if (existing) {
-    // Update existing row
-    const currentLog = (existing.change_log ?? []) as unknown as ChangeLogEntry[]
-    const updatedLog = [...currentLog, newEntry]
-
-    const { data, error } = await supabase
-      .from('field_values')
-      .update({
-        value,
-        change_log: updatedLog as unknown as Json,
-        updated_by: user.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', existing.id)
-      .select('id, template_field_id, value, assigned_to, assigned_by, change_log, updated_by, updated_at')
-      .single()
-
-    if (error) throw error
-
-    return {
-      ...data,
-      change_log: (data.change_log ?? []) as unknown as ChangeLogEntry[],
-    }
-  }
-
-  // Insert new row
-  const { data, error } = await supabase
-    .from('field_values')
-    .insert({
-      form_instance_id: instanceId,
-      template_field_id: fieldId,
-      value,
-      change_log: [newEntry] as unknown as Json,
-      updated_by: user.id,
-    })
-    .select('id, template_field_id, value, assigned_to, assigned_by, change_log, updated_by, updated_at')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('upsert_field_value', {
+    p_instance_id: instanceId,
+    p_field_id: fieldId,
+    p_value: value,
+    p_old_value: oldValue,
+    p_user_id: user.id,
+  })
     .single()
 
   if (error) throw error
 
+  const row = data as unknown as {
+    id: string
+    template_field_id: string
+    value: string | null
+    assigned_to: string | null
+    assigned_by: string | null
+    change_log: unknown
+    updated_by: string
+    updated_at: string
+  }
+
   return {
-    ...data,
-    change_log: (data.change_log ?? []) as unknown as ChangeLogEntry[],
+    id: row.id,
+    template_field_id: row.template_field_id,
+    value: row.value,
+    assigned_to: row.assigned_to,
+    assigned_by: row.assigned_by,
+    change_log: (row.change_log ?? []) as unknown as ChangeLogEntry[],
+    updated_by: row.updated_by,
+    updated_at: row.updated_at,
   }
 }
 
@@ -1767,6 +1739,66 @@ export async function submitInstance(
     .eq('id', instanceId)
 
   if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// File upload helpers
+// ---------------------------------------------------------------------------
+
+export interface UploadedFile {
+  path: string
+  name: string
+  size: number
+}
+
+/**
+ * Upload a file to the form-uploads storage bucket.
+ * Returns the file metadata for storing in field_values.value.
+ */
+export async function uploadInstanceFile(
+  instanceId: string,
+  fieldId: string,
+  file: File,
+): Promise<UploadedFile> {
+  const timestamp = Date.now()
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const storagePath = `${instanceId}/${fieldId}/${timestamp}-${safeName}`
+
+  const { error } = await supabase.storage
+    .from('form-uploads')
+    .upload(storagePath, file)
+
+  if (error) throw error
+
+  return {
+    path: storagePath,
+    name: file.name,
+    size: file.size,
+  }
+}
+
+/**
+ * Remove a file from the form-uploads storage bucket.
+ */
+export async function removeInstanceFile(storagePath: string): Promise<void> {
+  const { error } = await supabase.storage
+    .from('form-uploads')
+    .remove([storagePath])
+
+  if (error) throw error
+}
+
+/**
+ * Get a signed download URL for a file in form-uploads.
+ * URL expires in 60 minutes.
+ */
+export async function getFileDownloadUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('form-uploads')
+    .createSignedUrl(storagePath, 3600)
+
+  if (error) throw error
+  return data.signedUrl
 }
 
 /**
