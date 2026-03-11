@@ -1,6 +1,13 @@
--- Trigger: sync auth.users changes to public.profiles
--- When a user updates their email (via confirmation), or when user_metadata
--- changes (name, avatar), propagate those changes to the profiles table.
+-- ============================================================
+-- Migration 6: Auth Sync & Setup Functions
+-- Consolidated from: sync_auth_users_to_profiles,
+--   add_is_setup_complete_fn
+-- ============================================================
+
+-- ============================================================
+-- AUTH USER SYNC TRIGGER
+-- Propagates auth.users changes to public.profiles
+-- ============================================================
 
 CREATE OR REPLACE FUNCTION public.handle_auth_user_update()
 RETURNS TRIGGER
@@ -31,7 +38,6 @@ BEGIN
       last_name
     ),
     avatar_url = CASE
-      -- Only update avatar_url if the key exists in metadata
       WHEN NEW.raw_user_meta_data ? 'avatar_url'
         THEN NEW.raw_user_meta_data->>'avatar_url'
       ELSE avatar_url
@@ -42,10 +48,26 @@ BEGIN
 END;
 $$;
 
--- Drop existing trigger if any, then create
 DROP TRIGGER IF EXISTS on_auth_user_updated ON auth.users;
 
 CREATE TRIGGER on_auth_user_updated
   AFTER UPDATE ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_auth_user_update();
+
+-- ============================================================
+-- SETUP COMPLETE CHECK
+-- SECURITY DEFINER so anonymous callers can check without RLS.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.is_setup_complete()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (SELECT 1 FROM profiles WHERE role = 'root_admin');
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_setup_complete() TO anon, authenticated;

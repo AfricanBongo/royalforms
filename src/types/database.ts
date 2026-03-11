@@ -240,7 +240,9 @@ export type Database = {
           created_by: string
           id: string
           is_active: boolean
+          is_bootstrap: boolean
           name: string
+          resend_segment_id: string | null
           updated_at: string
         }
         Insert: {
@@ -248,7 +250,9 @@ export type Database = {
           created_by: string
           id?: string
           is_active?: boolean
+          is_bootstrap?: boolean
           name: string
+          resend_segment_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -256,7 +260,9 @@ export type Database = {
           created_by?: string
           id?: string
           is_active?: boolean
+          is_bootstrap?: boolean
           name?: string
+          resend_segment_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -722,6 +728,39 @@ export type Database = {
           },
         ]
       }
+      resend_sync_queue: {
+        Row: {
+          action: string
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          payload: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          payload: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       schedule_group_targets: {
         Row: {
           created_at: string
@@ -1002,7 +1041,38 @@ export type Database = {
       create_scheduled_instances: { Args: never; Returns: undefined }
       get_current_user_group_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
+      hard_delete_template: {
+        Args: { p_template_id: string }
+        Returns: undefined
+      }
       is_active_user: { Args: never; Returns: boolean }
+      is_setup_complete: { Args: never; Returns: boolean }
+      upsert_field_value: {
+        Args: {
+          p_field_id: string
+          p_instance_id: string
+          p_old_value: string
+          p_user_id: string
+          p_value: string
+        }
+        Returns: {
+          assigned_by: string | null
+          assigned_to: string | null
+          change_log: Json
+          form_instance_id: string
+          id: string
+          template_field_id: string
+          updated_at: string
+          updated_by: string
+          value: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "field_values"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never

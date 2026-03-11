@@ -1,18 +1,67 @@
 -- ============================================================
--- Resend contact/segment sync triggers
---
--- 3 triggers that call the sync-resend-contacts Edge Function
--- via pg_net.http_post() to keep Resend audiences in sync
--- with local database state.
---
--- URL: local dev uses Kong gateway (Docker internal).
--- Auth: Edge Function has verify_jwt = false; authenticates
---       itself via its own env vars.
+-- Migration 7: Resend Contact/Segment Sync
+-- Consolidated from: add_resend_sync_schema, create_resend_sync_triggers
 -- ============================================================
 
+-- ============================================================
+-- RESEND SYNC QUEUE TABLE
+-- ============================================================
+
+CREATE TABLE public.resend_sync_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action TEXT NOT NULL CHECK (action IN (
+    'create_segment',
+    'create_contact',
+    'delete_contact',
+    'move_contact',
+    'deactivate_contact',
+    'reactivate_contact'
+  )),
+  payload JSONB NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+  attempts INT NOT NULL DEFAULT 0,
+  last_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.resend_sync_queue ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY resend_sync_queue_select ON public.resend_sync_queue
+FOR SELECT USING (
+  (select is_active_user()) = true
+  AND (select get_current_user_role()) = 'root_admin'
+);
+
+CREATE POLICY resend_sync_queue_update ON public.resend_sync_queue
+FOR UPDATE USING (
+  (select is_active_user()) = true
+  AND (select get_current_user_role()) = 'root_admin'
+);
+
+CREATE POLICY resend_sync_queue_insert ON public.resend_sync_queue
+FOR INSERT WITH CHECK (
+  (select is_active_user()) = true
+  AND (select get_current_user_role()) = 'root_admin'
+);
+
+CREATE POLICY resend_sync_queue_delete ON public.resend_sync_queue
+FOR DELETE USING (
+  (select is_active_user()) = true
+  AND (select get_current_user_role()) = 'root_admin'
+);
+
+CREATE INDEX idx_resend_sync_queue_pending
+  ON public.resend_sync_queue(status)
+  WHERE status != 'completed';
+
+CREATE TRIGGER set_resend_sync_queue_updated_at
+  BEFORE UPDATE ON public.resend_sync_queue
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at();
 
 -- ============================================================
--- Trigger 1: Create a Resend segment when a group is created
+-- TRIGGER 1: Create Resend segment when a group is created
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.trigger_on_group_created_sync_resend()
@@ -46,15 +95,8 @@ CREATE TRIGGER on_group_created_sync_resend
   FOR EACH ROW
   EXECUTE FUNCTION public.trigger_on_group_created_sync_resend();
 
-
 -- ============================================================
--- Trigger 2: Sync Resend contact on profile changes
---
--- Detects 4 cases (checked in order, early return per case):
---   1. User completed onboarding  → create_contact
---   2. User deactivated           → deactivate_contact
---   3. User reactivated           → reactivate_contact
---   4. User moved to new group    → move_contact
+-- TRIGGER 2: Sync Resend contact on profile changes
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.trigger_on_profile_updated_sync_resend()
@@ -155,7 +197,6 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- No matching case -- no sync needed
   RETURN NEW;
 END;
 $$;
@@ -165,12 +206,8 @@ CREATE TRIGGER on_profile_updated_sync_resend
   FOR EACH ROW
   EXECUTE FUNCTION public.trigger_on_profile_updated_sync_resend();
 
-
 -- ============================================================
--- Trigger 3: Remove Resend contact when a profile is deleted
---
--- Uses BEFORE DELETE so OLD values are still available.
--- Only fires for onboarded users (invite_status = 'completed').
+-- TRIGGER 3: Remove Resend contact when profile deleted
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION public.trigger_on_profile_deleted_sync_resend()
@@ -182,7 +219,6 @@ AS $$
 DECLARE
   _payload jsonb;
 BEGIN
-  -- Only sync for onboarded users
   IF OLD.invite_status != 'completed' THEN
     RETURN OLD;
   END IF;

@@ -218,6 +218,6 @@ When deleting a form template that has existing instances, present two options:
 - [x] SetupProvider context + `useSetup` hook
 - [x] Route guards for setup detection (redirect to `/setup` when incomplete)
 - [x] `/setup` route -- 3-step wizard (org setup, onboarding, thank-you)
-- [ ] Regenerate TypeScript types after local `supabase db reset`
+- [x] Regenerate TypeScript types after local `supabase db reset`
 - [ ] Deploy Edge Function with `verify_jwt: false`
 - [ ] End-to-end test of full setup flow
