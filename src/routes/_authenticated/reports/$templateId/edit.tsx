@@ -103,23 +103,22 @@ function EditReportTemplatePage() {
     return editorToCreateInput(editorDocumentRef.current, metadataRef.current)
   }, [])
 
-  // Build a faux "builderState" object for fingerprinting in the auto-save hook.
-  // We serialize the editor document + metadata to detect changes.
-  const builderStateProxy = {
+  // Content state for auto-save fingerprinting
+  const contentState = {
     name: metadata.name,
     description: metadata.description ?? '',
     abbreviation: metadata.abbreviation,
     linkedFormTemplateId: metadata.linkedFormTemplateId,
     autoGenerate: metadata.autoGenerate,
-    sections: [], // Will be populated by editorDocument changes
-    _editorFingerprint: JSON.stringify(editorDocumentRef.current),
+    editorDocument: JSON.stringify(editorDocumentRef.current),
   }
 
   // Auto-save
   const { saveStatus, flush } = useReportAutoSave({
     templateId,
-    builderState: builderStateProxy as never,
+    contentState,
     toCreateInput,
+    hasMeaningfulContent: !!metadata.name.trim(),
   })
 
   // Refs for header button handlers

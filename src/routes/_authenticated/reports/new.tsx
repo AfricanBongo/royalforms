@@ -100,22 +100,22 @@ function NewReportTemplatePage() {
     return editorToCreateInput(editorDocumentRef.current, metadataRef.current)
   }, [])
 
-  // Build a faux builderState proxy for the auto-save hook fingerprinting
-  const builderStateProxy = {
+  // Content state for auto-save fingerprinting
+  const contentState = {
     name: metadata.name,
     description: metadata.description ?? '',
     abbreviation: metadata.abbreviation,
     linkedFormTemplateId: metadata.linkedFormTemplateId,
     autoGenerate: metadata.autoGenerate,
-    sections: [],
-    _editorFingerprint: JSON.stringify(editorDocumentRef.current),
+    editorDocument: JSON.stringify(editorDocumentRef.current),
   }
 
   // Auto-save (templateId starts as null for new reports)
   const { saveStatus, persistedTemplateId, flush } = useReportAutoSave({
     templateId: null,
-    builderState: builderStateProxy as never,
+    contentState,
     toCreateInput,
+    hasMeaningfulContent: !!metadata.name.trim(),
   })
 
   // After first auto-save creates the template, silently swap URL
