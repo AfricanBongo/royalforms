@@ -261,7 +261,7 @@ export function MembersTab({ groupId, isRootAdmin }: MembersTabProps) {
                   <div className="flex items-center gap-2">
                     <Avatar className="size-8">
                       <AvatarImage
-                        src={getDefaultAvatarUri(member.full_name)}
+                        src={member.avatar_url ?? getDefaultAvatarUri(member.full_name)}
                         alt={member.full_name}
                       />
                       <AvatarFallback>
