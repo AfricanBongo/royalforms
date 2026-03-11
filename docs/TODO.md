@@ -28,14 +28,14 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] `groups` table + RLS policies
 - [x] `member_requests` table + RLS policies
 - [x] Apply `update_updated_at` trigger to foundation tables
-- [x] Seed data: Root Admin bootstrap in `seed.sql`
+- [x] ~~Seed data: Root Admin bootstrap in `seed.sql`~~ (replaced by /setup wizard)
 - [x] Generate TypeScript types via `supabase_generate_typescript_types`
 
 ## Feature: Auth
 
 ### Backend
 - [x] `invite-user` Edge Function -- invite new user via Supabase Auth admin API
-- [x] `bootstrap-root-admin` Edge Function -- create first Root Admin from env vars
+- [x] `bootstrap-root-admin` Edge Function -- create first Root Admin via /setup wizard
 - [x] `update-user-role` Edge Function -- sync role/group/active to JWT metadata
 - [x] `manage-invite` Edge Function -- resend invite, change email, delete invite (root admin)
 - [x] `invite_status` column on profiles (invite_sent/completed lifecycle)
@@ -204,3 +204,17 @@ When deleting a form template that has existing instances, present two options:
 - [ ] Resend SMTP configuration in Supabase Auth settings
 - [ ] Resend SDK API key for Edge Functions
 - [x] Supabase Storage buckets (form-uploads, report-exports)
+
+## Feature: First-Run Setup
+
+- [x] `is_setup_complete()` SECURITY DEFINER function
+- [x] Remove `seed.sql` -- replaced by setup wizard
+- [x] `bootstrap-root-admin` Edge Function -- accept body params (email, password, orgName)
+- [x] Sample form template creation in bootstrap Edge Function
+- [x] Setup service layer (`src/services/setup.ts`)
+- [x] SetupProvider context + `useSetup` hook
+- [x] Route guards for setup detection (redirect to `/setup` when incomplete)
+- [x] `/setup` route -- 3-step wizard (org setup, onboarding, thank-you)
+- [ ] Regenerate TypeScript types after local `supabase db reset`
+- [ ] Deploy Edge Function with `verify_jwt: false`
+- [ ] End-to-end test of full setup flow
