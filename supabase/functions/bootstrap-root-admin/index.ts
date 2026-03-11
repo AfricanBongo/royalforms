@@ -25,8 +25,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")
     const sbSecretKey = Deno.env.get("SB_SECRET_KEY")
-    const rootAdminEmail = Deno.env.get("ROOT_ADMIN_EMAIL")
-    const rootAdminPassword = Deno.env.get("ROOT_ADMIN_PASSWORD")
 
     if (!supabaseUrl || !sbSecretKey) {
       console.info("[bootstrap-root-admin] Missing SUPABASE_URL or SB_SECRET_KEY env vars")
@@ -36,11 +34,30 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Read email, password, orgName from request body, fall back to env vars
+    let bodyEmail: string | undefined
+    let bodyPassword: string | undefined
+    let bodyOrgName: string | undefined
+
+    try {
+      const body = await req.json()
+      bodyEmail = body.email
+      bodyPassword = body.password
+      bodyOrgName = body.orgName
+    } catch {
+      // Body is empty or not valid JSON — fall back to env vars
+      console.info("[bootstrap-root-admin] No JSON body, falling back to env vars")
+    }
+
+    const rootAdminEmail = bodyEmail || Deno.env.get("ROOT_ADMIN_EMAIL")
+    const rootAdminPassword = bodyPassword || Deno.env.get("ROOT_ADMIN_PASSWORD")
+    const orgName = bodyOrgName || "RoyalHouse Root"
+
     if (!rootAdminEmail || !rootAdminPassword) {
-      console.info("[bootstrap-root-admin] Missing ROOT_ADMIN_EMAIL or ROOT_ADMIN_PASSWORD env vars")
+      console.info("[bootstrap-root-admin] Missing email or password (body + env vars)")
       return new Response(
-        JSON.stringify({ success: false, error: "Missing ROOT_ADMIN_EMAIL or ROOT_ADMIN_PASSWORD" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ success: false, error: "Missing email or password. Provide in request body or set ROOT_ADMIN_EMAIL / ROOT_ADMIN_PASSWORD env vars." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       )
     }
 
@@ -113,7 +130,7 @@ Deno.serve(async (req) => {
       const { data: newGroup, error: newGroupError } = await supabase
         .from("groups")
         .insert({
-          name: "RoyalHouse Root",
+          name: orgName,
           created_by: existingAdmin.id,
           is_active: true,
           is_bootstrap: true,
@@ -147,12 +164,16 @@ Deno.serve(async (req) => {
       )
     }
 
+    // -----------------------------------------------------------------------
+    // Fresh setup — create bootstrap group, auth user, profile, sample form
+    // -----------------------------------------------------------------------
+
     // Create the bootstrap group first
     console.info("[bootstrap-root-admin] Creating bootstrap group")
     const { data: groupData, error: groupError } = await supabase
       .from("groups")
       .insert({
-        name: "RoyalHouse Root",
+        name: orgName,
         is_active: true,
         is_bootstrap: true,
       })
@@ -194,12 +215,13 @@ Deno.serve(async (req) => {
       )
     }
 
-    console.info("[bootstrap-root-admin] Auth user created:", authData.user.id)
+    const rootAdminId = authData.user.id
+    console.info("[bootstrap-root-admin] Auth user created:", rootAdminId)
 
     // Insert the profiles row (assigned to bootstrap group)
     console.info("[bootstrap-root-admin] Inserting profiles row")
     const { error: insertError } = await supabase.from("profiles").insert({
-      id: authData.user.id,
+      id: rootAdminId,
       email: rootAdminEmail,
       full_name: "Root Admin",
       role: "root_admin",
@@ -218,12 +240,29 @@ Deno.serve(async (req) => {
     // Backfill created_by on the bootstrap group
     await supabase
       .from("groups")
-      .update({ created_by: authData.user.id })
+      .update({ created_by: rootAdminId })
       .eq("id", bootstrapGroupId)
 
-    console.info("[bootstrap-root-admin] Completed successfully — root admin created:", authData.user.id)
+    // -----------------------------------------------------------------------
+    // Create sample form template with all field types
+    // -----------------------------------------------------------------------
+    console.info("[bootstrap-root-admin] Creating sample form template")
+
+    const sampleFormResult = await createSampleFormTemplate(supabase, rootAdminId)
+    if (sampleFormResult.error) {
+      // Non-fatal: root admin was created successfully, just log the error
+      console.info("[bootstrap-root-admin] Sample form creation failed (non-fatal):", sampleFormResult.error)
+    } else {
+      console.info("[bootstrap-root-admin] Sample form template created:", sampleFormResult.templateId)
+    }
+
+    console.info("[bootstrap-root-admin] Completed successfully — root admin created:", rootAdminId)
     return new Response(
-      JSON.stringify({ created: true, message: "Root admin created" }),
+      JSON.stringify({
+        created: true,
+        message: "Root admin created",
+        sampleFormCreated: !sampleFormResult.error,
+      }),
       { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     )
   } catch (err: unknown) {
@@ -235,3 +274,174 @@ Deno.serve(async (req) => {
     )
   }
 })
+
+// -----------------------------------------------------------------------
+// Sample form template creation helper
+// -----------------------------------------------------------------------
+
+interface SampleFormResult {
+  templateId?: string
+  error?: string
+}
+
+// deno-lint-ignore no-explicit-any
+async function createSampleFormTemplate(supabase: any, rootAdminId: string): Promise<SampleFormResult> {
+  try {
+    // 1. Create the form template
+    const { data: template, error: templateError } = await supabase
+      .from("form_templates")
+      .insert({
+        name: "Sample Form — All Field Types",
+        description: "A demo form showcasing every field type available in the system. Use it to explore how each field works before creating your own forms.",
+        created_by: rootAdminId,
+        is_active: true,
+        sharing_mode: "all",
+        status: "published",
+      })
+      .select("id")
+      .single()
+
+    if (templateError) return { error: templateError.message }
+
+    const templateId = template.id
+
+    // 2. Create the template version
+    const { data: version, error: versionError } = await supabase
+      .from("template_versions")
+      .insert({
+        template_id: templateId,
+        version_number: 1,
+        is_latest: true,
+        status: "published",
+        created_by: rootAdminId,
+      })
+      .select("id")
+      .single()
+
+    if (versionError) return { error: versionError.message }
+
+    const versionId = version.id
+
+    // 3. Create sections
+    const { data: sections, error: sectionsError } = await supabase
+      .from("template_sections")
+      .insert([
+        {
+          template_version_id: versionId,
+          title: "Text & Numbers",
+          sort_order: 1,
+        },
+        {
+          template_version_id: versionId,
+          title: "Choices & Ratings",
+          sort_order: 2,
+        },
+        {
+          template_version_id: versionId,
+          title: "Date & Files",
+          sort_order: 3,
+        },
+      ])
+      .select("id, sort_order")
+      .order("sort_order", { ascending: true })
+
+    if (sectionsError) return { error: sectionsError.message }
+
+    // Map sections by sort_order for clarity
+    const section1Id = sections[0].id // Text & Numbers
+    const section2Id = sections[1].id // Choices & Ratings
+    const section3Id = sections[2].id // Date & Files
+
+    // 4. Create all fields
+    const { error: fieldsError } = await supabase
+      .from("template_fields")
+      .insert([
+        // Section 1: Text & Numbers
+        {
+          template_section_id: section1Id,
+          label: "Full Name",
+          field_type: "text",
+          is_required: true,
+          sort_order: 1,
+        },
+        {
+          template_section_id: section1Id,
+          label: "Bio",
+          field_type: "textarea",
+          is_required: false,
+          sort_order: 2,
+          validation_rules: { min_length: 10, max_length: 500 },
+        },
+        {
+          template_section_id: section1Id,
+          label: "Age",
+          field_type: "number",
+          is_required: false,
+          sort_order: 3,
+          validation_rules: { min_value: 0, max_value: 150 },
+        },
+        // Section 2: Choices & Ratings
+        {
+          template_section_id: section2Id,
+          label: "Department",
+          field_type: "select",
+          is_required: true,
+          sort_order: 1,
+          options: ["Engineering", "Marketing", "Sales", "HR", "Finance"],
+        },
+        {
+          template_section_id: section2Id,
+          label: "Skills",
+          field_type: "multi_select",
+          is_required: false,
+          sort_order: 2,
+          options: ["JavaScript", "Python", "Design", "Leadership", "Communication"],
+        },
+        {
+          template_section_id: section2Id,
+          label: "I agree to the terms and conditions",
+          field_type: "checkbox",
+          is_required: true,
+          sort_order: 3,
+        },
+        {
+          template_section_id: section2Id,
+          label: "Overall Satisfaction",
+          field_type: "rating",
+          is_required: false,
+          sort_order: 4,
+        },
+        {
+          template_section_id: section2Id,
+          label: "Confidence Level",
+          field_type: "range",
+          is_required: false,
+          sort_order: 5,
+          validation_rules: { min_value: 0, max_value: 100, step: 5 },
+        },
+        // Section 3: Date & Files
+        {
+          template_section_id: section3Id,
+          label: "Start Date",
+          field_type: "date",
+          is_required: true,
+          sort_order: 1,
+        },
+        {
+          template_section_id: section3Id,
+          label: "Upload Resume",
+          field_type: "file",
+          is_required: false,
+          sort_order: 2,
+          validation_rules: { accepted_types: ".pdf,.docx", max_size_mb: 5, allow_multiple: false },
+        },
+      ])
+
+    if (fieldsError) return { error: fieldsError.message }
+
+    return { templateId }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error"
+    return { error: message }
+  }
+}
