@@ -409,41 +409,50 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           email: string
           email_change_count: number
+          first_name: string | null
           full_name: string
           group_id: string | null
           id: string
           invite_status: string
           is_active: boolean
           last_invite_sent_at: string | null
+          last_name: string | null
           role: string
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           email: string
           email_change_count?: number
+          first_name?: string | null
           full_name: string
           group_id?: string | null
           id: string
           invite_status?: string
           is_active?: boolean
           last_invite_sent_at?: string | null
+          last_name?: string | null
           role: string
           updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           email?: string
           email_change_count?: number
+          first_name?: string | null
           full_name?: string
           group_id?: string | null
           id?: string
           invite_status?: string
           is_active?: boolean
           last_invite_sent_at?: string | null
+          last_name?: string | null
           role?: string
           updated_at?: string
         }
