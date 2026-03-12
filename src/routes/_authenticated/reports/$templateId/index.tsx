@@ -4,6 +4,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   DownloadIcon,
   EllipsisVerticalIcon,
+  EyeIcon,
   FileTextIcon,
   HistoryIcon,
   Loader2Icon,
@@ -436,7 +437,7 @@ function ReportTemplateDetailPage() {
                           params: { templateId, readableId: instance.readable_id },
                         })}
                       >
-                        View
+                        <EyeIcon className="size-4" />
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
