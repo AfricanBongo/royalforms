@@ -3,6 +3,14 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [1.0.0-alpha.1](https://github.com/AfricanBongo/royalforms/compare/v1.0.0-alpha.0...v1.0.0-alpha.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* **deploy:** add Netlify _redirects for SPA client-side routing ([757ef3b](https://github.com/AfricanBongo/royalforms/commit/757ef3babe22cd659749cec7641bb0d02b184a9e))
+* **functions:** add missing deno.json for sync-resend-contacts Edge Function ([c429f03](https://github.com/AfricanBongo/royalforms/commit/c429f03680e859e4d02bb125a9c40bb6a54dbdd1))
+
 ## [1.0.0-alpha.0](https://github.com/AfricanBongo/royalforms/compare/v0.12.0...v1.0.0-alpha.0) (2026-03-12)
 
 
