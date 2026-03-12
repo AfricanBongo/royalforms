@@ -21,8 +21,26 @@ import {
 import { PageTitleProvider, usePageTitle } from '../hooks/use-page-title'
 import { ReportGenerationWatchProvider } from '../hooks/use-report-generation-watch'
 
+/**
+ * Paths that allow unauthenticated access (public viewing).
+ * The layout renders a minimal shell (no sidebar) for these when the user is
+ * not logged in, while the child route handles fetching via anon-safe services.
+ */
+const PUBLIC_PATH_PATTERNS = [
+  /^\/reports\/[^/]+\/instances\/[^/]+$/,
+]
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATH_PATTERNS.some((p) => p.test(pathname))
+}
+
 export const Route = createFileRoute('/_authenticated')({
-  beforeLoad: ({ context }) => {
+  beforeLoad: ({ context, location }) => {
+    // Allow unauthenticated access to designated public paths
+    if (isPublicPath(location.pathname) && !context.auth.session && !context.auth.isLoading) {
+      return
+    }
+
     // Setup not complete -- redirect to setup wizard
     if (context.setup.isSetupComplete === false) {
       throw redirect({ to: '/setup' })
@@ -62,15 +80,26 @@ const SEGMENT_LABELS: Record<string, string> = {
 function AuthenticatedLayout() {
   const { session, isLoading } = useAuth()
   const navigate = useNavigate()
+  const matches = useMatches()
+  const currentPath = matches[matches.length - 1]?.pathname ?? '/'
+  const onPublicPath = isPublicPath(currentPath)
 
-  // Redirect to login when session is cleared (e.g. sign-out, token expiry).
-  // The beforeLoad guard only runs on navigation events, so this effect
-  // covers the case where the session drops while the user is on a page.
+  // Redirect to login when session is cleared (e.g. sign-out, token expiry),
+  // unless the user is on a public-accessible path.
   useEffect(() => {
-    if (!isLoading && !session) {
+    if (!isLoading && !session && !onPublicPath) {
       void navigate({ to: '/login' })
     }
-  }, [isLoading, session, navigate])
+  }, [isLoading, session, navigate, onPublicPath])
+
+  // Public path + unauthenticated → render minimal shell (no sidebar/header)
+  if (!session && onPublicPath) {
+    return (
+      <PageTitleProvider>
+        <Outlet />
+      </PageTitleProvider>
+    )
+  }
 
   return (
     <PageTitleProvider>

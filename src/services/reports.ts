@@ -37,6 +37,7 @@ export interface ReportTemplateDetail {
   description: string | null
   is_active: boolean
   auto_generate: boolean
+  is_public_default: boolean
   status: 'draft' | 'published'
   form_template_id: string
   form_template_name: string
@@ -85,6 +86,7 @@ export interface ReportInstanceListRow {
   readable_id: string
   status: string
   short_url: string | null
+  is_public: boolean
   created_by: string
   created_by_name: string
   created_at: string
@@ -97,6 +99,7 @@ export interface ReportInstanceDetail {
   status: string
   error_message: string | null
   short_url: string | null
+  is_public: boolean
   data_snapshot: Record<string, unknown> | null
   form_instances_included: string[]
   export_pdf_path: string | null
@@ -113,6 +116,7 @@ export interface CreateReportTemplateInput {
   abbreviation: string
   description: string | null
   auto_generate: boolean
+  is_public_default: boolean
   sections: CreateReportSectionInput[]
 }
 
@@ -192,7 +196,7 @@ export async function fetchReportTemplateById(
   const { data: template, error: tErr } = await supabase
     .from('report_templates')
     .select(`
-      id, name, abbreviation, description, is_active, auto_generate, status,
+      id, name, abbreviation, description, is_active, auto_generate, is_public_default, status,
       form_template_id, instance_counter, created_at, updated_at,
       form_templates!inner ( name )
     `)
@@ -254,6 +258,7 @@ export async function fetchReportTemplateById(
     description: template.description,
     is_active: template.is_active,
     auto_generate: template.auto_generate,
+    is_public_default: template.is_public_default,
     status: template.status as 'draft' | 'published',
     form_template_id: template.form_template_id,
     form_template_name: ft.name,
@@ -316,7 +321,7 @@ export async function fetchReportInstances(
   let query = supabase
     .from('report_instances')
     .select(`
-      id, readable_id, status, short_url, created_by, created_at,
+      id, readable_id, status, short_url, is_public, created_by, created_at,
       profiles!inner ( full_name )
     `)
     .order('created_at', { ascending: false })
@@ -344,6 +349,7 @@ export async function fetchReportInstances(
       readable_id: row.readable_id,
       status: row.status,
       short_url: row.short_url,
+      is_public: row.is_public,
       created_by: row.created_by,
       created_by_name: profile.full_name ?? 'Unknown',
       created_at: row.created_at,
@@ -360,7 +366,7 @@ export async function fetchReportInstanceById(
   const { data, error } = await supabase
     .from('report_instances')
     .select(`
-      id, readable_id, status, error_message, short_url,
+      id, readable_id, status, error_message, short_url, is_public,
       data_snapshot, form_instances_included,
       export_pdf_path, export_docx_path, created_at,
       report_template_versions!inner (
@@ -384,6 +390,7 @@ export async function fetchReportInstanceById(
     status: data.status,
     error_message: data.error_message,
     short_url: data.short_url,
+    is_public: data.is_public,
     data_snapshot: data.data_snapshot as Record<string, unknown> | null,
     form_instances_included: data.form_instances_included as string[],
     export_pdf_path: data.export_pdf_path,
@@ -403,7 +410,7 @@ export async function fetchReportInstanceByReadableId(
   const { data, error } = await supabase
     .from('report_instances')
     .select(`
-      id, readable_id, status, error_message, short_url,
+      id, readable_id, status, error_message, short_url, is_public,
       data_snapshot, form_instances_included,
       export_pdf_path, export_docx_path, created_at,
       report_template_versions!inner (
@@ -427,12 +434,49 @@ export async function fetchReportInstanceByReadableId(
     status: data.status,
     error_message: data.error_message,
     short_url: data.short_url,
+    is_public: data.is_public,
     data_snapshot: data.data_snapshot as Record<string, unknown> | null,
     form_instances_included: data.form_instances_included as string[],
     export_pdf_path: data.export_pdf_path,
     export_docx_path: data.export_docx_path,
     report_template_name: version.report_templates.name,
     version_number: version.version_number,
+    created_at: data.created_at,
+  }
+}
+
+/**
+ * Fetch a public report instance by readable_id (no auth join, anon-safe).
+ * Returns null if not found or not public.
+ */
+export async function fetchPublicReportInstance(
+  readableId: string,
+): Promise<ReportInstanceDetail | null> {
+  const { data, error } = await supabase
+    .from('report_instances')
+    .select('id, readable_id, status, is_public, short_url, data_snapshot, form_instances_included, export_pdf_path, export_docx_path, created_at')
+    .eq('readable_id', readableId)
+    .eq('is_public', true)
+    .eq('status', 'ready')
+    .single()
+
+  if (error || !data) return null
+
+  const snapshot = data.data_snapshot as Record<string, unknown> | null
+
+  return {
+    id: data.id,
+    readable_id: data.readable_id,
+    status: data.status,
+    error_message: null,
+    short_url: data.short_url,
+    is_public: data.is_public,
+    data_snapshot: snapshot,
+    form_instances_included: data.form_instances_included as string[],
+    export_pdf_path: data.export_pdf_path,
+    export_docx_path: data.export_docx_path,
+    report_template_name: (snapshot?.report_name as string) ?? 'Report',
+    version_number: 0,
     created_at: data.created_at,
   }
 }
@@ -533,6 +577,7 @@ export async function createReportTemplate(
       abbreviation: input.abbreviation,
       description: input.description,
       auto_generate: input.auto_generate,
+      is_public_default: input.is_public_default,
       created_by: user.id,
       status: 'published',
     })
@@ -601,6 +646,7 @@ export async function updateReportTemplate(
     description?: string | null
     abbreviation?: string
     auto_generate?: boolean
+    is_public_default?: boolean
     sections: CreateReportSectionInput[]
   },
 ): Promise<void> {
@@ -609,6 +655,7 @@ export async function updateReportTemplate(
   if (input.description !== undefined) updates.description = input.description
   if (input.abbreviation !== undefined) updates.abbreviation = input.abbreviation
   if (input.auto_generate !== undefined) updates.auto_generate = input.auto_generate
+  if (input.is_public_default !== undefined) updates.is_public_default = input.is_public_default
 
   if (Object.keys(updates).length > 0) {
     const { error } = await supabase
@@ -1101,6 +1148,31 @@ export async function exportReport(
   if (error) throw error
   if (!data?.success) throw new Error(data?.error ?? 'Failed to export report')
 
+  return data.download_url
+}
+
+/**
+ * Export a public report instance as PDF or DOCX (no auth token).
+ * Returns a signed download URL.
+ */
+export async function exportReportPublic(
+  reportInstanceId: string,
+  format: 'pdf' | 'docx',
+): Promise<string> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+  const res = await fetch(`${supabaseUrl}/functions/v1/export-report`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': anonKey,
+    },
+    body: JSON.stringify({ report_instance_id: reportInstanceId, format }),
+  })
+
+  const data = await res.json()
+  if (!data?.success) throw new Error(data?.error ?? 'Failed to export report')
   return data.download_url
 }
 

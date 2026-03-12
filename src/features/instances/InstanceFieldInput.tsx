@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Textarea } from '@/components/ui/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 import {
   uploadInstanceFile,
@@ -522,15 +523,20 @@ function FileUploadInput({
             {formatFileSize(file.size)}
           </span>
           {!disabled && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
-              onClick={() => void handleRemove(file)}
-            >
-              <Trash2Icon className="size-3.5" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => void handleRemove(file)}
+                >
+                  <Trash2Icon className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Remove file</TooltipContent>
+            </Tooltip>
           )}
         </div>
       ))}

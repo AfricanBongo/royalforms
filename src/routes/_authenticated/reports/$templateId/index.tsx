@@ -7,9 +7,11 @@ import {
   EllipsisVerticalIcon,
   EyeIcon,
   FileTextIcon,
+  GlobeIcon,
   HistoryIcon,
   LinkIcon,
   Loader2Icon,
+  LockIcon,
   PencilIcon,
   PlayIcon,
   SearchIcon,
@@ -47,6 +49,7 @@ import {
   TableRow,
 } from '../../../../components/ui/table'
 import { FilterPopover } from '../../../../components/filter-popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/ui/tooltip'
 import type { FilterState } from '../../../../lib/filter-utils'
 import { applyFilters, EMPTY_FILTERS } from '../../../../lib/filter-utils'
 import { StatCard } from '../../../../components/stat-card'
@@ -382,7 +385,7 @@ function ReportTemplateDetailPage() {
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" title="More actions">
                   <EllipsisVerticalIcon className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -424,6 +427,9 @@ function ReportTemplateDetailPage() {
                   Status
                 </TableHead>
                 <TableHead className="font-medium">
+                  Visibility
+                </TableHead>
+                <TableHead className="font-medium">
                   Short URL
                 </TableHead>
                 <TableHead className="font-medium">
@@ -453,6 +459,19 @@ function ReportTemplateDetailPage() {
                   <TableCell>
                     <StatusBadge status={instance.status} />
                   </TableCell>
+                  <TableCell>
+                    {instance.is_public ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <GlobeIcon className="size-3" />
+                        Public
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <LockIcon className="size-3" />
+                        Private
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {instance.short_url ? (
                       <a
@@ -475,32 +494,43 @@ function ReportTemplateDetailPage() {
                   </TableCell>
                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => void handleCopyInstanceLink(instance)}
-                      >
-                        {copiedInstanceId === instance.id ? (
-                          <CheckIcon className="size-4" />
-                        ) : (
-                          <LinkIcon className="size-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => void navigate({
-                          to: '/reports/$templateId/instances/$readableId',
-                          params: { templateId, readableId: instance.readable_id },
-                        })}
-                      >
-                        <EyeIcon className="size-4" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void handleCopyInstanceLink(instance)}
+                          >
+                            {copiedInstanceId === instance.id ? (
+                              <CheckIcon className="size-4" />
+                            ) : (
+                              <LinkIcon className="size-4" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Copy link</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void navigate({
+                              to: '/reports/$templateId/instances/$readableId',
+                              params: { templateId, readableId: instance.readable_id },
+                            })}
+                          >
+                            <EyeIcon className="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>View report</TooltipContent>
+                      </Tooltip>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             variant="ghost"
                             size="sm"
+                            title="Export"
                             disabled={instance.status !== 'ready' || exportingId === instance.id}
                           >
                             {exportingId === instance.id ? (
@@ -526,14 +556,19 @@ function ReportTemplateDetailPage() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                       {canDelete && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteInstanceId(instance.id)}
-                        >
-                          <Trash2Icon className="size-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setDeleteInstanceId(instance.id)}
+                            >
+                              <Trash2Icon className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
                       )}
                     </div>
                   </TableCell>

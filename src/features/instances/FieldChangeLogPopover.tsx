@@ -71,6 +71,7 @@ export function FieldChangeLogPopover({
           variant="ghost"
           size="icon"
           className="size-6 shrink-0"
+          title="View change history"
         >
           <ClockIcon className="size-3.5 text-muted-foreground" />
         </Button>

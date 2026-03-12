@@ -25,6 +25,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '../../../components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { useCurrentUser } from '../../../hooks/use-current-user'
 import { usePageTitle } from '../../../hooks/use-page-title'
 import { mapSupabaseError } from '../../../lib/supabase-errors'
@@ -248,13 +249,18 @@ function GroupDetailPage() {
               </TabsList>
 
               <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleReload}
-                >
-                  <RefreshCwIcon className="size-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleReload}
+                    >
+                      <RefreshCwIcon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Refresh</TooltipContent>
+                </Tooltip>
 
                 {isAdminOrAbove && (
                   <Button size="sm" onClick={() => setSheetOpen(true)}>

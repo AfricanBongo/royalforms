@@ -492,6 +492,7 @@ export type Database = {
           export_pdf_path: string | null
           form_instances_included: Json
           id: string
+          is_public: boolean
           readable_id: string
           report_template_version_id: string
           short_url: string | null
@@ -506,6 +507,7 @@ export type Database = {
           export_pdf_path?: string | null
           form_instances_included: Json
           id?: string
+          is_public?: boolean
           readable_id: string
           report_template_version_id: string
           short_url?: string | null
@@ -520,6 +522,7 @@ export type Database = {
           export_pdf_path?: string | null
           form_instances_included?: Json
           id?: string
+          is_public?: boolean
           readable_id?: string
           report_template_version_id?: string
           short_url?: string | null
@@ -681,6 +684,7 @@ export type Database = {
           id: string
           instance_counter: number
           is_active: boolean
+          is_public_default: boolean
           name: string
           status: string
           updated_at: string
@@ -695,6 +699,7 @@ export type Database = {
           id?: string
           instance_counter?: number
           is_active?: boolean
+          is_public_default?: boolean
           name: string
           status?: string
           updated_at?: string
@@ -709,6 +714,7 @@ export type Database = {
           id?: string
           instance_counter?: number
           is_active?: boolean
+          is_public_default?: boolean
           name?: string
           status?: string
           updated_at?: string

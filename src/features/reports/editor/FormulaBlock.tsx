@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 import { useFormFields } from './form-fields-context'
 import type { FormFieldOption, FormulaBlock as FormulaBlockType } from './types'
@@ -266,14 +267,19 @@ function FormulaEditor({
                   </SelectContent>
                 </Select>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => onRemove(index)}
-                >
-                  <XIcon className="size-3" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => onRemove(index)}
+                    >
+                      <XIcon className="size-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Remove</TooltipContent>
+                </Tooltip>
               </div>
             )
           case 'operator':
@@ -297,14 +303,19 @@ function FormulaEditor({
                   </SelectContent>
                 </Select>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => onRemove(index)}
-                >
-                  <XIcon className="size-3" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => onRemove(index)}
+                    >
+                      <XIcon className="size-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Remove</TooltipContent>
+                </Tooltip>
               </div>
             )
           case 'literal':
@@ -319,14 +330,19 @@ function FormulaEditor({
                   }
                 />
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => onRemove(index)}
-                >
-                  <XIcon className="size-3" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => onRemove(index)}
+                    >
+                      <XIcon className="size-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Remove</TooltipContent>
+                </Tooltip>
               </div>
             )
         }

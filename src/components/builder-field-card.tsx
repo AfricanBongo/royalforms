@@ -27,6 +27,7 @@ import { Input } from './ui/input'
 import { Slider } from './ui/slider'
 import { Switch } from './ui/switch'
 import { Textarea } from './ui/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { FIELD_TYPE } from '../hooks/use-form-builder'
 
 import type { BuilderField } from '../hooks/use-form-builder'
@@ -118,44 +119,60 @@ function FieldActionBar({
 
       {/* Right: action buttons group */}
       <div className="flex items-center">
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-8 rounded-none rounded-l-lg border-r-0"
-          onClick={() => onDuplicate(field.clientId)}
-          title="Duplicate"
-        >
-          <CopyIcon className="size-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-8 rounded-none border-r-0 text-destructive hover:text-destructive"
-          onClick={() => onRemove(field.clientId)}
-          title="Delete"
-        >
-          <Trash2Icon className="size-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-8 rounded-none border-r-0"
-          disabled={index === totalFields - 1}
-          onClick={() => onMove(field.clientId, 'down')}
-          title="Move down"
-        >
-          <ArrowDownIcon className="size-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-8 rounded-none rounded-r-lg"
-          disabled={index === 0}
-          onClick={() => onMove(field.clientId, 'up')}
-          title="Move up"
-        >
-          <ArrowUpIcon className="size-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8 rounded-none rounded-l-lg border-r-0"
+              onClick={() => onDuplicate(field.clientId)}
+            >
+              <CopyIcon className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Duplicate field</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8 rounded-none border-r-0 text-destructive hover:text-destructive"
+              onClick={() => onRemove(field.clientId)}
+            >
+              <Trash2Icon className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Delete field</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8 rounded-none border-r-0"
+              disabled={index === totalFields - 1}
+              onClick={() => onMove(field.clientId, 'down')}
+            >
+              <ArrowDownIcon className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Move down</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8 rounded-none rounded-r-lg"
+              disabled={index === 0}
+              onClick={() => onMove(field.clientId, 'up')}
+            >
+              <ArrowUpIcon className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Move up</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   )
@@ -251,14 +268,19 @@ function ChoiceOptionsEditor({
             onChange={(e) => onUpdateOption(field.clientId, i, e.target.value)}
           />
           {field.options.length > 2 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 text-muted-foreground hover:text-destructive"
-              onClick={() => onRemoveOption(field.clientId, i)}
-            >
-              <Trash2Icon className="size-3.5" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => onRemoveOption(field.clientId, i)}
+                >
+                  <Trash2Icon className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Remove option</TooltipContent>
+            </Tooltip>
           )}
         </div>
       ))}

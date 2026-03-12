@@ -55,6 +55,7 @@ export function FieldAssignmentPopover({
           variant="ghost"
           size="icon"
           className="size-6 shrink-0"
+          title={isAssigned ? 'Reassign field' : 'Assign field'}
         >
           {isAssigned ? (
             <UserCheckIcon className="size-3.5 text-blue-500" />

@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 import { useFormFields } from './form-fields-context'
 import type { FormFieldOption, FormulaBlock as FormulaBlockType } from './types'
@@ -310,15 +311,19 @@ function DataTableBlockRender(props: any) {
                   </div>
                 )}
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => handleRemoveColumn(index)}
-                  title="Remove column"
-                >
-                  <Trash2Icon className="size-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleRemoveColumn(index)}
+                    >
+                      <Trash2Icon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Remove column</TooltipContent>
+                </Tooltip>
               </div>
             ))}
 
@@ -458,9 +463,14 @@ function InlineFormulaEditor({
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button variant="ghost" size="icon" className="size-5 text-muted-foreground hover:text-destructive" onClick={() => onChange(blocks.filter((_, i) => i !== index))}>
-                    <XIcon className="size-2.5" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-5 text-muted-foreground hover:text-destructive" onClick={() => onChange(blocks.filter((_, i) => i !== index))}>
+                        <XIcon className="size-2.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Remove</TooltipContent>
+                  </Tooltip>
                 </div>
               )
             case 'operator':
@@ -481,9 +491,14 @@ function InlineFormulaEditor({
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button variant="ghost" size="icon" className="size-5 text-muted-foreground hover:text-destructive" onClick={() => onChange(blocks.filter((_, i) => i !== index))}>
-                    <XIcon className="size-2.5" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-5 text-muted-foreground hover:text-destructive" onClick={() => onChange(blocks.filter((_, i) => i !== index))}>
+                        <XIcon className="size-2.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Remove</TooltipContent>
+                  </Tooltip>
                 </div>
               )
             case 'literal':
@@ -497,9 +512,14 @@ function InlineFormulaEditor({
                       onChange(blocks.map((b, i) => i === index ? { ...b, value: Number(e.target.value) || 0 } : b))
                     }
                   />
-                  <Button variant="ghost" size="icon" className="size-5 text-muted-foreground hover:text-destructive" onClick={() => onChange(blocks.filter((_, i) => i !== index))}>
-                    <XIcon className="size-2.5" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-5 text-muted-foreground hover:text-destructive" onClick={() => onChange(blocks.filter((_, i) => i !== index))}>
+                        <XIcon className="size-2.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Remove</TooltipContent>
+                  </Tooltip>
                 </div>
               )
           }

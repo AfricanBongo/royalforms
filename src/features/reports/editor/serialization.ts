@@ -47,6 +47,7 @@ export interface ReportMetadata {
   description: string | null
   linkedFormTemplateId: string
   autoGenerate: boolean
+  isPublicDefault: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -371,6 +372,7 @@ export function editorToCreateInput(
     abbreviation: metadata.abbreviation,
     description: metadata.description,
     auto_generate: metadata.autoGenerate,
+    is_public_default: metadata.isPublicDefault,
     sections,
   }
 }
