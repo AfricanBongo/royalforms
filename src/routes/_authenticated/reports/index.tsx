@@ -22,6 +22,7 @@ import {
   TabsTrigger,
 } from '../../../components/ui/tabs'
 import { StatCard } from '../../../components/stat-card'
+import { CreateReportTemplateDialog } from '../../../features/reports/CreateReportTemplateDialog'
 import { useCurrentUser } from '../../../hooks/use-current-user'
 import { fetchReportTemplates } from '../../../services/reports'
 import type { ReportTemplateListRow } from '../../../services/reports'
@@ -51,6 +52,7 @@ function ReportTemplateListPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
@@ -182,9 +184,7 @@ function ReportTemplateListPage() {
           </Button>
         </div>
         {isRootAdmin && (
-          <Button
-            onClick={() => void navigate({ to: '/reports/new' })}
-          >
+          <Button onClick={() => setCreateDialogOpen(true)}>
             <PlusIcon className="size-4" />
             New Report Template
           </Button>
@@ -334,6 +334,12 @@ function ReportTemplateListPage() {
           </div>
         </>
       )}
+
+      {/* Create Report Template dialog */}
+      <CreateReportTemplateDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+      />
     </div>
   )
 }
