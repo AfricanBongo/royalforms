@@ -92,7 +92,7 @@ function EditReportTemplatePage() {
     abbreviation: '',
     description: null,
     linkedFormTemplateId: '',
-    autoGenerate: false,
+    autoGenerate: true,
   })
 
   // Refs for latest metadata + editor document (for serialization)

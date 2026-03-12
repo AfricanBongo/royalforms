@@ -86,7 +86,7 @@ function NewReportTemplatePage() {
     abbreviation: '',
     description: null,
     linkedFormTemplateId: '',
-    autoGenerate: false,
+    autoGenerate: true,
   })
 
   // Refs for latest metadata
