@@ -185,6 +185,22 @@ When deleting a form template that has existing instances, present two options:
 - [x] Realtime generation watch with toast notifications
 - [x] Auto-save for report template builder
 
+## Feature: Public Report Links
+
+### Backend
+- [x] `is_public_default` column on `report_templates`
+- [x] `is_public` column on `report_instances`
+- [x] Anon SELECT RLS policy on `report_instances`
+- [x] Root admin UPDATE RLS policy for `is_public` toggle
+- [x] `generate-report` copies `is_public_default` to new instances
+- [x] `export-report` allows unauthenticated export for public instances
+
+### Frontend
+- [x] Public report viewer (soft auth check in `_authenticated` layout)
+- [x] Public/private toggle on report instance viewer (root admin)
+- [x] `is_public_default` toggle on report template builder (new + edit)
+- [x] Public/private badge on report instances table
+
 ## Feature: Notifications
 
 ### Backend
