@@ -126,18 +126,44 @@ Deno.serve(async (req) => {
       longUrl,
     );
 
-    const shortUrl = await shlinkClient.createShortUrl({
-      longUrl,
-      customSlug: `r/${readable_id}`,
-    });
+    // Create the short URL, or update the existing one if the slug is taken
+    let resolvedShortUrl: string;
+    try {
+      const shortUrl = await shlinkClient.createShortUrl({
+        longUrl,
+        customSlug: `r/${readable_id}`,
+      });
+      resolvedShortUrl = shortUrl.shortUrl;
+    } catch (createErr: unknown) {
+      const isNonUniqueSlug =
+        createErr !== null &&
+        typeof createErr === "object" &&
+        "type" in createErr &&
+        (createErr as { type: string }).type ===
+          "https://shlink.io/api/error/non-unique-slug";
+
+      if (isNonUniqueSlug) {
+        console.info(
+          "[on-report-instance-ready] Slug already exists, updating long URL",
+        );
+        const updated = await shlinkClient.updateShortUrl(
+          { shortCode: `r/${readable_id}` },
+          { longUrl },
+        );
+        resolvedShortUrl = updated.shortUrl;
+      } else {
+        throw createErr;
+      }
+    }
+
     console.info(
-      "[on-report-instance-ready] Short URL created:",
-      shortUrl.shortUrl,
+      "[on-report-instance-ready] Short URL resolved:",
+      resolvedShortUrl,
     );
 
     const { error: updateError } = await supabaseAdmin
       .from("report_instances")
-      .update({ short_url: shortUrl.shortUrl })
+      .update({ short_url: resolvedShortUrl })
       .eq("id", id);
 
     if (updateError) {
@@ -160,12 +186,19 @@ Deno.serve(async (req) => {
       "with short URL",
     );
     return new Response(
-      JSON.stringify({ success: true, short_url: shortUrl.shortUrl }),
+      JSON.stringify({ success: true, short_url: resolvedShortUrl }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = err instanceof Error
+      ? err.message
+      : typeof err === "string"
+        ? err
+        : JSON.stringify(err, null, 2);
     console.error("[on-report-instance-ready] Unhandled error:", message);
+    if (err instanceof Error && err.stack) {
+      console.error("[on-report-instance-ready] Stack:", err.stack);
+    }
     return new Response(
       JSON.stringify({ success: false, error: message }),
       { status: 200, headers: { "Content-Type": "application/json" } },

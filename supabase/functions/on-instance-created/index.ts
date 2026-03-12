@@ -1,7 +1,54 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
+import type { ShlinkApiClient as ShlinkApiClientType } from "@shlinkio/shlink-js-sdk";
 import { ShlinkApiClient } from "@shlinkio/shlink-js-sdk";
 import { FetchHttpClient } from "@shlinkio/shlink-js-sdk/fetch";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Create or update a Shlink short URL, handling duplicate-slug gracefully. */
+async function createOrUpdateShortUrl(
+  client: ShlinkApiClientType,
+  longUrl: string,
+  customSlug: string,
+): Promise<string> {
+  try {
+    const result = await client.createShortUrl({ longUrl, customSlug });
+    return result.shortUrl;
+  } catch (err: unknown) {
+    const isNonUniqueSlug =
+      err !== null &&
+      typeof err === "object" &&
+      "type" in err &&
+      (err as { type: string }).type ===
+        "https://shlink.io/api/error/non-unique-slug";
+
+    if (isNonUniqueSlug) {
+      console.info(
+        `[on-instance-created] Slug "${customSlug}" already exists, updating long URL`,
+      );
+      const updated = await client.updateShortUrl(
+        { shortCode: customSlug },
+        { longUrl },
+      );
+      return updated.shortUrl;
+    }
+    throw err;
+  }
+}
+
+/** Stringify any thrown value for logging. */
+function errorToString(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return JSON.stringify(err, null, 2);
+}
+
+// ---------------------------------------------------------------------------
+// Handler
+// ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
@@ -92,26 +139,28 @@ Deno.serve(async (req) => {
       "[on-instance-created] Creating view short URL for:",
       viewLongUrl,
     );
-    const viewShortUrl = await shlinkClient.createShortUrl({
-      longUrl: viewLongUrl,
-      customSlug: `i/${readable_id}-view`,
-    });
+    const viewShortUrl = await createOrUpdateShortUrl(
+      shlinkClient,
+      viewLongUrl,
+      `i/${readable_id}-view`,
+    );
     console.info(
-      "[on-instance-created] View short URL created:",
-      viewShortUrl.shortUrl,
+      "[on-instance-created] View short URL resolved:",
+      viewShortUrl,
     );
 
     console.info(
       "[on-instance-created] Creating edit short URL for:",
       editLongUrl,
     );
-    const editShortUrl = await shlinkClient.createShortUrl({
-      longUrl: editLongUrl,
-      customSlug: `i/${readable_id}-edit`,
-    });
+    const editShortUrl = await createOrUpdateShortUrl(
+      shlinkClient,
+      editLongUrl,
+      `i/${readable_id}-edit`,
+    );
     console.info(
-      "[on-instance-created] Edit short URL created:",
-      editShortUrl.shortUrl,
+      "[on-instance-created] Edit short URL resolved:",
+      editShortUrl,
     );
 
     // Update the form_instances row with the short URLs
@@ -119,8 +168,8 @@ Deno.serve(async (req) => {
     const { error: updateError } = await supabaseAdmin
       .from("form_instances")
       .update({
-        short_url_view: viewShortUrl.shortUrl,
-        short_url_edit: editShortUrl.shortUrl,
+        short_url_view: viewShortUrl,
+        short_url_edit: editShortUrl,
       })
       .eq("id", id);
 
@@ -146,14 +195,17 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        short_url_view: viewShortUrl.shortUrl,
-        short_url_edit: editShortUrl.shortUrl,
+        short_url_view: viewShortUrl,
+        short_url_edit: editShortUrl,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = errorToString(err);
     console.error("[on-instance-created] Unhandled error:", message);
+    if (err instanceof Error && err.stack) {
+      console.error("[on-instance-created] Stack:", err.stack);
+    }
     return new Response(
       JSON.stringify({ success: false, error: message }),
       { status: 200, headers: { "Content-Type": "application/json" } },
