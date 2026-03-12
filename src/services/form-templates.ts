@@ -38,6 +38,7 @@ export interface InstanceRow {
   status: string
   version_number: number
   created_at: string
+  short_url_edit: string | null
 }
 
 /** Input for creating a new template via the form builder. */
@@ -194,6 +195,7 @@ export async function fetchTemplateInstances(
     .select(`
       id,
       readable_id,
+      short_url_edit,
       group_id,
       status,
       created_at,
@@ -225,6 +227,7 @@ export async function fetchTemplateInstances(
         status: row.status,
         version_number: version?.version_number ?? 0,
         created_at: row.created_at,
+        short_url_edit: row.short_url_edit ?? null,
       }
     })
 }
