@@ -431,6 +431,82 @@ export async function fetchReportInstanceByReadableId(
 }
 
 // ---------------------------------------------------------------------------
+// Form Instance Rounds (for Generate Report dialog)
+// ---------------------------------------------------------------------------
+
+/** A "round" groups all form instances for the same template created on the same date. */
+export interface FormInstanceRound {
+  date: string                    // ISO date string (YYYY-MM-DD)
+  totalCount: number              // total instances in the round
+  submittedCount: number          // submitted instances
+  groups: Array<{
+    groupId: string
+    groupName: string
+    formInstanceId: string
+    status: 'pending' | 'submitted'
+  }>
+}
+
+/**
+ * Fetch form instances grouped by creation date ("rounds") for a given form template.
+ * Used by the Generate Report dialog to let the user pick which round to include.
+ */
+export async function fetchFormInstanceRounds(
+  formTemplateId: string,
+): Promise<FormInstanceRound[]> {
+  const { data, error } = await supabase
+    .from('form_instances')
+    .select(`
+      id, status, created_at,
+      group_id,
+      groups!inner ( name ),
+      template_versions!inner ( template_id )
+    `)
+    .eq('template_versions.template_id', formTemplateId)
+    .eq('is_archived', false)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+
+  // Group instances by date (YYYY-MM-DD extracted from created_at)
+  const roundMap = new Map<string, FormInstanceRound>()
+
+  for (const row of data ?? []) {
+    const dateStr = row.created_at.slice(0, 10) // 'YYYY-MM-DD'
+    const group = row.groups as unknown as { name: string }
+    const status = row.status as 'pending' | 'submitted'
+
+    let round = roundMap.get(dateStr)
+    if (!round) {
+      round = {
+        date: dateStr,
+        totalCount: 0,
+        submittedCount: 0,
+        groups: [],
+      }
+      roundMap.set(dateStr, round)
+    }
+
+    round.totalCount += 1
+    if (status === 'submitted') {
+      round.submittedCount += 1
+    }
+
+    round.groups.push({
+      groupId: row.group_id,
+      groupName: group.name,
+      formInstanceId: row.id,
+      status,
+    })
+  }
+
+  // Return rounds sorted by date descending (newest first)
+  return Array.from(roundMap.values()).sort(
+    (a, b) => b.date.localeCompare(a.date),
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
 
