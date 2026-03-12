@@ -684,7 +684,7 @@ function InstancePage() {
       {sections.length > 1 && (
         <>
           <div className="px-6">
-            <div className="mx-auto max-w-2xl">
+            <div className="mx-auto w-fit">
               <SectionStepper
                 sections={sections.map((s, i) => ({
                   title: s.title,
