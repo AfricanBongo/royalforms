@@ -672,7 +672,7 @@ function ThankYouStep({ onStart }: { onStart: () => void }) {
           Thank you!
         </h1>
         <p className="text-lg leading-[27px] text-foreground">
-          You can now start using the RoyalForms and filling in forms. If you have any issues please reach out to the administrator as listed in your invitation email.
+          You can now start using RoyalForms and filling in forms. If you have any issues please reach out to the administrator as listed in your invitation email.
         </p>
         <div>
           <Button onClick={onStart}>Start</Button>
