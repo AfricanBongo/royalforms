@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { format } from 'date-fns'
-import { Loader2Icon, SearchIcon } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { ChevronDownIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Sheet,
   SheetClose,
@@ -17,18 +22,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 
-import type { InstanceRow } from '../../services/form-templates'
-import { fetchTemplateInstances } from '../../services/form-templates'
-import { generateReport } from '../../services/reports'
+import type { FormInstanceRound } from '../../services/reports'
+import { fetchFormInstanceRounds, generateReport } from '../../services/reports'
 import { mapSupabaseError } from '../../lib/supabase-errors'
 
 interface GenerateReportDialogProps {
@@ -46,92 +42,140 @@ export function GenerateReportDialog({
   formTemplateId,
   onGenerated,
 }: GenerateReportDialogProps) {
-  const [instances, setInstances] = useState<InstanceRow[]>([])
+  const [rounds, setRounds] = useState<FormInstanceRound[]>([])
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [generating, setGenerating] = useState(false)
-
-  // Only show submitted instances
-  const submittedInstances = useMemo(
-    () => instances.filter((i) => i.status === 'submitted'),
-    [instances],
+  // Map<roundDate, Set<formInstanceId>>
+  const [selectedInstances, setSelectedInstances] = useState<Map<string, Set<string>>>(
+    new Map(),
   )
+  // Track which rounds are expanded
+  const [expandedRounds, setExpandedRounds] = useState<Set<string>>(new Set())
 
-  // Filter by search
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return submittedInstances
-    return submittedInstances.filter(
-      (i) =>
-        i.readable_id.toLowerCase().includes(q) ||
-        i.group_name.toLowerCase().includes(q),
-    )
-  }, [submittedInstances, search])
+  const totalSelectedCount = useMemo(() => {
+    let count = 0
+    for (const ids of selectedInstances.values()) {
+      count += ids.size
+    }
+    return count
+  }, [selectedInstances])
 
-  const allFilteredSelected =
-    filtered.length > 0 && filtered.every((i) => selected.has(i.id))
-
-  const loadInstances = useCallback(async () => {
+  const loadRounds = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchTemplateInstances(formTemplateId)
-      setInstances(data)
+      const data = await fetchFormInstanceRounds(formTemplateId)
+      setRounds(data)
+
+      // Pre-select the latest round's submitted instances
+      if (data.length > 0) {
+        const latest = data[0]
+        const submittedIds = new Set(
+          latest.groups
+            .filter((g) => g.status === 'submitted')
+            .map((g) => g.formInstanceId),
+        )
+        if (submittedIds.size > 0) {
+          setSelectedInstances(new Map([[latest.date, submittedIds]]))
+        }
+      }
     } catch (err) {
-      toast.error('Failed to load form instances')
+      toast.error('Failed to load form instance rounds')
       console.error(err)
     } finally {
       setLoading(false)
     }
   }, [formTemplateId])
 
-  // Load on open
   useEffect(() => {
     if (open) {
-      setSelected(new Set())
-      setSearch('')
-      void loadInstances()
+      setSelectedInstances(new Map())
+      setExpandedRounds(new Set())
+      void loadRounds()
     }
-  }, [open, loadInstances])
+  }, [open, loadRounds])
 
-  function handleSelectAll() {
-    if (allFilteredSelected) {
-      // Deselect all filtered
-      setSelected((prev) => {
-        const next = new Set(prev)
-        for (const i of filtered) next.delete(i.id)
-        return next
-      })
-    } else {
-      // Select all filtered
-      setSelected((prev) => {
-        const next = new Set(prev)
-        for (const i of filtered) next.add(i.id)
-        return next
-      })
-    }
+  function toggleRoundExpanded(date: string) {
+    setExpandedRounds((prev) => {
+      const next = new Set(prev)
+      if (next.has(date)) {
+        next.delete(date)
+      } else {
+        next.add(date)
+      }
+      return next
+    })
   }
 
-  function handleToggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
+  function isRoundFullySelected(round: FormInstanceRound): boolean {
+    const submittedIds = round.groups
+      .filter((g) => g.status === 'submitted')
+      .map((g) => g.formInstanceId)
+    if (submittedIds.length === 0) return false
+    const selected = selectedInstances.get(round.date)
+    if (!selected) return false
+    return submittedIds.every((id) => selected.has(id))
+  }
+
+  function isRoundPartiallySelected(round: FormInstanceRound): boolean {
+    const selected = selectedInstances.get(round.date)
+    if (!selected || selected.size === 0) return false
+    const submittedIds = round.groups
+      .filter((g) => g.status === 'submitted')
+      .map((g) => g.formInstanceId)
+    const selectedCount = submittedIds.filter((id) => selected.has(id)).length
+    return selectedCount > 0 && selectedCount < submittedIds.length
+  }
+
+  function handleToggleRound(round: FormInstanceRound) {
+    const submittedIds = round.groups
+      .filter((g) => g.status === 'submitted')
+      .map((g) => g.formInstanceId)
+    if (submittedIds.length === 0) return
+
+    setSelectedInstances((prev) => {
+      const next = new Map(prev)
+      if (isRoundFullySelected(round)) {
+        // Deselect all from this round
+        next.delete(round.date)
       } else {
-        next.add(id)
+        // Select all submitted from this round
+        next.set(round.date, new Set(submittedIds))
+      }
+      return next
+    })
+  }
+
+  function handleToggleGroup(roundDate: string, formInstanceId: string) {
+    setSelectedInstances((prev) => {
+      const next = new Map(prev)
+      const roundSet = new Set(next.get(roundDate) ?? [])
+      if (roundSet.has(formInstanceId)) {
+        roundSet.delete(formInstanceId)
+      } else {
+        roundSet.add(formInstanceId)
+      }
+      if (roundSet.size === 0) {
+        next.delete(roundDate)
+      } else {
+        next.set(roundDate, roundSet)
       }
       return next
     })
   }
 
   async function handleGenerate() {
-    if (selected.size === 0 || generating) return
+    if (totalSelectedCount === 0 || generating) return
     setGenerating(true)
     try {
-      const result = await generateReport(
-        reportTemplateId,
-        Array.from(selected),
-      )
+      // Flatten all selected instance IDs
+      const allIds: string[] = []
+      for (const ids of selectedInstances.values()) {
+        for (const id of ids) {
+          allIds.push(id)
+        }
+      }
+
+      const result = await generateReport(reportTemplateId, allIds)
       toast.success('Report generation started')
       onGenerated(result.report_instance_id, result.readable_id, reportTemplateId)
       onOpenChange(false)
@@ -149,100 +193,156 @@ export function GenerateReportDialog({
     }
   }
 
+  function formatRoundDate(dateStr: string): string {
+    return format(parseISO(dateStr), 'EEEE, MMMM d, yyyy')
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex flex-col sm:max-w-xl">
         <SheetHeader>
           <SheetTitle>Generate Report</SheetTitle>
           <SheetDescription>
-            Select submitted form instances to include in this report.
+            Select rounds to include in this report. Expand a round to
+            filter individual groups.
           </SheetDescription>
         </SheetHeader>
 
-        {/* Search */}
-        <div className="px-3">
-          <div className="relative">
-            <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by ID or group..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        {/* Instances table */}
-        <div className="flex-1 overflow-auto border rounded-lg mx-3">
+        <ScrollArea className="flex-1 px-3">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : rounds.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              {search.trim()
-                ? 'No matching submitted instances.'
-                : 'No submitted form instances available.'}
+              No form instance rounds available. Create and submit form
+              instances first.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40px]">
-                    <Checkbox
-                      checked={allFilteredSelected}
-                      onCheckedChange={handleSelectAll}
-                      aria-label="Select all"
-                    />
-                  </TableHead>
-                  <TableHead className="min-w-[140px]">Instance ID</TableHead>
-                  <TableHead className="min-w-[120px]">Group</TableHead>
-                  <TableHead className="min-w-[100px]">Status</TableHead>
-                  <TableHead className="text-right min-w-[120px]">
-                    Submitted Date
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((instance) => (
-                  <TableRow
-                    key={instance.id}
-                    className="cursor-pointer"
-                    onClick={() => handleToggle(instance.id)}
+            <div className="space-y-2">
+              {rounds.map((round) => {
+                const fullySelected = isRoundFullySelected(round)
+                const partiallySelected = isRoundPartiallySelected(round)
+                const hasSubmitted = round.submittedCount > 0
+                const isExpanded = expandedRounds.has(round.date)
+
+                return (
+                  <Collapsible
+                    key={round.date}
+                    open={isExpanded}
+                    onOpenChange={() => toggleRoundExpanded(round.date)}
                   >
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={selected.has(instance.id)}
-                        onCheckedChange={() => handleToggle(instance.id)}
-                        aria-label={`Select ${instance.readable_id}`}
-                      />
-                    </TableCell>
-                    <TableCell>{instance.readable_id}</TableCell>
-                    <TableCell>{instance.group_name}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className="bg-green-50 text-green-700 border-green-200"
-                      >
-                        Submitted
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {format(new Date(instance.created_at), 'dd/MM/yyyy')}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    <div className="rounded-lg border">
+                      {/* Round header row */}
+                      <div className="flex items-center gap-3 p-3">
+                        <Checkbox
+                          checked={fullySelected ? true : partiallySelected ? 'indeterminate' : false}
+                          onCheckedChange={() => handleToggleRound(round)}
+                          disabled={!hasSubmitted}
+                          aria-label={`Select round ${round.date}`}
+                        />
+                        <CollapsibleTrigger asChild>
+                          <button
+                            type="button"
+                            className="flex flex-1 items-center gap-2 text-left hover:opacity-80 transition-opacity"
+                          >
+                            {isExpanded ? (
+                              <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
+                            ) : (
+                              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {formatRoundDate(round.date)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {round.submittedCount}/{round.totalCount} groups
+                                submitted
+                              </p>
+                            </div>
+                          </button>
+                        </CollapsibleTrigger>
+                        {round.submittedCount === round.totalCount ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-green-50 text-green-700 border-green-200 shrink-0"
+                          >
+                            Complete
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="bg-amber-50 text-amber-700 border-amber-200 shrink-0"
+                          >
+                            Partial
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Expandable group details */}
+                      <CollapsibleContent>
+                        <div className="border-t px-3 pb-3 pt-2 space-y-1">
+                          {round.groups.map((group) => {
+                            const isSubmitted = group.status === 'submitted'
+                            const roundSelected = selectedInstances.get(round.date)
+                            const isGroupSelected = roundSelected?.has(group.formInstanceId) ?? false
+
+                            return (
+                              <div
+                                key={group.formInstanceId}
+                                className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50"
+                              >
+                                <Checkbox
+                                  checked={isGroupSelected}
+                                  onCheckedChange={() =>
+                                    handleToggleGroup(round.date, group.formInstanceId)
+                                  }
+                                  disabled={!isSubmitted}
+                                  aria-label={`Select ${group.groupName}`}
+                                />
+                                <span
+                                  className={`flex-1 text-sm ${
+                                    isSubmitted
+                                      ? 'text-foreground'
+                                      : 'text-muted-foreground'
+                                  }`}
+                                >
+                                  {group.groupName}
+                                </span>
+                                {isSubmitted ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-green-50 text-green-700 border-green-200 text-xs"
+                                  >
+                                    Submitted
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-muted text-muted-foreground text-xs"
+                                  >
+                                    Pending
+                                  </Badge>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
+                )
+              })}
+            </div>
           )}
-        </div>
+        </ScrollArea>
 
         <SheetFooter className="flex-row justify-between gap-2">
           <SheetClose asChild>
             <Button variant="outline">Close</Button>
           </SheetClose>
           <Button
-            disabled={selected.size === 0 || generating}
+            disabled={totalSelectedCount === 0 || generating}
             onClick={() => void handleGenerate()}
           >
             {generating ? (
@@ -251,7 +351,7 @@ export function GenerateReportDialog({
                 Generating...
               </>
             ) : (
-              `Generate (${selected.size})`
+              `Generate Report (${totalSelectedCount})`
             )}
           </Button>
         </SheetFooter>
