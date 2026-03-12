@@ -33,6 +33,7 @@ export type TemplateDetail = TemplateListRow
 export interface InstanceRow {
   id: string
   readable_id: string
+  group_id: string
   group_name: string
   status: string
   version_number: number
@@ -193,6 +194,7 @@ export async function fetchTemplateInstances(
     .select(`
       id,
       readable_id,
+      group_id,
       status,
       created_at,
       groups!form_instances_group_id_fkey ( name ),
@@ -218,6 +220,7 @@ export async function fetchTemplateInstances(
       return {
         id: row.id,
         readable_id: row.readable_id,
+        group_id: row.group_id,
         group_name: group?.name ?? 'Unknown',
         status: row.status,
         version_number: version?.version_number ?? 0,
@@ -1470,6 +1473,7 @@ export interface InstancePageData {
     status: 'pending' | 'submitted'
     group_id: string
     group_name: string
+    admin_only_submit: boolean
     created_at: string
     submitted_at: string | null
     submitted_by: string | null
@@ -1547,6 +1551,7 @@ export async function fetchInstanceByReadableId(
       readable_id,
       status,
       group_id,
+      admin_only_submit,
       created_at,
       submitted_at,
       submitted_by,
@@ -1640,6 +1645,7 @@ export async function fetchInstanceByReadableId(
       status: instance.status as 'pending' | 'submitted',
       group_id: instance.group_id,
       group_name: group?.name ?? 'Unknown',
+      admin_only_submit: instance.admin_only_submit,
       created_at: instance.created_at,
       submitted_at: instance.submitted_at,
       submitted_by: instance.submitted_by,
@@ -1804,6 +1810,22 @@ export async function submitInstance(
   if (error) throw error
 }
 
+/**
+ * Toggle admin_only_submit on a form instance.
+ * Only admin and root_admin can call this (enforced by RLS).
+ */
+export async function toggleAdminOnlySubmit(
+  instanceId: string,
+  adminOnly: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from('form_instances')
+    .update({ admin_only_submit: adminOnly })
+    .eq('id', instanceId)
+
+  if (error) throw error
+}
+
 // ---------------------------------------------------------------------------
 // File upload helpers
 // ---------------------------------------------------------------------------
@@ -1884,5 +1906,88 @@ export async function fetchGroupMembers(
     id: row.id,
     full_name: row.full_name,
     role: row.role,
+  }))
+}
+
+// ---------------------------------------------------------------------------
+// Fetch published form template fields (for report editor)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch fields from the **published** version of a form template.
+ *
+ * Unlike `fetchTemplateForEditing` (which may load a draft), this always
+ * returns field IDs from the current published version — matching the IDs
+ * stored in `field_values` for form instances created against that version.
+ *
+ * Used by the report editor to ensure formula expressions reference the
+ * correct field IDs.
+ */
+export async function fetchPublishedFormFields(
+  formTemplateId: string,
+): Promise<LoadedSection[]> {
+  // Get the latest published version
+  const { data: version, error: vErr } = await supabase
+    .from('template_versions')
+    .select('id')
+    .eq('template_id', formTemplateId)
+    .eq('status', 'published')
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (vErr || !version) throw vErr ?? new Error('No published version found')
+
+  // Fetch sections
+  const { data: sections, error: secErr } = await supabase
+    .from('template_sections')
+    .select('id, title, description, sort_order')
+    .eq('template_version_id', version.id)
+    .order('sort_order')
+
+  if (secErr) throw secErr
+
+  // Fetch fields
+  const sectionIds = (sections ?? []).map((s) => s.id)
+  let allFields: {
+    id: string
+    template_section_id: string
+    label: string
+    description: string | null
+    field_type: string
+    sort_order: number
+    is_required: boolean
+    options: Json | null
+    validation_rules: Json | null
+  }[] = []
+
+  if (sectionIds.length > 0) {
+    const { data: fields, error: fieldsErr } = await supabase
+      .from('template_fields')
+      .select('id, template_section_id, label, description, field_type, sort_order, is_required, options, validation_rules')
+      .in('template_section_id', sectionIds)
+      .order('sort_order')
+
+    if (fieldsErr) throw fieldsErr
+    allFields = fields ?? []
+  }
+
+  return (sections ?? []).map((s) => ({
+    id: s.id,
+    title: s.title,
+    description: s.description,
+    sort_order: s.sort_order,
+    fields: allFields
+      .filter((f) => f.template_section_id === s.id)
+      .map((f) => ({
+        id: f.id,
+        label: f.label,
+        description: f.description,
+        field_type: f.field_type,
+        sort_order: f.sort_order,
+        is_required: f.is_required ?? false,
+        options: f.options,
+        validation_rules: f.validation_rules,
+      })),
   }))
 }

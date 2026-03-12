@@ -531,6 +531,9 @@ LEFT JOIN LATERAL (
     AND fi.is_archived = false
 ) ic ON true;
 
+GRANT SELECT ON public.templates_with_stats TO anon, authenticated;
+ALTER VIEW public.templates_with_stats SET (security_invoker = on);
+
 COMMENT ON VIEW public.templates_with_stats IS
   'Template list with status, latest version number/status and instance counts.';
 

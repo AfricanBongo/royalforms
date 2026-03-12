@@ -409,10 +409,12 @@ function FileUploadInput({
     const files = e.target.files
     if (!files || files.length === 0) return
 
+    // Snapshot files BEFORE resetting input — FileList is a live reference
+    // that gets emptied when e.target.value is cleared.
+    const fileList = Array.from(files)
+
     // Reset the input so the same file can be re-selected
     e.target.value = ''
-
-    const fileList = Array.from(files)
 
     // Validate file sizes
     for (const file of fileList) {

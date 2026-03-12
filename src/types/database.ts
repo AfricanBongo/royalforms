@@ -108,6 +108,7 @@ export type Database = {
       }
       form_instances: {
         Row: {
+          admin_only_submit: boolean
           created_at: string
           created_by: string
           group_id: string
@@ -123,6 +124,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_only_submit?: boolean
           created_at?: string
           created_by: string
           group_id: string
@@ -138,6 +140,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_only_submit?: boolean
           created_at?: string
           created_by?: string
           group_id?: string
@@ -721,14 +724,14 @@ export type Database = {
           {
             foreignKeyName: "report_templates_form_template_id_fkey"
             columns: ["form_template_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "form_templates"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "report_templates_form_template_id_fkey"
             columns: ["form_template_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "templates_with_stats"
             referencedColumns: ["id"]
           },

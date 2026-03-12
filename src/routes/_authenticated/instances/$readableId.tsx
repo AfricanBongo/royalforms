@@ -15,8 +15,10 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 
 import { FieldAssignmentPopover } from '../../../features/instances/FieldAssignmentPopover'
 import { FieldChangeLogPopover } from '../../../features/instances/FieldChangeLogPopover'
@@ -33,6 +35,7 @@ import {
   fetchGroupMembers,
   fetchInstanceByReadableId,
   submitInstance,
+  toggleAdminOnlySubmit,
   upsertFieldValue,
 } from '../../../services/form-templates'
 import type {
@@ -274,7 +277,11 @@ function InstancePage() {
   // -------------------------------------------------------------------------
 
   const effectiveMode = mode ?? 'view'
-  const isViewMode = effectiveMode === 'view'
+  // Root admin can only edit instances in their own group
+  const isOtherGroup =
+    currentUser?.role === 'root_admin' &&
+    currentUser.groupId !== data?.instance.group_id
+  const isViewMode = effectiveMode === 'view' || isOtherGroup
   const isSubmitted = data?.instance.status === 'submitted'
 
   // Check group access (non-root_admin must belong to the instance's group)
@@ -335,15 +342,44 @@ function InstancePage() {
   const canAssign =
     currentUser?.role === 'root_admin' || currentUser?.role === 'admin'
 
+  // Can the current user toggle admin_only_submit?
+  const canToggleSubmitRestriction = canAssign && !isViewMode && !isSubmitted
+
   // Can the current user submit?
-  const canSubmit =
-    !isViewMode &&
-    !isSubmitted &&
-    (currentUser?.role === 'root_admin' || currentUser?.role === 'admin')
+  const canSubmit = (() => {
+    if (isViewMode || isSubmitted || !currentUser) return false
+    if (currentUser.role === 'root_admin' || currentUser.role === 'admin') return true
+    if (currentUser.role === 'editor') return !data?.instance.admin_only_submit
+    return false
+  })()
 
   // -------------------------------------------------------------------------
   // Handlers
   // -------------------------------------------------------------------------
+
+  async function handleToggleAdminOnlySubmit(checked: boolean) {
+    if (!data) return
+    try {
+      await toggleAdminOnlySubmit(data.instance.id, checked)
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              instance: { ...prev.instance, admin_only_submit: checked },
+            }
+          : prev,
+      )
+      toast.success(
+        checked
+          ? 'Only admins can submit this form'
+          : 'Editors can now submit this form',
+      )
+    } catch (err: unknown) {
+      const e = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(e.code, e.message, 'database', 'update_record')
+      toast.error(mapped.title, { description: mapped.description })
+    }
+  }
 
   function handleFieldChange(fieldId: string, value: string | null) {
     setLocalValues((prev) => {
@@ -510,7 +546,7 @@ function InstancePage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col gap-6 p-6">
+      <div className="flex min-h-full flex-1 flex-col gap-6 p-6">
         {/* Header skeleton */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -547,7 +583,7 @@ function InstancePage() {
 
   if (error || !data) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-4 p-6">
         <p className="text-sm text-muted-foreground">
           {error ?? 'Failed to load form instance'}
         </p>
@@ -564,7 +600,7 @@ function InstancePage() {
 
   if (!hasGroupAccess) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-4 p-6">
         <p className="text-sm text-destructive font-medium">
           You don&apos;t have access to this form instance
         </p>
@@ -577,7 +613,7 @@ function InstancePage() {
 
   if (viewerPendingBlocked) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-4 p-6">
         <p className="text-sm text-muted-foreground">
           This form is not available yet
         </p>
@@ -592,7 +628,7 @@ function InstancePage() {
   const { instance, template } = data
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-full flex-1 flex-col">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-6 pb-4">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
@@ -606,10 +642,25 @@ function InstancePage() {
           <span>&middot;</span>
           <span>v{template.version_number}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Badge variant={isSubmitted ? 'default' : 'secondary'}>
             {isSubmitted ? 'Submitted' : 'Pending'}
           </Badge>
+          {canToggleSubmitRestriction && (
+            <div className="flex items-center gap-2">
+              <Switch
+                id="admin-only-submit"
+                checked={instance.admin_only_submit}
+                onCheckedChange={(checked) => void handleToggleAdminOnlySubmit(checked)}
+              />
+              <Label
+                htmlFor="admin-only-submit"
+                className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap"
+              >
+                Admin-only submit
+              </Label>
+            </div>
+          )}
           {canSubmit && (
             <Button
               size="sm"
@@ -633,14 +684,16 @@ function InstancePage() {
       {sections.length > 1 && (
         <>
           <div className="px-6">
-            <SectionStepper
-              sections={sections.map((s, i) => ({
-                title: s.title,
-                isComplete: isSectionComplete(i),
-              }))}
-              currentIndex={currentSection}
-              onStepClick={setCurrentSection}
-            />
+            <div className="mx-auto max-w-2xl">
+              <SectionStepper
+                sections={sections.map((s, i) => ({
+                  title: s.title,
+                  isComplete: isSectionComplete(i),
+                }))}
+                currentIndex={currentSection}
+                onStepClick={setCurrentSection}
+              />
+            </div>
           </div>
           <Separator />
         </>
@@ -759,11 +812,11 @@ function InstancePage() {
         )}
       </div>
 
-      {/* Footer navigation */}
-      {sections.length > 1 && (
-        <>
-          <Separator />
-          <div className="flex items-center justify-between px-6 py-4">
+      {/* Footer navigation — always pinned to bottom */}
+      <Separator />
+      <div className="mt-auto flex items-center justify-between px-6 py-4">
+        {sections.length > 1 ? (
+          <>
             <Button
               variant="outline"
               size="sm"
@@ -801,9 +854,29 @@ function InstancePage() {
             ) : (
               <div className="w-20" />
             )}
-          </div>
-        </>
-      )}
+          </>
+        ) : (
+          <>
+            <div />
+            {canSubmit ? (
+              <Button
+                size="sm"
+                disabled={submitting}
+                onClick={() => void handleSubmit()}
+              >
+                {submitting ? (
+                  <Loader2Icon className="mr-1.5 size-4 animate-spin" />
+                ) : (
+                  <SendIcon className="mr-1.5 size-4" />
+                )}
+                Submit
+              </Button>
+            ) : (
+              <div />
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
