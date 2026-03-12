@@ -61,7 +61,7 @@ export function PreviewSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex flex-col overflow-hidden sm:max-w-lg">
+      <SheetContent className="flex flex-col overflow-hidden sm:max-w-2xl">
         <SheetHeader>
           <SheetTitle>Form Preview</SheetTitle>
           <SheetDescription>
