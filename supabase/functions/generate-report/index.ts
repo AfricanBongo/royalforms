@@ -626,7 +626,63 @@ Deno.serve(async (req) => {
             break;
           }
           case "static_text": {
-            resolvedValue = config.content ?? "";
+            if (
+              config.format === "richtext" &&
+              Array.isArray(config.inlineContent)
+            ) {
+              // Resolve inline formulas and variables, then concatenate
+              const parts: string[] = [];
+              for (const item of config.inlineContent as Array<
+                Record<string, unknown>
+              >) {
+                if (item.type === "text") {
+                  parts.push(String(item.text ?? ""));
+                } else if (item.type === "link") {
+                  const linkContent = (item.content as Array<
+                    Record<string, unknown>
+                  >) ?? [];
+                  parts.push(
+                    linkContent.map((c) => String(c.text ?? "")).join(""),
+                  );
+                } else if (item.type === "inlineFormula") {
+                  const p = item.props as Record<string, string>;
+                  const fn = p?.fn ?? "SUM";
+                  const fId = p?.fieldId ?? "";
+                  if (fId) {
+                    try {
+                      const expr = `${fn}(${fId})`;
+                      const resolved = resolveAggregates(
+                        expr,
+                        numericFieldValues,
+                        fieldTypeMap,
+                      );
+                      const val = evaluateArithmetic(resolved);
+                      parts.push(
+                        Number.isInteger(val)
+                          ? String(val)
+                          : val.toFixed(2),
+                      );
+                    } catch {
+                      parts.push(`[${fn} Error]`);
+                    }
+                  } else {
+                    parts.push(`[${fn}(?)]`);
+                  }
+                } else if (item.type === "inlineVariable") {
+                  const p = item.props as Record<string, string>;
+                  const fId = p?.fieldId ?? "";
+                  if (fId) {
+                    const vals = rawFieldValues.get(fId);
+                    parts.push(String(vals?.[0]?.value ?? "-"));
+                  } else {
+                    parts.push("[?]");
+                  }
+                }
+              }
+              resolvedValue = parts.join("");
+            } else {
+              resolvedValue = config.content ?? "";
+            }
             break;
           }
         }

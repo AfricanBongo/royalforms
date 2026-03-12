@@ -34,6 +34,7 @@ interface InlineContentItem {
   styles?: Record<string, unknown>
   content?: InlineContentItem[]
   href?: string
+  props?: Record<string, unknown>
 }
 
 // ---------------------------------------------------------------------------
@@ -58,9 +59,113 @@ function inlineContentToText(content: InlineContentItem[] | undefined): string {
     .map((item) => {
       if (item.type === 'text') return item.text ?? ''
       if (item.type === 'link') return inlineContentToText(item.content)
+      if (item.type === 'inlineFormula') {
+        const fn = (item.props?.fn ?? '') as string
+        const fieldLabel = (item.props?.fieldLabel ?? item.props?.fieldId ?? '') as string
+        return `${fn}(${fieldLabel})`
+      }
+      if (item.type === 'inlineVariable') {
+        return ((item.props?.fieldLabel ?? item.props?.fieldId ?? '') as string)
+      }
       return ''
     })
     .join('')
+}
+
+// ---------------------------------------------------------------------------
+// Helper: serialize inline content for storage
+// ---------------------------------------------------------------------------
+
+function serializeInlineContent(items: InlineContentItem[]): InlineContentItem[] {
+  return items.map((item) => {
+    if (item.type === 'text') {
+      const serialized: InlineContentItem = { type: 'text', text: item.text ?? '' }
+      if (item.styles) {
+        const activeStyles: Record<string, unknown> = {}
+        let hasActive = false
+        for (const [key, value] of Object.entries(item.styles)) {
+          if (value === true) {
+            activeStyles[key] = true
+            hasActive = true
+          }
+        }
+        if (hasActive) serialized.styles = activeStyles
+      }
+      return serialized
+    }
+    if (item.type === 'link') {
+      return {
+        type: 'link',
+        href: item.href,
+        content: item.content ? serializeInlineContent(item.content) : [],
+      }
+    }
+    if (item.type === 'inlineFormula') {
+      return {
+        type: 'inlineFormula',
+        props: {
+          fn: item.props?.fn,
+          fieldId: item.props?.fieldId,
+          fieldLabel: item.props?.fieldLabel,
+        },
+      }
+    }
+    if (item.type === 'inlineVariable') {
+      return {
+        type: 'inlineVariable',
+        props: {
+          fieldId: item.props?.fieldId,
+          fieldLabel: item.props?.fieldLabel,
+        },
+      }
+    }
+    // Unknown type — pass through
+    return item
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Helper: deserialize inline content from storage
+// ---------------------------------------------------------------------------
+
+function deserializeInlineContent(items: InlineContentItem[]): InlineContentItem[] {
+  return items.map((item) => {
+    if (item.type === 'text') {
+      const deserialized: InlineContentItem = { type: 'text', text: item.text ?? '' }
+      if (item.styles && Object.keys(item.styles).length > 0) {
+        deserialized.styles = item.styles
+      }
+      return deserialized
+    }
+    if (item.type === 'link') {
+      return {
+        type: 'link',
+        href: item.href,
+        content: item.content ? deserializeInlineContent(item.content) : [],
+      }
+    }
+    if (item.type === 'inlineFormula') {
+      return {
+        type: 'inlineFormula',
+        props: {
+          fn: item.props?.fn ?? '',
+          fieldId: item.props?.fieldId ?? '',
+          fieldLabel: item.props?.fieldLabel ?? '',
+        },
+      }
+    }
+    if (item.type === 'inlineVariable') {
+      return {
+        type: 'inlineVariable',
+        props: {
+          fieldId: item.props?.fieldId ?? '',
+          fieldLabel: item.props?.fieldLabel ?? '',
+        },
+      }
+    }
+    // Unknown type — pass through
+    return item
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -135,17 +240,33 @@ export function editorToCreateInput(
 
     // Paragraph → static_text
     if (block.type === 'paragraph') {
-      const text = inlineContentToText(block.content)
-      if (!text.trim()) continue // Skip empty paragraphs
+      const inlineContent = block.content ?? []
+      const plainText = inlineContentToText(inlineContent)
+
+      // Check if content has any custom inline content or rich formatting
+      const hasRichContent = inlineContent.some(
+        (ic) =>
+          (ic.type !== 'text' && ic.type !== 'link') ||
+          (ic.type === 'text' && ic.styles && Object.values(ic.styles).some((v) => v === true))
+      )
+
+      // Skip truly empty paragraphs (no text, no inline content)
+      if (!plainText.trim() && !hasRichContent) continue
 
       const field: CreateReportFieldInput = {
-        label: text.substring(0, 100), // Label is first 100 chars
+        label: plainText.substring(0, 100) || 'Rich Text',
         field_type: 'static_text',
         sort_order: fieldOrder,
-        config: {
-          content: text,
-          format: 'text',
-        },
+        config: hasRichContent
+          ? {
+              inlineContent: serializeInlineContent(inlineContent),
+              content: plainText, // plain text fallback
+              format: 'richtext',
+            }
+          : {
+              content: plainText,
+              format: 'text',
+            },
       }
       currentSection.fields.push(field)
       continue
@@ -401,14 +522,24 @@ export function templateDetailToEditorContent(
         }
 
         case 'static_text': {
-          const content = (config.content as string) ?? field.label
-          blocks.push({
-            id: nextId(),
-            type: 'paragraph',
-            props: {},
-            content: [{ type: 'text', text: content }],
-            children: [],
-          })
+          if (config.format === 'richtext' && Array.isArray(config.inlineContent)) {
+            blocks.push({
+              id: nextId(),
+              type: 'paragraph',
+              props: {},
+              content: deserializeInlineContent(config.inlineContent as InlineContentItem[]),
+              children: [],
+            })
+          } else {
+            const content = (config.content as string) ?? field.label
+            blocks.push({
+              id: nextId(),
+              type: 'paragraph',
+              props: {},
+              content: [{ type: 'text', text: content }],
+              children: [],
+            })
+          }
           break
         }
       }
@@ -456,6 +587,28 @@ export function resolveVariableLabels(
         }
       }
     }
+
+    // Resolve inline content labels in paragraphs
+    if (block.type === 'paragraph' && block.content) {
+      const updatedContent = block.content.map((item) => {
+        if (item.type === 'inlineFormula' || item.type === 'inlineVariable') {
+          const fieldId = (item.props?.fieldId ?? '') as string
+          const field = formFields.find((f) => f.id === fieldId)
+          if (field) {
+            return {
+              ...item,
+              props: {
+                ...item.props,
+                fieldLabel: field.label,
+              },
+            }
+          }
+        }
+        return item
+      })
+      return { ...block, content: updatedContent }
+    }
+
     return block
   })
 }
