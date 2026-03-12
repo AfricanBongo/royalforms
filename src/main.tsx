@@ -30,6 +30,18 @@ declare module '@tanstack/react-router' {
 function InnerApp() {
   const auth = useAuth()
   const setup = useSetup()
+
+  // Block all routing until setup status is resolved.
+  // Without this gate, route guards that check `isSetupComplete === false`
+  // would not redirect to /setup while the value is still `null` (loading).
+  if (setup.isSetupComplete === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="size-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+      </div>
+    )
+  }
+
   return <RouterProvider router={router} context={{ auth, setup }} />
 }
 
