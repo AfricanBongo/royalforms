@@ -3,6 +3,65 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.11.0](https://github.com/AfricanBongo/royalforms/compare/v0.10.0...v0.11.0) (2026-03-12)
+
+
+### Features
+
+* **db:** add is_setup_complete() function for first-run detection ([614d7a5](https://github.com/AfricanBongo/royalforms/commit/614d7a5b6af273aa5c790ec510d49fef5bb91281))
+* **db:** add pg_net triggers for Resend contact/segment sync ([486a094](https://github.com/AfricanBongo/royalforms/commit/486a0943891f6616d27ea6d35c5a9b6a449905b7))
+* **db:** add resend_segment_id to groups and resend_sync_queue table ([79cf1c5](https://github.com/AfricanBongo/royalforms/commit/79cf1c54a456edef381980508c7b187104d88b4a))
+* **edge-fn:** add sync-resend-contacts Edge Function for Resend contact/segment sync ([099e3bf](https://github.com/AfricanBongo/royalforms/commit/099e3bf7c25c0fad22cf5e166dd4c6b5877e6b7f))
+* **edge:** update bootstrap-root-admin to accept body params and create sample form ([47d16ed](https://github.com/AfricanBongo/royalforms/commit/47d16ed388b6ed7eba270cdd7b569c99cbdeba29))
+* **forms:** add form-report link check with breaking change notices ([c1e9ef2](https://github.com/AfricanBongo/royalforms/commit/c1e9ef2f6beae59596fbd66344cdaab70141f8ff))
+* **forms:** create form template via upfront dialog ([0c7edb6](https://github.com/AfricanBongo/royalforms/commit/0c7edb652c2caa97242de234dedd507b4be74951))
+* **groups:** add bootstrap group protection and restructure group UI ([d7ad20d](https://github.com/AfricanBongo/royalforms/commit/d7ad20d2f418df4ca3d7a844b57c00922d9d9345))
+* **reports:** add BlockNote custom blocks for formula, variable, and table ([1556bcb](https://github.com/AfricanBongo/royalforms/commit/1556bcb5f61f22b516700b60c74fffbb9c3eb0e8))
+* **reports:** add custom slash menu items for report field types ([ae40eb7](https://github.com/AfricanBongo/royalforms/commit/ae40eb7cdc03f0f3f166a56ae224f5845aacc4f8))
+* **reports:** add draft/published lifecycle and name uniqueness checks ([c664a7a](https://github.com/AfricanBongo/royalforms/commit/c664a7a88e142b3c6f67b04eba442c20cfab0049))
+* **reports:** add draft/published status to report templates and versions ([6ca39de](https://github.com/AfricanBongo/royalforms/commit/6ca39dee917411309c31693bc7f3a8901efc64c8))
+* **reports:** add formula columns to data tables and searchable form picker ([b152425](https://github.com/AfricanBongo/royalforms/commit/b152425db463cc2c9a7d283ac78c5efd054b24bb))
+* **reports:** add ReportEditor wrapper component with BlockNote integration ([8836fb2](https://github.com/AfricanBongo/royalforms/commit/8836fb217803423125f063bcdab873e3e310aeca))
+* **reports:** add round-based form instance query for report generation ([d634eab](https://github.com/AfricanBongo/royalforms/commit/d634eabd7e157c2a31e852e26f28c8f7c81f226e))
+* **reports:** add serialization between BlockNote document and service format ([8ef10f8](https://github.com/AfricanBongo/royalforms/commit/8ef10f889b779d0ab58618f4c5b71fc86745c19f))
+* **reports:** create report template via upfront dialog with linked form selection ([9a86abb](https://github.com/AfricanBongo/royalforms/commit/9a86abbd27ee1bc971eb236713296224f345b4f6))
+* **reports:** implement draft/published lifecycle in report template UI ([1d010ac](https://github.com/AfricanBongo/royalforms/commit/1d010acf3611dcb1f1608cb89790f957f11ed8da))
+* **reports:** replace form-builder with BlockNote WYSIWYG editor ([b56dc53](https://github.com/AfricanBongo/royalforms/commit/b56dc5374ca5787e704c8e8243c51d1428256061))
+* **reports:** round-based report generation with group filtering ([598da44](https://github.com/AfricanBongo/royalforms/commit/598da4469be34bebb4a8f777e21c0b64406c7230))
+* **routing:** add setup detection guards to all routes ([6e8f1e5](https://github.com/AfricanBongo/royalforms/commit/6e8f1e54066ddcc3dc69ad2cf2e7fc0a34cd248f))
+* **setup:** add /setup route with 3-step first-run wizard ([e4f8eed](https://github.com/AfricanBongo/royalforms/commit/e4f8eed18019aaa12074c6be2aadedfecfe1df54))
+* **setup:** add setup service, context, and wire into app ([86c1b4b](https://github.com/AfricanBongo/royalforms/commit/86c1b4b3f0e9a02d344fd2dd89866325dd025b86))
+
+
+### Bug Fixes
+
+* **db:** allow groups.created_by to be null for bootstrap ([8f062ee](https://github.com/AfricanBongo/royalforms/commit/8f062ee68c58388e1401fdb0d7b8a74b61989163))
+* **forms:** fix file upload bug, add admin-only submit toggle, and restrict root admin to own group ([6b8aba6](https://github.com/AfricanBongo/royalforms/commit/6b8aba6162883c002eff4a1583b9e00f66627f70))
+* **instances:** hide assignee identity from editors and show generic badge ([f8c2b37](https://github.com/AfricanBongo/royalforms/commit/f8c2b3734b4dc117c5efa6805bc43cbba6d9a99e))
+* **reports:** check full round before auto-generating report ([50284c2](https://github.com/AfricanBongo/royalforms/commit/50284c2f2433b92faead8d93c7d48326c74d126a))
+* **reports:** extract block render functions to fix rules-of-hooks lint errors ([8b3ba59](https://github.com/AfricanBongo/royalforms/commit/8b3ba590270e217231559c5ece6c49c38c7e4dc4))
+* **reports:** fix formula resolution, PDF tables, short URLs, auto-refresh, and instance metadata ([e21acdc](https://github.com/AfricanBongo/royalforms/commit/e21acdcd68665f883b2c495b36d55a876866913a))
+* **reports:** fix relationship query and save draft in-place instead of creating new version ([4427a32](https://github.com/AfricanBongo/royalforms/commit/4427a32ac02c051e9b5d314462212fa793d4acf4))
+* **storage:** add bucket creation to form-uploads migration and improve upload error logging ([2089123](https://github.com/AfricanBongo/royalforms/commit/20891230ddc83c76e4de69744d4c2674a68af727))
+* **ui:** pin footers to bottom of scrollable area and fix breadcrumb DOM nesting ([f22b40b](https://github.com/AfricanBongo/royalforms/commit/f22b40b1044a15e087af340d5de643db401b5675))
+
+
+### Refactoring
+
+* **db:** squash 55+ migrations into 7 logical groups ([0b695bf](https://github.com/AfricanBongo/royalforms/commit/0b695bf973faac935882b7ccff7340580dd662a0))
+* **reports:** adapt auto-save hook for BlockNote content model ([b0b09f4](https://github.com/AfricanBongo/royalforms/commit/b0b09f47ab9d745e5a029eba933891cc55832591))
+* **reports:** remove old form-builder-style report components ([ab601cf](https://github.com/AfricanBongo/royalforms/commit/ab601cf562da134c69289c3f4acaf4554b3aa52d))
+* **reports:** replace form-builder with BlockNote WYSIWYG editor on edit page ([f61d61e](https://github.com/AfricanBongo/royalforms/commit/f61d61ea169b7c3cdd7de67644faae5ff945759d))
+* **reports:** replace form-builder with BlockNote WYSIWYG editor on new page ([42b9c96](https://github.com/AfricanBongo/royalforms/commit/42b9c963d54d2f93a6324bdf0ae50a40d5147e88))
+
+
+### Documentation
+
+* **dashboard:** add dashboard redesign design document ([62c0b86](https://github.com/AfricanBongo/royalforms/commit/62c0b865de1f2812aa46242177ddececc4f81ed8))
+* **dashboard:** add dashboard redesign implementation plan ([d71775a](https://github.com/AfricanBongo/royalforms/commit/d71775aac0a80f8b892596cb800b9ebf00f04c1c))
+* **reports:** add report generation redesign design and implementation plan ([a2b4a25](https://github.com/AfricanBongo/royalforms/commit/a2b4a2583b48adc03952f7063c50b0b9cc840993))
+* update TODO and add setup wizard design/plan docs ([2569022](https://github.com/AfricanBongo/royalforms/commit/25690224dfe76c2094162c4869ff51fbf47ce9f1))
+
 ## [0.10.0](https://github.com/AfricanBongo/royalforms/compare/v0.9.0...v0.10.0) (2026-03-11)
 
 
