@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { FilterIcon, PlusIcon, RotateCcwIcon, SearchIcon } from 'lucide-react'
+import { PlusIcon, RotateCcwIcon, SearchIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { FilterPopover } from '../../../components/filter-popover'
+import type { FilterState } from '../../../lib/filter-utils'
+import { applyFilters, EMPTY_FILTERS } from '../../../lib/filter-utils'
 import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
 import { Checkbox } from '../../../components/ui/checkbox'
@@ -54,15 +57,20 @@ function FormTemplateListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
-  // Filter templates by search term (client-side)
+  // Apply filters then search (client-side)
+  const afterFilters = applyFilters(templates, filters, {
+    getStatus: (t) => t.status,
+    getDate: (t) => t.created_at,
+  })
   const filtered = search.trim()
-    ? templates.filter((t) =>
+    ? afterFilters.filter((t) =>
         t.name.toLowerCase().includes(search.trim().toLowerCase()),
       )
-    : templates
+    : afterFilters
 
   // Pagination
   const totalItems = filtered.length
@@ -158,10 +166,10 @@ function FormTemplateListPage() {
     void load()
   }, [tab])
 
-  // Reset to page 1 when search or tab changes
+  // Reset to page 1 when search, tab, or filters change
   useEffect(() => {
     setPage(1)
-  }, [search, tab])
+  }, [search, tab, filters])
 
   return (
     <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
@@ -196,10 +204,14 @@ function FormTemplateListPage() {
               className="pl-9"
             />
           </div>
-          <Button variant="outline" size="default">
-            <FilterIcon className="size-4" />
-            Filters
-          </Button>
+          <FilterPopover
+            filters={filters}
+            onChange={setFilters}
+            statusOptions={[
+              { value: 'draft', label: 'Draft' },
+              { value: 'published', label: 'Published' },
+            ]}
+          />
         </div>
         {isRootAdmin && (
           <Button onClick={() => setShowCreateDialog(true)}>

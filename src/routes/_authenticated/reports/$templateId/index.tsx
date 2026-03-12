@@ -5,7 +5,6 @@ import {
   DownloadIcon,
   EllipsisVerticalIcon,
   FileTextIcon,
-  FilterIcon,
   HistoryIcon,
   Loader2Icon,
   PencilIcon,
@@ -44,6 +43,9 @@ import {
   TableHeader,
   TableRow,
 } from '../../../../components/ui/table'
+import { FilterPopover } from '../../../../components/filter-popover'
+import type { FilterState } from '../../../../lib/filter-utils'
+import { applyFilters, EMPTY_FILTERS } from '../../../../lib/filter-utils'
 import { StatCard } from '../../../../components/stat-card'
 import { GenerateReportDialog } from '../../../../features/reports/GenerateReportDialog'
 import { VersionHistorySheet } from '../../../../features/reports/VersionHistorySheet'
@@ -87,6 +89,7 @@ function ReportTemplateDetailPage() {
   const [instances, setInstances] = useState<ReportInstanceListRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
   const [page, setPage] = useState(1)
   const [versionsOpen, setVersionsOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
@@ -98,9 +101,13 @@ function ReportTemplateDetailPage() {
   const { watch } = useReportGenerationWatch()
   const isRootAdmin = currentUser?.role === 'root_admin'
 
-  // Filter instances by search (readable_id or created_by_name)
+  // Filter instances by filters + search
+  const afterFilters = applyFilters(instances, filters, {
+    getStatus: (i) => i.status,
+    getDate: (i) => i.created_at,
+  })
   const filtered = search.trim()
-    ? instances.filter(
+    ? afterFilters.filter(
         (i) =>
           i.readable_id
             .toLowerCase()
@@ -109,7 +116,7 @@ function ReportTemplateDetailPage() {
             .toLowerCase()
             .includes(search.trim().toLowerCase()),
       )
-    : instances
+    : afterFilters
 
   // Pagination
   const totalItems = filtered.length
@@ -157,6 +164,11 @@ function ReportTemplateDetailPage() {
   useEffect(() => {
     setPage(1)
   }, [search])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [filters])
 
   // Toggle auto-generate
   async function handleToggleAutoGenerate() {
@@ -288,10 +300,15 @@ function ReportTemplateDetailPage() {
               className="pl-9"
             />
           </div>
-          <Button variant="outline" size="default">
-            <FilterIcon className="size-4" />
-            Filters
-          </Button>
+          <FilterPopover
+            filters={filters}
+            onChange={setFilters}
+            statusOptions={[
+              { value: 'generating', label: 'Generating' },
+              { value: 'ready', label: 'Ready' },
+              { value: 'failed', label: 'Failed' },
+            ]}
+          />
         </div>
 
         {/* Right: action buttons (Root Admin only) */}

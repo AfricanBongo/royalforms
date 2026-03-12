@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   ChevronDownIcon,
   EllipsisVerticalIcon,
   FilePlus,
-  FilterIcon,
   HistoryIcon,
   PencilIcon,
   SearchIcon,
@@ -61,6 +60,9 @@ import { CreateInstanceSuccessDialog } from '../../../../features/forms/CreateIn
 import { ScheduleInstanceSheet } from '../../../../features/forms/ScheduleInstanceSheet'
 import { ScheduleInstanceSuccessDialog } from '../../../../features/forms/ScheduleInstanceSuccessDialog'
 import { StatCard } from '../../../../components/stat-card'
+import { FilterPopover } from '../../../../components/filter-popover'
+import type { FilterState, GroupOption } from '../../../../lib/filter-utils'
+import { applyFilters, EMPTY_FILTERS } from '../../../../lib/filter-utils'
 import { useCurrentUser } from '../../../../hooks/use-current-user'
 import { usePageTitle } from '../../../../hooks/use-page-title'
 import {
@@ -120,12 +122,27 @@ function TemplateDetailPage() {
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [scheduleSuccessOpen, setScheduleSuccessOpen] = useState(false)
   const [schedule, setSchedule] = useState<ScheduleData | null>(null)
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
-  // Filter instances by search (readable_id or group_name)
+  // Derive unique group options from instances
+  const groupOptions: GroupOption[] = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const i of instances) {
+      if (!seen.has(i.group_id)) seen.set(i.group_id, i.group_name)
+    }
+    return [...seen.entries()].map(([id, name]) => ({ id, name }))
+  }, [instances])
+
+  // Apply popover filters first, then search
+  const afterFilters = applyFilters(instances, filters, {
+    getStatus: (i) => i.status,
+    getGroupId: (i) => i.group_id,
+    getDate: (i) => i.created_at,
+  })
   const filtered = search.trim()
-    ? instances.filter(
+    ? afterFilters.filter(
         (i) =>
           i.readable_id
             .toLowerCase()
@@ -134,7 +151,7 @@ function TemplateDetailPage() {
             .toLowerCase()
             .includes(search.trim().toLowerCase()),
       )
-    : instances
+    : afterFilters
 
   // Pagination
   const totalItems = filtered.length
@@ -215,6 +232,11 @@ function TemplateDetailPage() {
   useEffect(() => {
     setPage(1)
   }, [search])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [filters])
 
   // Refresh group count after sharing settings change
   async function refreshGroupCount() {
@@ -347,10 +369,15 @@ function TemplateDetailPage() {
               className="pl-9"
             />
           </div>
-          <Button variant="outline" size="default">
-            <FilterIcon className="size-4" />
-            Filters
-          </Button>
+          <FilterPopover
+            filters={filters}
+            onChange={setFilters}
+            statusOptions={[
+              { value: 'pending', label: 'Pending' },
+              { value: 'submitted', label: 'Submitted' },
+            ]}
+            groupOptions={groupOptions}
+          />
         </div>
 
         {/* Right: action buttons (Root Admin only) */}

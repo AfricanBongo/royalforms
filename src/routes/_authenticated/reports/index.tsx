@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { FilterIcon, PlusIcon, SearchIcon } from 'lucide-react'
+import { PlusIcon, SearchIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '../../../components/ui/badge'
@@ -21,6 +21,9 @@ import {
   TabsList,
   TabsTrigger,
 } from '../../../components/ui/tabs'
+import { FilterPopover } from '../../../components/filter-popover'
+import type { FilterState } from '../../../lib/filter-utils'
+import { applyFilters, EMPTY_FILTERS } from '../../../lib/filter-utils'
 import { StatCard } from '../../../components/stat-card'
 import { CreateReportTemplateDialog } from '../../../features/reports/CreateReportTemplateDialog'
 import { useCurrentUser } from '../../../hooks/use-current-user'
@@ -53,6 +56,7 @@ function ReportTemplateListPage() {
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
@@ -61,16 +65,22 @@ function ReportTemplateListPage() {
     tab === 'active' ? t.is_active : !t.is_active,
   )
 
+  // Apply popover filters (status, date range)
+  const afterFilters = applyFilters(tabFiltered, filters, {
+    getStatus: (t) => t.status,
+    getDate: (t) => t.created_at,
+  })
+
   // Filter by search term (client-side on name and linked form)
   const filtered = search.trim()
-    ? tabFiltered.filter((t) => {
+    ? afterFilters.filter((t) => {
         const term = search.trim().toLowerCase()
         return (
           t.name.toLowerCase().includes(term) ||
           t.form_template_name.toLowerCase().includes(term)
         )
       })
-    : tabFiltered
+    : afterFilters
 
   // Pagination
   const totalItems = filtered.length
@@ -140,10 +150,10 @@ function ReportTemplateListPage() {
     void load()
   }, [])
 
-  // Reset to page 1 when search or tab changes
+  // Reset to page 1 when search, tab, or filters change
   useEffect(() => {
     setPage(1)
-  }, [search, tab])
+  }, [search, tab, filters])
 
   return (
     <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
@@ -178,10 +188,14 @@ function ReportTemplateListPage() {
               className="pl-9"
             />
           </div>
-          <Button variant="outline" size="default">
-            <FilterIcon className="size-4" />
-            Filters
-          </Button>
+          <FilterPopover
+            filters={filters}
+            onChange={setFilters}
+            statusOptions={[
+              { value: 'draft', label: 'Draft' },
+              { value: 'published', label: 'Published' },
+            ]}
+          />
         </div>
         {isRootAdmin && (
           <Button onClick={() => setCreateDialogOpen(true)}>
