@@ -197,6 +197,14 @@ When deleting a form template that has existing instances, present two options:
 - [x] Admin widgets (group members, draft instances, submissions)
 - [x] Editor widgets (assigned fields, draft instances)
 - [x] Viewer widgets (recent submissions, reports)
+- [x] Dashboard redesign: colorful stat cards with deltas
+- [x] Dashboard redesign: time-series trend charts (Shadcn Charts / Recharts)
+- [x] Dashboard redesign: action items banner
+- [x] Dashboard redesign: greeting header with time range toggle (7d/30d/90d)
+- [x] Dashboard redesign: recent form instances list (10)
+- [x] Dashboard redesign: recent report instances list (10)
+- [x] Dashboard redesign: group breakdown chart (Root Admin)
+- [x] Dashboard redesign: per-widget skeleton loading
 
 ## External Services
 
