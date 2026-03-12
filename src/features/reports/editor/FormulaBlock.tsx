@@ -38,6 +38,9 @@ import type { FormFieldOption, FormulaBlock as FormulaBlockType } from './types'
 const AGGREGATE_FUNCTIONS = ['SUM', 'AVERAGE', 'MIN', 'MAX', 'COUNT', 'MEDIAN'] as const
 const OPERATORS = ['+', '-', '*', '/'] as const
 
+/** Field types that support numeric aggregates (SUM, AVERAGE, MIN, MAX, MEDIAN) */
+const NUMERIC_FIELD_TYPES = new Set(['number', 'rating', 'range'])
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -190,6 +193,19 @@ function FormulaEditor({
 }) {
   const grouped = groupBySection(formFields)
 
+  /** Filter fields based on aggregate function — COUNT shows all, others only numeric types */
+  function getFilteredGroups(fn: string): Map<string, FormFieldOption[]> {
+    if (fn === 'COUNT') return grouped
+    const filtered = new Map<string, FormFieldOption[]>()
+    for (const [section, fields] of grouped) {
+      const numericFields = fields.filter((f) => NUMERIC_FIELD_TYPES.has(f.field_type))
+      if (numericFields.length > 0) {
+        filtered.set(section, numericFields)
+      }
+    }
+    return filtered
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       {blocks.map((block, index) => {
@@ -199,9 +215,18 @@ function FormulaEditor({
               <div key={index} className="flex items-center gap-1 rounded-md border border-border bg-background p-1">
                 <Select
                   value={block.fn}
-                  onValueChange={(value) =>
-                    onUpdate(index, { ...block, fn: value as typeof block.fn })
-                  }
+                  onValueChange={(value) => {
+                    const newFn = value as typeof block.fn
+                    // If switching away from COUNT and current field is not numeric, clear it
+                    if (newFn !== 'COUNT' && block.fieldId) {
+                      const field = formFields.find((f) => f.id === block.fieldId)
+                      if (field && !NUMERIC_FIELD_TYPES.has(field.field_type)) {
+                        onUpdate(index, { ...block, fn: newFn, fieldId: '' })
+                        return
+                      }
+                    }
+                    onUpdate(index, { ...block, fn: newFn })
+                  }}
                 >
                   <SelectTrigger className="h-7 w-24 text-xs">
                     <SelectValue />
@@ -227,12 +252,13 @@ function FormulaEditor({
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {[...grouped.entries()].map(([sectionTitle, fields]) => (
+                    {[...getFilteredGroups(block.fn).entries()].map(([sectionTitle, fields]) => (
                       <SelectGroup key={sectionTitle}>
                         <SelectLabel>{sectionTitle}</SelectLabel>
                         {fields.map((field) => (
                           <SelectItem key={field.id} value={field.id}>
                             {field.label}
+                            <span className="ml-1 text-muted-foreground">({field.field_type})</span>
                           </SelectItem>
                         ))}
                       </SelectGroup>

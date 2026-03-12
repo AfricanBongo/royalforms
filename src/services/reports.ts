@@ -219,13 +219,18 @@ export async function fetchReportTemplateById(
   if (sErr) throw sErr
 
   const sectionIds = (sections ?? []).map((s) => s.id)
-  const { data: fields, error: fErr } = await supabase
-    .from('report_template_fields')
-    .select('id, report_template_section_id, label, field_type, sort_order, config')
-    .in('report_template_section_id', sectionIds.length > 0 ? sectionIds : ['__none__'])
-    .order('sort_order')
+  const fields: { id: string; report_template_section_id: string; label: string; field_type: string; sort_order: number; config: unknown }[] = []
 
-  if (fErr) throw fErr
+  if (sectionIds.length > 0) {
+    const { data: fieldData, error: fErr } = await supabase
+      .from('report_template_fields')
+      .select('id, report_template_section_id, label, field_type, sort_order, config')
+      .in('report_template_section_id', sectionIds)
+      .order('sort_order')
+
+    if (fErr) throw fErr
+    fields.push(...(fieldData ?? []))
+  }
 
   const fieldsBySection = new Map<string, ReportField[]>()
   for (const f of fields ?? []) {
@@ -680,11 +685,17 @@ export async function restoreReportTemplateVersion(
     .order('sort_order')
 
   const sectionIds = (oldSections ?? []).map((s) => s.id)
-  const { data: oldFields } = await supabase
-    .from('report_template_fields')
-    .select('report_template_section_id, label, field_type, sort_order, config')
-    .in('report_template_section_id', sectionIds.length > 0 ? sectionIds : ['__none__'])
-    .order('sort_order')
+  let oldFields: { report_template_section_id: string; label: string; field_type: string; sort_order: number; config: unknown }[] = []
+
+  if (sectionIds.length > 0) {
+    const { data: fieldData } = await supabase
+      .from('report_template_fields')
+      .select('report_template_section_id, label, field_type, sort_order, config')
+      .in('report_template_section_id', sectionIds)
+      .order('sort_order')
+
+    oldFields = fieldData ?? []
+  }
 
   const { data: currentVersion, error: cvErr } = await supabase
     .from('report_template_versions')

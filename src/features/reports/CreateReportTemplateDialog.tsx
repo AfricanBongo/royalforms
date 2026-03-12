@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react'
 
 import { useNavigate } from '@tanstack/react-router'
+import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { cn } from '../../lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import {
   Dialog,
   DialogContent,
@@ -15,12 +25,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { supabase } from '../../services/supabase'
 import { fetchTemplateSchedule } from '../../services/form-templates'
 import type { ScheduleData } from '../../services/form-templates'
@@ -110,6 +118,7 @@ export function CreateReportTemplateDialog({
   const [formTemplateId, setFormTemplateId] = useState('')
   const [formTemplates, setFormTemplates] = useState<FormTemplateOption[]>([])
   const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [comboboxOpen, setComboboxOpen] = useState(false)
   const [schedule, setSchedule] = useState<ScheduleData | null>(null)
   const [loadingSchedule, setLoadingSchedule] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -175,6 +184,7 @@ export function CreateReportTemplateDialog({
       setName('')
       setNameError(null)
       setFormTemplateId('')
+      setComboboxOpen(false)
       setSchedule(null)
     }
     onOpenChange(isOpen)
@@ -263,31 +273,55 @@ export function CreateReportTemplateDialog({
             )}
           </div>
 
-          {/* Linked form template select */}
+          {/* Linked form template combobox */}
           <div className="grid gap-2">
-            <Label htmlFor="linked-form">Linked Form</Label>
-            <Select
-              value={formTemplateId}
-              onValueChange={setFormTemplateId}
-              disabled={loadingTemplates}
-            >
-              <SelectTrigger id="linked-form">
-                <SelectValue
-                  placeholder={
-                    loadingTemplates
-                      ? 'Loading forms...'
-                      : 'Select a form template'
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {formTemplates.map((ft) => (
-                  <SelectItem key={ft.id} value={ft.id}>
-                    {ft.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Linked Form</Label>
+            <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={comboboxOpen}
+                  className="w-full justify-between font-normal"
+                  disabled={loadingTemplates}
+                >
+                  {loadingTemplates
+                    ? 'Loading forms...'
+                    : formTemplateId
+                      ? formTemplates.find((ft) => ft.id === formTemplateId)?.name
+                      : 'Search form templates...'}
+                  <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search form templates..." />
+                  <CommandList>
+                    <CommandEmpty>No form templates found.</CommandEmpty>
+                    <CommandGroup>
+                      {formTemplates.map((ft) => (
+                        <CommandItem
+                          key={ft.id}
+                          value={ft.name}
+                          onSelect={() => {
+                            setFormTemplateId(ft.id === formTemplateId ? '' : ft.id)
+                            setComboboxOpen(false)
+                          }}
+                        >
+                          {ft.name}
+                          <CheckIcon
+                            className={cn(
+                              'ml-auto size-4',
+                              formTemplateId === ft.id ? 'opacity-100' : 'opacity-0',
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
 
             {/* Schedule info */}
             {formTemplateId && !loadingSchedule && (

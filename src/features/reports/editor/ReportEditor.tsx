@@ -71,6 +71,7 @@ export function ReportEditor({
           onChange?.(editor.document as unknown as Record<string, unknown>[])
         }}
         theme="light"
+        className="pt-4"
       >
         <SuggestionMenuController
           triggerCharacter="/"
