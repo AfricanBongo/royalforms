@@ -3,8 +3,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   AlertCircleIcon,
+  CheckIcon,
   DownloadIcon,
   FileTextIcon,
+  LinkIcon,
   Loader2Icon,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -41,6 +43,7 @@ function ReportInstanceViewerPage() {
   const [instance, setInstance] = useState<ReportInstanceDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const loadInstance = useCallback(async () => {
     setLoading(true)
@@ -127,6 +130,21 @@ function ReportInstanceViewerPage() {
     }
   }
 
+  // Copy link handler
+  async function handleCopyLink() {
+    const link =
+      instance?.short_url ??
+      `${window.location.origin}/reports/${templateId}/instances/${readableId}`
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      toast.success('Link copied')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('Failed to copy link')
+    }
+  }
+
   // Set header actions when instance is ready
   useEffect(() => {
     if (!instance || instance.status !== 'ready') {
@@ -135,33 +153,46 @@ function ReportInstanceViewerPage() {
     }
 
     setHeaderActions(
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" disabled={exporting}>
-            {exporting ? (
-              <Loader2Icon className="size-4 animate-spin" />
-            ) : (
-              <DownloadIcon className="size-4" />
-            )}
-            Export
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => void handleExport('pdf')}>
-            <FileTextIcon className="size-4" />
-            Export as PDF
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void handleExport('docx')}>
-            <FileTextIcon className="size-4" />
-            Export as Word
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>,
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          onClick={() => void handleCopyLink()}
+        >
+          {copied ? (
+            <CheckIcon className="size-4" />
+          ) : (
+            <LinkIcon className="size-4" />
+          )}
+          {copied ? 'Copied' : 'Copy Link'}
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" disabled={exporting}>
+              {exporting ? (
+                <Loader2Icon className="size-4 animate-spin" />
+              ) : (
+                <DownloadIcon className="size-4" />
+              )}
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => void handleExport('pdf')}>
+              <FileTextIcon className="size-4" />
+              Export as PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void handleExport('docx')}>
+              <FileTextIcon className="size-4" />
+              Export as Word
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>,
     )
 
     return () => setHeaderActions(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [instance?.id, instance?.status, exporting, setHeaderActions])
+  }, [instance?.id, instance?.status, instance?.short_url, exporting, copied, setHeaderActions])
 
   // Loading state
   if (loading) {
