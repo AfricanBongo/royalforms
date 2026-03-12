@@ -134,14 +134,18 @@ async function generatePdf(
 
     for (const field of section.fields) {
       ensureSpace(LINE_HEIGHT * 3);
-      page.drawText(field.label, {
-        x: MARGIN,
-        y,
-        size: BODY_SIZE,
-        font: boldFont,
-        color: rgb(0.2, 0.2, 0.2),
-      });
-      y -= LINE_HEIGHT;
+
+      // static_text and table fields render their own content — no label header
+      if (field.field_type !== "static_text" && field.field_type !== "table") {
+        page.drawText(field.label, {
+          x: MARGIN,
+          y,
+          size: BODY_SIZE,
+          font: boldFont,
+          color: rgb(0.2, 0.2, 0.2),
+        });
+        y -= LINE_HEIGHT;
+      }
 
       let displayValue = "";
       if (field.field_type === "static_text") {
@@ -400,13 +404,16 @@ async function generateDocx(
     }
 
     for (const field of section.fields) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({ text: field.label, bold: true, size: 22 }),
-          ],
-        }),
-      );
+      // static_text and table fields render their own content — no label header
+      if (field.field_type !== "static_text" && field.field_type !== "table") {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: field.label, bold: true, size: 22 }),
+            ],
+          }),
+        );
+      }
 
       if (field.field_type === "table") {
         const tableData = field.value as {

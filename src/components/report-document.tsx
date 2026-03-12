@@ -226,7 +226,6 @@ function TableField({ label, value }: { label: string; value: unknown }) {
 
   return (
     <div className="py-3">
-      <p className="mb-2 text-sm font-medium text-foreground">{label}</p>
       <div className="overflow-auto rounded-md border">
         <Table>
           <TableHeader>
@@ -260,13 +259,12 @@ function TableField({ label, value }: { label: string; value: unknown }) {
   )
 }
 
-function StaticTextField({ label, value }: { label: string; value: unknown }) {
+function StaticTextField({ value }: { label: string; value: unknown }) {
   const text = typeof value === 'string' ? value : String(value ?? '')
 
   return (
     <div className="py-3">
-      <p className="mb-1 text-sm font-medium text-foreground">{label}</p>
-      <p className="whitespace-pre-wrap text-sm text-muted-foreground">{text}</p>
+      <p className="whitespace-pre-wrap text-sm text-foreground">{text}</p>
       <Separator className="mt-3" />
     </div>
   )
