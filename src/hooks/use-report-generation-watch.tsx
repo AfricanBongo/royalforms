@@ -30,6 +30,7 @@ interface WatchedReport {
   instanceId: string
   readableId: string
   templateId: string
+  onStatusChange?: (status: 'ready' | 'failed') => void
 }
 
 interface ReportGenerationWatchContextValue {
@@ -101,6 +102,7 @@ export function ReportGenerationWatchProvider({
                     }),
                 },
               })
+              report.onStatusChange?.('ready')
               setWatched((prev) =>
                 prev.filter((r) => r.instanceId !== report.instanceId),
               )
@@ -118,6 +120,7 @@ export function ReportGenerationWatchProvider({
                     }),
                 },
               })
+              report.onStatusChange?.('failed')
               setWatched((prev) =>
                 prev.filter((r) => r.instanceId !== report.instanceId),
               )

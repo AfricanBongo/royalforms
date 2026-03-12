@@ -49,7 +49,15 @@ interface SnapshotField {
 
 interface TableValue {
   columns: string[]
-  rows: unknown[][]
+  rows: Record<string, unknown>[]
+}
+
+/** Metadata about a form instance stored in the data_snapshot. */
+interface FormInstanceMetadata {
+  id: string
+  readable_id: string
+  form_template_name: string
+  created_at: string
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +98,15 @@ export function ReportDocument({
   const rawSections = (dataSnapshot?.sections ?? []) as unknown[]
   const sections = rawSections.filter(isSnapshotSection)
 
+  // Parse form instance metadata from snapshot (enriched by generate-report edge function)
+  const formInstancesMetadata = (
+    dataSnapshot?.form_instances_metadata ?? []
+  ) as FormInstanceMetadata[]
+  // Build a lookup map: instance ID → metadata
+  const metadataMap = new Map(
+    formInstancesMetadata.map((m) => [m.id, m]),
+  )
+
   return (
     <div className="mx-auto w-full max-w-[816px] rounded-lg border border-border bg-white p-8 shadow-sm">
       {/* Header */}
@@ -116,7 +133,7 @@ export function ReportDocument({
       {formInstancesIncluded.length > 0 && (
         <>
           <Separator className="my-6" />
-          <FormInstancesCollapsible ids={formInstancesIncluded} />
+          <FormInstancesCollapsible ids={formInstancesIncluded} metadataMap={metadataMap} />
         </>
       )}
     </div>
@@ -155,6 +172,18 @@ function SectionBlock({
 }
 
 // ---------------------------------------------------------------------------
+// Display value helper — handles error objects and null values
+// ---------------------------------------------------------------------------
+
+function formatDisplayValue(value: unknown): string {
+  if (value == null) return '\u2014'
+  if (typeof value === 'object' && value !== null && 'error' in value) {
+    return `Error: ${(value as { error: string }).error}`
+  }
+  return String(value)
+}
+
+// ---------------------------------------------------------------------------
 // Field renderer
 // ---------------------------------------------------------------------------
 
@@ -174,7 +203,7 @@ function FieldRenderer({ field }: { field: SnapshotField }) {
 }
 
 function KeyValueField({ label, value }: { label: string; value: unknown }) {
-  const displayValue = value != null ? String(value) : '\u2014'
+  const displayValue = formatDisplayValue(value)
 
   return (
     <>
@@ -192,6 +221,9 @@ function TableField({ label, value }: { label: string; value: unknown }) {
     return <KeyValueField label={label} value="[Invalid table data]" />
   }
 
+  // Rows are objects keyed by column label, with optional group_name/group_id
+  const hasGroupColumn = value.rows.length > 0 && 'group_name' in value.rows[0]
+
   return (
     <div className="py-3">
       <p className="mb-2 text-sm font-medium text-foreground">{label}</p>
@@ -199,6 +231,7 @@ function TableField({ label, value }: { label: string; value: unknown }) {
         <Table>
           <TableHeader>
             <TableRow>
+              {hasGroupColumn && <TableHead>Group</TableHead>}
               {value.columns.map((col, i) => (
                 <TableHead key={i}>{String(col)}</TableHead>
               ))}
@@ -207,8 +240,15 @@ function TableField({ label, value }: { label: string; value: unknown }) {
           <TableBody>
             {value.rows.map((row, rIdx) => (
               <TableRow key={rIdx}>
-                {(row as unknown[]).map((cell, cIdx) => (
-                  <TableCell key={cIdx}>{cell != null ? String(cell) : '\u2014'}</TableCell>
+                {hasGroupColumn && (
+                  <TableCell className="font-medium">
+                    {row.group_name != null ? String(row.group_name) : '\u2014'}
+                  </TableCell>
+                )}
+                {value.columns.map((col, cIdx) => (
+                  <TableCell key={cIdx}>
+                    {formatDisplayValue(row[col])}
+                  </TableCell>
                 ))}
               </TableRow>
             ))}
@@ -236,8 +276,32 @@ function StaticTextField({ label, value }: { label: string; value: unknown }) {
 // Form instances collapsible
 // ---------------------------------------------------------------------------
 
-function FormInstancesCollapsible({ ids }: { ids: string[] }) {
+function FormInstancesCollapsible({
+  ids,
+  metadataMap,
+}: {
+  ids: string[]
+  metadataMap: Map<string, FormInstanceMetadata>
+}) {
   const [open, setOpen] = useState(false)
+  const isSingle = ids.length === 1
+
+  function formatInstanceLabel(id: string): string {
+    const meta = metadataMap.get(id)
+    if (!meta) return id // Fallback to raw UUID if no metadata
+
+    if (isSingle) {
+      // Single instance: "Form Name - readable_id"
+      return `${meta.form_template_name} - ${meta.readable_id}`
+    }
+    // Multiple instances: "Form Name - formatted date"
+    const date = new Date(meta.created_at).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    })
+    return `${meta.form_template_name} - ${date}`
+  }
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -253,7 +317,7 @@ function FormInstancesCollapsible({ ids }: { ids: string[] }) {
         <ul className="mt-2 space-y-1 pl-6">
           {ids.map((id) => (
             <li key={id} className="text-sm text-muted-foreground">
-              {id}
+              {formatInstanceLabel(id)}
             </li>
           ))}
         </ul>

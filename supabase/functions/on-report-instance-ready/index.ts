@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { id, readable_id } = record;
+    const { id, readable_id, report_template_version_id } = record;
     console.info(
       "[on-report-instance-ready] Processing report instance:",
       id,
@@ -74,12 +74,53 @@ Deno.serve(async (req) => {
       readable_id,
     );
 
+    // Look up the template_id from the version row so we can build
+    // the correct long URL: /reports/{templateId}/instances/{readableId}
+    const supabaseAdmin = createClient(supabaseUrl, sbSecretKey);
+
+    let templateId: string | null = null;
+    if (report_template_version_id) {
+      const { data: versionRow } = await supabaseAdmin
+        .from("report_template_versions")
+        .select("template_id")
+        .eq("id", report_template_version_id)
+        .single();
+      templateId = versionRow?.template_id ?? null;
+    }
+
+    if (!templateId) {
+      // Fallback: query the report_instances row directly
+      const { data: instanceRow } = await supabaseAdmin
+        .from("report_instances")
+        .select("report_template_version_id, report_template_versions!inner(template_id)")
+        .eq("id", id)
+        .single();
+      const ver = instanceRow?.report_template_versions as unknown as
+        | { template_id: string }
+        | undefined;
+      templateId = ver?.template_id ?? null;
+    }
+
+    if (!templateId) {
+      console.error(
+        "[on-report-instance-ready] Could not resolve template_id for instance:",
+        id,
+      );
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Could not resolve template_id",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     const shlinkClient = new ShlinkApiClient(
       new FetchHttpClient(),
       { baseUrl: shlinkBaseUrl, apiKey: shlinkApiKey },
     );
 
-    const longUrl = `${appBaseUrl}/reports/${readable_id}`;
+    const longUrl = `${appBaseUrl}/reports/${templateId}/instances/${readable_id}`;
     console.info(
       "[on-report-instance-ready] Creating short URL for:",
       longUrl,
@@ -94,7 +135,6 @@ Deno.serve(async (req) => {
       shortUrl.shortUrl,
     );
 
-    const supabaseAdmin = createClient(supabaseUrl, sbSecretKey);
     const { error: updateError } = await supabaseAdmin
       .from("report_instances")
       .update({ short_url: shortUrl.shortUrl })

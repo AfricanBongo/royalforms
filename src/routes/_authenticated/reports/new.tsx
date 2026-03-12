@@ -36,7 +36,7 @@ import { usePageTitle } from '../../../hooks/use-page-title'
 import { deactivateReportTemplate } from '../../../services/reports'
 import {
   fetchTemplates,
-  fetchTemplateForEditing,
+  fetchPublishedFormFields,
 } from '../../../services/form-templates'
 import { mapSupabaseError } from '../../../lib/supabase-errors'
 
@@ -193,14 +193,14 @@ function NewReportTemplatePage() {
     void loadFormTemplates()
   }, [])
 
-  // When user selects a linked form template, load its fields
+  // When user selects a linked form template, load its published fields
   async function handleFormTemplateSelect(formTemplateId: string) {
     setMetadata((m) => ({ ...m, linkedFormTemplateId: formTemplateId }))
 
     try {
-      const formData = await fetchTemplateForEditing(formTemplateId)
+      const sections = await fetchPublishedFormFields(formTemplateId)
       const options: FormFieldOption[] = []
-      for (const section of formData.sections) {
+      for (const section of sections) {
         for (const field of section.fields) {
           options.push({
             id: field.id,

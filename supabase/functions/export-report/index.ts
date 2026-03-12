@@ -132,30 +132,145 @@ async function generatePdf(
           columns: string[];
           rows: Record<string, unknown>[];
         } | null;
-        if (tableData) {
-          const header = tableData.columns.join("  |  ");
-          page.drawText(header, {
-            x: MARGIN + 10,
-            y,
-            size: SMALL_SIZE,
-            font: boldFont,
-            color: rgb(0.3, 0.3, 0.3),
-          });
-          y -= LINE_HEIGHT;
+        if (tableData && tableData.columns.length > 0) {
+          const hasGroupCol =
+            tableData.rows.length > 0 && "group_name" in tableData.rows[0];
+          const allColumns = hasGroupCol
+            ? ["Group", ...tableData.columns]
+            : tableData.columns;
+
+          const TABLE_FONT_SIZE = SMALL_SIZE;
+          const CELL_PAD_X = 4;
+          const CELL_PAD_Y = 4;
+          const ROW_HEIGHT = TABLE_FONT_SIZE + CELL_PAD_Y * 2;
+          const COL_COUNT = allColumns.length;
+
+          // Compute column widths proportionally based on header text width
+          const rawWidths = allColumns.map(
+            (col) =>
+              boldFont.widthOfTextAtSize(col, TABLE_FONT_SIZE) +
+              CELL_PAD_X * 2,
+          );
+          // Also measure data rows to find max per-column width
           for (const row of tableData.rows) {
-            ensureSpace(LINE_HEIGHT);
-            const rowText = tableData.columns
-              .map((col) => String(row[col] ?? "-"))
-              .join("  |  ");
-            page.drawText(rowText, {
-              x: MARGIN + 10,
-              y,
-              size: SMALL_SIZE,
-              font,
-              color: rgb(0.2, 0.2, 0.2),
+            allColumns.forEach((col, ci) => {
+              const cellVal =
+                col === "Group"
+                  ? String(row.group_name ?? "-")
+                  : String(row[col] ?? "-");
+              const w =
+                font.widthOfTextAtSize(cellVal, TABLE_FONT_SIZE) +
+                CELL_PAD_X * 2;
+              if (w > rawWidths[ci]) rawWidths[ci] = w;
             });
-            y -= LINE_HEIGHT;
           }
+          // Scale widths to fit within CONTENT_WIDTH
+          const totalRaw = rawWidths.reduce((a, b) => a + b, 0);
+          const colWidths =
+            totalRaw <= CONTENT_WIDTH
+              ? rawWidths
+              : rawWidths.map((w) => (w / totalRaw) * CONTENT_WIDTH);
+
+          const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+          const tableX = MARGIN;
+
+          // Total rows = 1 header + data rows
+          const totalRows = 1 + tableData.rows.length;
+          const tableHeight = totalRows * ROW_HEIGHT;
+
+          ensureSpace(tableHeight + 4);
+
+          const BORDER_COLOR = rgb(0.7, 0.7, 0.7);
+          const HEADER_BG = rgb(0.94, 0.94, 0.94);
+          const LINE_W = 0.5;
+
+          // -- Draw header background --
+          page.drawRectangle({
+            x: tableX,
+            y: y - ROW_HEIGHT,
+            width: tableWidth,
+            height: ROW_HEIGHT,
+            color: HEADER_BG,
+          });
+
+          // -- Draw header text --
+          let cellX = tableX;
+          for (let ci = 0; ci < COL_COUNT; ci++) {
+            const txt = allColumns[ci];
+            const maxTextW = colWidths[ci] - CELL_PAD_X * 2;
+            let truncated = txt;
+            while (
+              boldFont.widthOfTextAtSize(truncated, TABLE_FONT_SIZE) >
+                maxTextW &&
+              truncated.length > 1
+            ) {
+              truncated = truncated.slice(0, -1);
+            }
+            page.drawText(truncated, {
+              x: cellX + CELL_PAD_X,
+              y: y - ROW_HEIGHT + CELL_PAD_Y,
+              size: TABLE_FONT_SIZE,
+              font: boldFont,
+              color: rgb(0.15, 0.15, 0.15),
+            });
+            cellX += colWidths[ci];
+          }
+
+          // -- Draw data rows --
+          let rowY = y - ROW_HEIGHT;
+          for (const row of tableData.rows) {
+            rowY -= ROW_HEIGHT;
+            cellX = tableX;
+            for (let ci = 0; ci < COL_COUNT; ci++) {
+              const colName = allColumns[ci];
+              const cellVal =
+                colName === "Group"
+                  ? String(row.group_name ?? "-")
+                  : String(row[colName] ?? "-");
+              const maxTextW = colWidths[ci] - CELL_PAD_X * 2;
+              let truncated = cellVal;
+              while (
+                font.widthOfTextAtSize(truncated, TABLE_FONT_SIZE) >
+                  maxTextW &&
+                truncated.length > 1
+              ) {
+                truncated = truncated.slice(0, -1);
+              }
+              page.drawText(truncated, {
+                x: cellX + CELL_PAD_X,
+                y: rowY + CELL_PAD_Y,
+                size: TABLE_FONT_SIZE,
+                font,
+                color: rgb(0.2, 0.2, 0.2),
+              });
+              cellX += colWidths[ci];
+            }
+          }
+
+          // -- Draw grid lines --
+          // Horizontal lines (top of table, between rows, bottom)
+          for (let ri = 0; ri <= totalRows; ri++) {
+            const lineY = y - ri * ROW_HEIGHT;
+            page.drawLine({
+              start: { x: tableX, y: lineY },
+              end: { x: tableX + tableWidth, y: lineY },
+              thickness: LINE_W,
+              color: BORDER_COLOR,
+            });
+          }
+          // Vertical lines (left of each column, right edge)
+          let vx = tableX;
+          for (let ci = 0; ci <= COL_COUNT; ci++) {
+            page.drawLine({
+              start: { x: vx, y },
+              end: { x: vx, y: y - totalRows * ROW_HEIGHT },
+              thickness: LINE_W,
+              color: BORDER_COLOR,
+            });
+            if (ci < COL_COUNT) vx += colWidths[ci];
+          }
+
+          y = y - totalRows * ROW_HEIGHT - 4;
         }
         displayValue = "";
       } else if (field.field_type === "formula") {
@@ -280,9 +395,14 @@ async function generateDocx(
           rows: Record<string, unknown>[];
         } | null;
         if (tableData && tableData.columns.length > 0) {
-          const colWidth = Math.floor(9000 / tableData.columns.length);
+          const hasGroupCol =
+            tableData.rows.length > 0 && "group_name" in tableData.rows[0];
+          const allColumns = hasGroupCol
+            ? ["Group", ...tableData.columns]
+            : tableData.columns;
+          const colWidth = Math.floor(9000 / allColumns.length);
           const headerRow = new TableRow({
-            children: tableData.columns.map(
+            children: allColumns.map(
               (col) =>
                 new TableCell({
                   width: { size: colWidth, type: WidthType.DXA },
@@ -303,21 +423,26 @@ async function generateDocx(
           const dataRows = tableData.rows.map(
             (row) =>
               new TableRow({
-                children: tableData.columns.map(
-                  (col) =>
-                    new TableCell({
+                children: allColumns.map(
+                  (col) => {
+                    const cellValue =
+                      col === "Group"
+                        ? String(row.group_name ?? "-")
+                        : String(row[col] ?? "-");
+                    return new TableCell({
                       width: { size: colWidth, type: WidthType.DXA },
                       children: [
                         new Paragraph({
                           children: [
                             new TextRun({
-                              text: String(row[col] ?? "-"),
+                              text: cellValue,
                               size: 20,
                             }),
                           ],
                         }),
                       ],
-                    }),
+                    });
+                  },
                 ),
               }),
           );

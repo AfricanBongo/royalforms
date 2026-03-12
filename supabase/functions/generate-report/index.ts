@@ -19,6 +19,9 @@ type AggregateFunction =
   | "COUNT"
   | "MEDIAN";
 
+/** Field types that support numeric aggregates (SUM, AVERAGE, MIN, MAX, MEDIAN) */
+const NUMERIC_FIELD_TYPES = new Set(["number", "rating", "range"]);
+
 const AGGREGATE_FUNCTIONS: Record<
   AggregateFunction,
   (values: number[]) => number
@@ -41,20 +44,48 @@ const AGGREGATE_FUNCTIONS: Record<
   },
 };
 
+/**
+ * Resolve aggregate expressions like SUM(field-id) using field values.
+ * Optionally validates that the referenced field types are compatible with
+ * the aggregate function (e.g. SUM requires numeric field types).
+ */
 function resolveAggregates(
   expression: string,
   fieldValues: Map<string, number[]>,
+  fieldTypeMap?: Map<string, string>,
 ): string {
   return expression.replace(
     /\b(SUM|AVERAGE|MIN|MAX|COUNT|MEDIAN)\(\s*([a-f0-9-]+)\s*\)/gi,
     (_match, funcName: string, fieldId: string) => {
-      const func =
-        AGGREGATE_FUNCTIONS[funcName.toUpperCase() as AggregateFunction];
+      const upperFunc = funcName.toUpperCase() as AggregateFunction;
+      const func = AGGREGATE_FUNCTIONS[upperFunc];
       if (!func) return "0";
+
+      // Validate field type compatibility (skip COUNT which works on all types)
+      if (fieldTypeMap && upperFunc !== "COUNT") {
+        const fieldType = fieldTypeMap.get(fieldId);
+        if (fieldType && !NUMERIC_FIELD_TYPES.has(fieldType)) {
+          throw new Error(
+            `${upperFunc} requires a numeric field type (number, rating, range) but got '${fieldType}'`,
+          );
+        }
+      }
+
       const values = fieldValues.get(fieldId) ?? [];
       return String(func(values));
     },
   );
+}
+
+/**
+ * Resolve aggregates scoped to a single group's values (for per-group formula columns).
+ */
+function resolveAggregatesForGroup(
+  expression: string,
+  groupNumericValues: Map<string, number[]>,
+  fieldTypeMap?: Map<string, string>,
+): string {
+  return resolveAggregates(expression, groupNumericValues, fieldTypeMap);
 }
 
 function evaluateArithmetic(expr: string): number {
@@ -69,6 +100,25 @@ function evaluateArithmetic(expr: string): number {
   } catch {
     return 0;
   }
+}
+
+/**
+ * Build a human-readable label for a formula expression by replacing
+ * field UUIDs with their labels. E.g. "SUM(uuid)" → "SUM(Revenue)".
+ */
+function humanizeFormulaLabel(
+  expression: string,
+  fieldLabelMap: Map<string, string>,
+): string {
+  if (!expression) return "Formula";
+  const readable = expression.replace(
+    /\b(SUM|AVERAGE|MIN|MAX|COUNT|MEDIAN)\(\s*([a-f0-9-]+)\s*\)/gi,
+    (_match, funcName: string, fieldId: string) => {
+      const label = fieldLabelMap.get(fieldId) ?? fieldId;
+      return `${funcName.toUpperCase()}(${label})`;
+    },
+  );
+  return readable || "Formula";
 }
 
 // ---------------------------------------------------------------------------
@@ -227,17 +277,20 @@ Deno.serve(async (req) => {
     if (sErr) throw sErr;
 
     const sectionIds = (sections ?? []).map((s) => s.id);
-    const { data: fields, error: fErr } = await supabaseAdmin
-      .from("report_template_fields")
-      .select(
-        "id, report_template_section_id, label, field_type, sort_order, config",
-      )
-      .in(
-        "report_template_section_id",
-        sectionIds.length > 0 ? sectionIds : ["__none__"],
-      )
-      .order("sort_order");
-    if (fErr) throw fErr;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let fields: Record<string, any>[] = [];
+    if (sectionIds.length > 0) {
+      const { data: fieldData, error: fErr } = await supabaseAdmin
+        .from("report_template_fields")
+        .select(
+          "id, report_template_section_id, label, field_type, sort_order, config",
+        )
+        .in("report_template_section_id", sectionIds)
+        .order("sort_order");
+      if (fErr) throw fErr;
+      fields = fieldData ?? [];
+    }
 
     // Create report instance with 'generating' status
     const newCounter = reportTemplate.instance_counter + 1;
@@ -290,6 +343,59 @@ Deno.serve(async (req) => {
       readableId,
     );
 
+    // Fetch instance-to-group mapping + metadata for snapshot
+    const { data: instanceGroups, error: igErr } = await supabaseAdmin
+      .from("form_instances")
+      .select(
+        "id, readable_id, created_at, group_id, groups!inner(id, name), template_versions!inner(template_id, form_templates!inner(name))",
+      )
+      .in("id", form_instance_ids);
+    if (igErr) throw igErr;
+
+    // Build instance → group lookup + metadata for snapshot
+    const instanceGroupMap = new Map<
+      string,
+      { group_id: string; group_name: string }
+    >();
+    // Ordered list of unique groups (preserves insertion order)
+    const groupOrder: Array<{ group_id: string; group_name: string }> = [];
+    const seenGroups = new Set<string>();
+    // Metadata for each form instance (stored in data_snapshot)
+    const formInstancesMetadata: Array<{
+      id: string;
+      readable_id: string;
+      form_template_name: string;
+      created_at: string;
+    }> = [];
+
+    for (const ig of instanceGroups ?? []) {
+      const groupData = ig.groups as unknown as {
+        id: string;
+        name: string;
+      };
+      const versionData = ig.template_versions as unknown as {
+        template_id: string;
+        form_templates: { name: string };
+      };
+      instanceGroupMap.set(ig.id, {
+        group_id: groupData.id,
+        group_name: groupData.name,
+      });
+      formInstancesMetadata.push({
+        id: ig.id,
+        readable_id: ig.readable_id,
+        form_template_name: versionData.form_templates.name,
+        created_at: ig.created_at,
+      });
+      if (!seenGroups.has(groupData.id)) {
+        seenGroups.add(groupData.id);
+        groupOrder.push({
+          group_id: groupData.id,
+          group_name: groupData.name,
+        });
+      }
+    }
+
     // Fetch field values from form instances
     const { data: fieldValuesRaw, error: fvErr } = await supabaseAdmin
       .from("field_values")
@@ -297,21 +403,83 @@ Deno.serve(async (req) => {
       .in("form_instance_id", form_instance_ids);
     if (fvErr) throw fvErr;
 
-    // Build value maps
+    // Fetch template field types for aggregate validation
+    // Collect all referenced template_field_ids from report fields
+    const referencedFieldIds = new Set<string>();
+    for (const field of fields ?? []) {
+      const config = field.config as Record<string, unknown>;
+      if (config.template_field_id) {
+        referencedFieldIds.add(config.template_field_id as string);
+      }
+      if (config.expression) {
+        const expr = config.expression as string;
+        const matches = expr.matchAll(/[a-f0-9-]{36}/gi);
+        for (const m of matches) referencedFieldIds.add(m[0]);
+      }
+      if (config.columns) {
+        for (const col of config.columns as Array<Record<string, unknown>>) {
+          if (col.template_field_id) {
+            referencedFieldIds.add(col.template_field_id as string);
+          }
+          if (col.formula) {
+            const fExpr = col.formula as string;
+            const fMatches = fExpr.matchAll(/[a-f0-9-]{36}/gi);
+            for (const m of fMatches) referencedFieldIds.add(m[0]);
+          }
+        }
+      }
+    }
+
+    // Fetch field types and labels from template_fields
+    const fieldTypeMap = new Map<string, string>();
+    const fieldLabelMap = new Map<string, string>();
+    if (referencedFieldIds.size > 0) {
+      const { data: templateFields, error: tfErr } = await supabaseAdmin
+        .from("template_fields")
+        .select("id, field_type, label")
+        .in("id", [...referencedFieldIds]);
+      if (tfErr) throw tfErr;
+      for (const tf of templateFields ?? []) {
+        fieldTypeMap.set(tf.id, tf.field_type);
+        fieldLabelMap.set(tf.id, tf.label);
+      }
+    }
+
+    // Build value maps — global (all instances) and per-group
     const numericFieldValues = new Map<string, number[]>();
     const rawFieldValues = new Map<
       string,
       Array<{ value: string | null; form_instance_id: string }>
     >();
+    // Per-group maps: group_id → (template_field_id → values)
+    const groupNumericValues = new Map<string, Map<string, number[]>>();
+    const groupRawValues = new Map<
+      string,
+      Map<string, Array<{ value: string | null; form_instance_id: string }>>
+    >();
 
     for (const fv of fieldValuesRaw ?? []) {
+      const groupInfo = instanceGroupMap.get(fv.form_instance_id);
+      const groupId = groupInfo?.group_id ?? "unknown";
+
       const num = parseFloat(fv.value ?? "");
       if (!isNaN(num)) {
+        // Global numeric
         const existing = numericFieldValues.get(fv.template_field_id) ?? [];
         existing.push(num);
         numericFieldValues.set(fv.template_field_id, existing);
+
+        // Per-group numeric
+        if (!groupNumericValues.has(groupId)) {
+          groupNumericValues.set(groupId, new Map());
+        }
+        const gMap = groupNumericValues.get(groupId)!;
+        const gExisting = gMap.get(fv.template_field_id) ?? [];
+        gExisting.push(num);
+        gMap.set(fv.template_field_id, gExisting);
       }
 
+      // Global raw
       const existingRaw =
         rawFieldValues.get(fv.template_field_id) ?? [];
       existingRaw.push({
@@ -319,6 +487,18 @@ Deno.serve(async (req) => {
         form_instance_id: fv.form_instance_id,
       });
       rawFieldValues.set(fv.template_field_id, existingRaw);
+
+      // Per-group raw
+      if (!groupRawValues.has(groupId)) {
+        groupRawValues.set(groupId, new Map());
+      }
+      const gRawMap = groupRawValues.get(groupId)!;
+      const gExistingRaw = gRawMap.get(fv.template_field_id) ?? [];
+      gExistingRaw.push({
+        value: fv.value,
+        form_instance_id: fv.form_instance_id,
+      });
+      gRawMap.set(fv.template_field_id, gExistingRaw);
     }
 
     // Resolve each report field
@@ -338,13 +518,31 @@ Deno.serve(async (req) => {
         switch (field.field_type) {
           case "formula": {
             const expression = (config.expression as string) ?? "";
+            console.info(
+              "[generate-report] Formula field:",
+              field.id,
+              "expression:",
+              expression,
+              "numericFieldValues keys:",
+              [...numericFieldValues.keys()],
+            );
             try {
               const resolved = resolveAggregates(
                 expression,
                 numericFieldValues,
+                fieldTypeMap,
+              );
+              console.info(
+                "[generate-report] After resolveAggregates:",
+                resolved,
               );
               resolvedValue = evaluateArithmetic(resolved);
             } catch (e) {
+              console.error(
+                "[generate-report] Formula error for field:",
+                field.id,
+                e instanceof Error ? e.message : e,
+              );
               resolvedValue = {
                 error:
                   e instanceof Error ? e.message : "Formula error",
@@ -360,29 +558,69 @@ Deno.serve(async (req) => {
             break;
           }
           case "table": {
+            // Column config supports two modes:
+            // 1. Direct field reference: { template_field_id, label }
+            // 2. Formula column: { formula, label } (expression evaluated per-group)
             const columns =
               (config.columns as Array<{
-                template_field_id: string;
+                template_field_id?: string;
+                formula?: string;
                 label: string;
               }>) ?? [];
+
+            // One row per group (not per instance)
             const rows: Record<string, unknown>[] = [];
-            for (const instanceId of form_instance_ids) {
+            const columnLabels = columns.map((c) => c.label);
+
+            for (const group of groupOrder) {
               const row: Record<string, unknown> = {
-                form_instance_id: instanceId,
+                group_name: group.group_name,
+                group_id: group.group_id,
               };
+
               for (const col of columns) {
-                const values = rawFieldValues.get(
-                  col.template_field_id,
-                );
-                const match = values?.find(
-                  (v) => v.form_instance_id === instanceId,
-                );
-                row[col.label] = match?.value ?? null;
+                if (col.formula) {
+                  // Formula column — evaluate per-group
+                  const gNumVals =
+                    groupNumericValues.get(group.group_id) ??
+                    new Map();
+                  try {
+                    const resolved = resolveAggregatesForGroup(
+                      col.formula,
+                      gNumVals,
+                      fieldTypeMap,
+                    );
+                    row[col.label] = evaluateArithmetic(resolved);
+                  } catch (e) {
+                    row[col.label] = {
+                      error:
+                        e instanceof Error
+                          ? e.message
+                          : "Formula error",
+                    };
+                  }
+                } else if (col.template_field_id) {
+                  // Direct field reference — find value for this group's instance(s)
+                  const gRawMap = groupRawValues.get(
+                    group.group_id,
+                  );
+                  const gFieldVals = gRawMap?.get(
+                    col.template_field_id,
+                  );
+                  // If multiple instances per group, take first non-null
+                  row[col.label] =
+                    gFieldVals?.find((v) => v.value !== null)
+                      ?.value ?? null;
+                } else {
+                  row[col.label] = null;
+                }
               }
+
               rows.push(row);
             }
+
             resolvedValue = {
-              columns: columns.map((c) => c.label),
+              columns: columnLabels,
               rows,
             };
             break;
@@ -393,9 +631,18 @@ Deno.serve(async (req) => {
           }
         }
 
+        // For formula fields, build a human-readable label from field names
+        const snapshotLabel =
+          field.field_type === "formula"
+            ? humanizeFormulaLabel(
+                (config.expression as string) ?? "",
+                fieldLabelMap,
+              )
+            : field.label;
+
         resolvedFields.push({
           field_id: field.id,
-          label: field.label,
+          label: snapshotLabel,
           field_type: field.field_type,
           value: resolvedValue,
         });
@@ -414,6 +661,7 @@ Deno.serve(async (req) => {
       version_number: latestVersion.version_number,
       generated_at: new Date().toISOString(),
       sections: snapshotSections,
+      form_instances_metadata: formInstancesMetadata,
     };
 
     // Update instance to 'ready'

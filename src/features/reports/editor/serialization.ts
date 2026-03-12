@@ -162,7 +162,7 @@ export function editorToCreateInput(
       }
 
       const field: CreateReportFieldInput = {
-        label: buildExpression(formulaBlocks) || 'Formula',
+        label: 'Formula',
         field_type: 'formula',
         sort_order: fieldOrder,
         config: {
@@ -194,23 +194,36 @@ export function editorToCreateInput(
     // Data table block
     if (block.type === 'dataTable') {
       const columnsJson = (block.props.columns as string) ?? '[]'
-      let columns: { fieldId: string; label: string }[] = []
+      let rawColumns: Array<Record<string, unknown>> = []
       try {
-        columns = JSON.parse(columnsJson) as { fieldId: string; label: string }[]
+        rawColumns = JSON.parse(columnsJson) as Array<Record<string, unknown>>
       } catch {
         // Invalid JSON, keep empty
       }
       const groupBy = block.props.groupBy === 'true'
+
+      // Serialize columns — support both field and formula column modes
+      const serializedColumns = rawColumns.map((col) => {
+        if (col.mode === 'formula') {
+          const formulaBlocks = (col.formulaBlocks ?? []) as FormulaBlock[]
+          return {
+            formula: buildExpression(formulaBlocks),
+            label: String(col.label ?? ''),
+          }
+        }
+        // Default: field column (including legacy format without mode)
+        return {
+          template_field_id: String(col.fieldId ?? ''),
+          label: String(col.label ?? ''),
+        }
+      })
 
       const field: CreateReportFieldInput = {
         label: 'Data Table',
         field_type: 'table',
         sort_order: fieldOrder,
         config: {
-          columns: columns.map((col) => ({
-            template_field_id: col.fieldId,
-            label: col.label,
-          })),
+          columns: serializedColumns,
           group_by: groupBy ? 'group' : null,
         },
       }
@@ -351,11 +364,27 @@ export function templateDetailToEditorContent(
         }
 
         case 'table': {
-          const rawColumns = (config.columns as Array<{ template_field_id: string; label: string }>) ?? []
-          const columns = rawColumns.map((col) => ({
-            fieldId: col.template_field_id,
-            label: col.label,
-          }))
+          const rawColumns = (config.columns as Array<Record<string, unknown>>) ?? []
+          // Restore columns with mode information
+          const columns = rawColumns.map((col) => {
+            if (col.formula) {
+              // Formula column — parse expression back into blocks
+              const formulaBlocks = parseFormulaBlocks({
+                expression: col.formula as string,
+              })
+              return {
+                mode: 'formula',
+                formulaBlocks,
+                label: String(col.label ?? ''),
+              }
+            }
+            // Field column (default)
+            return {
+              mode: 'field',
+              fieldId: String(col.template_field_id ?? ''),
+              label: String(col.label ?? ''),
+            }
+          })
           const groupBy = config.group_by === 'group'
 
           blocks.push({

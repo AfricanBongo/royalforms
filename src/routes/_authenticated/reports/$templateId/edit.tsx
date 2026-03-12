@@ -38,7 +38,7 @@ import {
   discardReportDraft,
   createReportDraftVersion,
 } from '../../../../services/reports'
-import { fetchTemplateForEditing } from '../../../../services/form-templates'
+import { fetchPublishedFormFields } from '../../../../services/form-templates'
 import { mapSupabaseError } from '../../../../lib/supabase-errors'
 
 import type { SaveStatus } from '../../../../hooks/use-report-auto-save'
@@ -235,12 +235,12 @@ function EditReportTemplatePage() {
     void load()
   }, [templateId])
 
-  // Load form fields from a form template
+  // Load form fields from the published version of a form template
   async function loadFormFields(formTemplateId: string): Promise<FormFieldOption[]> {
     try {
-      const formData = await fetchTemplateForEditing(formTemplateId)
+      const sections = await fetchPublishedFormFields(formTemplateId)
       const options: FormFieldOption[] = []
-      for (const section of formData.sections) {
+      for (const section of sections) {
         for (const field of section.fields) {
           options.push({
             id: field.id,
@@ -339,28 +339,22 @@ function EditReportTemplatePage() {
           {/* Report metadata card */}
           <div className="flex flex-col gap-4 rounded-b-lg bg-background px-6 py-4">
             <div className="flex flex-col gap-1">
-              <h3
-                className="text-2xl font-semibold tracking-tight outline-none empty:before:content-['Report_Title'] empty:before:text-muted-foreground/50"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => {
-                  const text = e.currentTarget.textContent?.trim() ?? ''
-                  setMetadata((m) => ({ ...m, name: text }))
-                }}
-              >
-                {metadata.name}
-              </h3>
-              <p
-                className="text-lg outline-none empty:before:content-['Report_Description'] empty:before:text-muted-foreground/50"
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={(e) => {
-                  const text = e.currentTarget.textContent?.trim() ?? ''
-                  setMetadata((m) => ({ ...m, description: text || null }))
-                }}
-              >
-                {metadata.description ?? ''}
-              </p>
+              <input
+                type="text"
+                className="border-none bg-transparent text-2xl font-semibold tracking-tight outline-none placeholder:text-muted-foreground/50"
+                placeholder="Report Title"
+                value={metadata.name}
+                onChange={(e) => setMetadata((m) => ({ ...m, name: e.target.value }))}
+              />
+              <input
+                type="text"
+                className="border-none bg-transparent text-lg outline-none placeholder:text-muted-foreground/50"
+                placeholder="Report Description"
+                value={metadata.description ?? ''}
+                onChange={(e) =>
+                  setMetadata((m) => ({ ...m, description: e.target.value || null }))
+                }
+              />
             </div>
 
             {/* Linked form (read-only on edit) */}
@@ -387,7 +381,7 @@ function EditReportTemplatePage() {
           </div>
 
           {/* BlockNote WYSIWYG Editor */}
-          <div className="rounded-lg bg-background">
+          <div className="min-h-[calc(100vh-280px)] flex-grow rounded-lg bg-background">
             <ReportEditor
               initialContent={initialContent}
               formFields={formFields}

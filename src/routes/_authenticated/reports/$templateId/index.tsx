@@ -227,7 +227,7 @@ function ReportTemplateDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
         <p className="py-8 text-center text-sm text-muted-foreground">
           Loading report template...
         </p>
@@ -237,7 +237,7 @@ function ReportTemplateDetailPage() {
 
   if (!template) {
     return (
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
         <p className="py-8 text-center text-sm text-muted-foreground">
           Report template not found.
         </p>
@@ -246,7 +246,7 @@ function ReportTemplateDetailPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
       {/* Stat cards */}
       <div className="flex gap-2.5">
         <StatCard
@@ -548,7 +548,12 @@ function ReportTemplateDetailPage() {
         reportTemplateId={templateId}
         formTemplateId={template.form_template_id}
         onGenerated={(instanceId, readableId, tmplId) => {
-          watch({ instanceId, readableId, templateId: tmplId })
+          watch({
+            instanceId,
+            readableId,
+            templateId: tmplId,
+            onStatusChange: () => void loadTemplate(),
+          })
           void loadTemplate()
         }}
       />
