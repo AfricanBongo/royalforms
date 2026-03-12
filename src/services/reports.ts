@@ -922,11 +922,27 @@ export async function discardReportDraft(
 /**
  * Create a new draft version for a published report template by copying
  * sections/fields from the current published version.
+ *
+ * If a draft version already exists (e.g. from a previous edit session or
+ * a race condition), returns the existing draft instead of creating a new one.
  */
 export async function createReportDraftVersion(
   templateId: string,
 ): Promise<{ versionNumber: number }> {
   const user = await getCurrentAuthUser()
+
+  // Check if a draft version already exists — return it instead of creating a duplicate
+  const { data: existingDraft } = await supabase
+    .from('report_template_versions')
+    .select('id, version_number')
+    .eq('report_template_id', templateId)
+    .eq('is_latest', true)
+    .eq('status', 'draft')
+    .maybeSingle()
+
+  if (existingDraft) {
+    return { versionNumber: existingDraft.version_number }
+  }
 
   // Get current published version
   const { data: current, error: cvErr } = await supabase

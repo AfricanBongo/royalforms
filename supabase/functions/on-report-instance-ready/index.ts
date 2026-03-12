@@ -82,23 +82,23 @@ Deno.serve(async (req) => {
     if (report_template_version_id) {
       const { data: versionRow } = await supabaseAdmin
         .from("report_template_versions")
-        .select("template_id")
+        .select("report_template_id")
         .eq("id", report_template_version_id)
         .single();
-      templateId = versionRow?.template_id ?? null;
+      templateId = versionRow?.report_template_id ?? null;
     }
 
     if (!templateId) {
       // Fallback: query the report_instances row directly
       const { data: instanceRow } = await supabaseAdmin
         .from("report_instances")
-        .select("report_template_version_id, report_template_versions!inner(template_id)")
+        .select("report_template_version_id, report_template_versions!inner(report_template_id)")
         .eq("id", id)
         .single();
       const ver = instanceRow?.report_template_versions as unknown as
-        | { template_id: string }
+        | { report_template_id: string }
         | undefined;
-      templateId = ver?.template_id ?? null;
+      templateId = ver?.report_template_id ?? null;
     }
 
     if (!templateId) {

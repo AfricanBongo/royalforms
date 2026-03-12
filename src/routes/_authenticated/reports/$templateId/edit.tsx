@@ -189,9 +189,15 @@ function EditReportTemplatePage() {
         // create a new draft version for editing, then reload
         if (data.status === 'published' && data.latest_version.status === 'published') {
           setWasPreviouslyPublished(true)
-          const { versionNumber: newVer } = await createReportDraftVersion(templateId)
-          data = await fetchReportTemplateById(templateId)
-          setVersionNumber(newVer)
+          try {
+            const { versionNumber: newVer } = await createReportDraftVersion(templateId)
+            data = await fetchReportTemplateById(templateId)
+            setVersionNumber(newVer)
+          } catch {
+            // Draft may already exist (race condition) — reload to pick it up
+            data = await fetchReportTemplateById(templateId)
+            setVersionNumber(data.latest_version.version_number)
+          }
         } else {
           // Check if there's a published history (version > 1 means previous versions exist)
           setWasPreviouslyPublished(data.latest_version.version_number > 1)
