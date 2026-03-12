@@ -22,6 +22,7 @@ import {
   TabsTrigger,
 } from '../../../components/ui/tabs'
 import { StatCard } from '../../../components/stat-card'
+import { CreateFormTemplateDialog } from '../../../features/forms/CreateFormTemplateDialog'
 import { useCurrentUser } from '../../../hooks/use-current-user'
 import { fetchTemplates, restoreTemplate } from '../../../services/form-templates'
 import type { TemplateListRow } from '../../../services/form-templates'
@@ -52,6 +53,7 @@ function FormTemplateListPage() {
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
@@ -200,9 +202,7 @@ function FormTemplateListPage() {
           </Button>
         </div>
         {isRootAdmin && (
-          <Button
-            onClick={() => void navigate({ to: '/forms/new' })}
-          >
+          <Button onClick={() => setShowCreateDialog(true)}>
             <PlusIcon className="size-4" />
             New Form
           </Button>
@@ -381,6 +381,11 @@ function FormTemplateListPage() {
           </div>
         </>
       )}
+
+      <CreateFormTemplateDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+      />
     </div>
   )
 }
