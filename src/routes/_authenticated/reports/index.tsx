@@ -260,7 +260,12 @@ function ReportTemplateListPage() {
                     />
                   </TableCell>
                   <TableCell className="min-w-[200px]">
-                    {template.name}
+                    <span className="flex items-center gap-2">
+                      {template.name}
+                      {template.status === 'draft' && (
+                        <Badge variant="secondary">Draft</Badge>
+                      )}
+                    </span>
                   </TableCell>
                   <TableCell className="min-w-[180px]">
                     {template.form_template_name}

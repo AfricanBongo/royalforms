@@ -268,6 +268,13 @@ function ReportTemplateDetailPage() {
         </button>
       </div>
 
+      {/* Draft notice */}
+      {template.status === 'draft' && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Publish this template before generating reports.
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         {/* Left: search + filters */}
@@ -304,6 +311,7 @@ function ReportTemplateDetailPage() {
             </Button>
             <Button
               onClick={() => setGenerateOpen(true)}
+              disabled={template.status !== 'published'}
             >
               <PlayIcon className="size-4" />
               Generate Report

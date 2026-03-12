@@ -46,6 +46,7 @@ export interface ReportTemplateDetail {
   latest_version: {
     id: string
     version_number: number
+    status: 'draft' | 'published'
     created_at: string
   }
   sections: ReportSection[]
@@ -202,7 +203,7 @@ export async function fetchReportTemplateById(
 
   const { data: version, error: vErr } = await supabase
     .from('report_template_versions')
-    .select('id, version_number, created_at')
+    .select('id, version_number, status, created_at')
     .eq('report_template_id', templateId)
     .eq('is_latest', true)
     .single()
@@ -257,6 +258,7 @@ export async function fetchReportTemplateById(
     latest_version: {
       id: version.id,
       version_number: version.version_number,
+      status: version.status as 'draft' | 'published',
       created_at: version.created_at,
     },
     sections: (sections ?? []).map((s) => ({

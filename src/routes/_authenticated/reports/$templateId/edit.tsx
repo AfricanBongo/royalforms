@@ -34,7 +34,9 @@ import { useReportAutoSave } from '../../../../hooks/use-report-auto-save'
 import { usePageTitle } from '../../../../hooks/use-page-title'
 import {
   fetchReportTemplateById,
-  deactivateReportTemplate,
+  publishReportTemplate,
+  discardReportDraft,
+  createReportDraftVersion,
 } from '../../../../services/reports'
 import { fetchTemplateForEditing } from '../../../../services/form-templates'
 import { mapSupabaseError } from '../../../../lib/supabase-errors'
@@ -72,6 +74,7 @@ function EditReportTemplatePage() {
 
   const [loading, setLoading] = useState(true)
   const [versionNumber, setVersionNumber] = useState(1)
+  const [wasPreviouslyPublished, setWasPreviouslyPublished] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
   const [showDiscardDialog, setShowDiscardDialog] = useState(false)
   const [formFields, setFormFields] = useState<FormFieldOption[]>([])
@@ -148,7 +151,7 @@ function EditReportTemplatePage() {
     setHeaderActions(
       <>
         <span className="mr-2 text-sm text-muted-foreground">
-          v{versionNumber}
+          v{versionNumber} Draft
           {statusText && <> · {statusText}</>}
         </span>
 
@@ -180,8 +183,21 @@ function EditReportTemplatePage() {
   useEffect(() => {
     async function load() {
       try {
-        const data = await fetchReportTemplateById(templateId)
-        setVersionNumber(data.latest_version.version_number)
+        let data = await fetchReportTemplateById(templateId)
+
+        // If template is published and latest version is also published,
+        // create a new draft version for editing, then reload
+        if (data.status === 'published' && data.latest_version.status === 'published') {
+          setWasPreviouslyPublished(true)
+          const { versionNumber: newVer } = await createReportDraftVersion(templateId)
+          data = await fetchReportTemplateById(templateId)
+          setVersionNumber(newVer)
+        } else {
+          // Check if there's a published history (version > 1 means previous versions exist)
+          setWasPreviouslyPublished(data.latest_version.version_number > 1)
+          setVersionNumber(data.latest_version.version_number)
+        }
+
         setLinkedFormName(data.form_template_name)
 
         // Set metadata
@@ -257,8 +273,14 @@ function EditReportTemplatePage() {
   async function handleDiscard() {
     setShowDiscardDialog(false)
     try {
-      await deactivateReportTemplate(templateId)
-      void navigate({ to: '/reports' })
+      const result = await discardReportDraft(templateId)
+      if (result === 'deactivated') {
+        // First-time draft, never published — go back to list
+        void navigate({ to: '/reports' })
+      } else {
+        // Had published version, draft discarded — go to detail page
+        void navigate({ to: '/reports/$templateId', params: { templateId } })
+      }
     } catch (err: unknown) {
       const error = err as { code?: string; message: string }
       const mapped = mapSupabaseError(error.code, error.message, 'database', 'delete_record')
@@ -285,7 +307,8 @@ function EditReportTemplatePage() {
     setIsPublishing(true)
     try {
       await flush()
-      toast.success('Report template saved!')
+      await publishReportTemplate(templateId)
+      toast.success('Report template published!')
       void navigate({ to: '/reports/$templateId', params: { templateId } })
     } catch (err: unknown) {
       const error = err as { code?: string; message: string }
@@ -380,7 +403,9 @@ function EditReportTemplatePage() {
           <DialogHeader>
             <DialogTitle>Discard draft?</DialogTitle>
             <DialogDescription>
-              This report template will be deactivated. This action cannot be undone.
+              {wasPreviouslyPublished
+                ? 'The draft changes will be discarded and the last published version will be restored.'
+                : 'This report template will be deactivated. This action cannot be undone.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
