@@ -254,6 +254,23 @@ export async function fetchGroupAccessCount(
   return count ?? 0
 }
 
+/**
+ * Check if a form template name is already taken (case-insensitive).
+ * Only considers active templates.
+ */
+export async function isFormTemplateNameTaken(
+  name: string,
+): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('form_templates')
+    .select('id', { count: 'exact', head: true })
+    .ilike('name', name.trim())
+    .eq('is_active', true)
+
+  if (error) throw error
+  return (count ?? 0) > 0
+}
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------

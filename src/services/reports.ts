@@ -20,6 +20,7 @@ export interface ReportTemplateListRow {
   description: string | null
   is_active: boolean
   auto_generate: boolean
+  status: 'draft' | 'published'
   form_template_id: string
   form_template_name: string
   instance_count: number
@@ -36,6 +37,7 @@ export interface ReportTemplateDetail {
   description: string | null
   is_active: boolean
   auto_generate: boolean
+  status: 'draft' | 'published'
   form_template_id: string
   form_template_name: string
   instance_counter: number
@@ -139,7 +141,7 @@ export async function fetchReportTemplates(): Promise<ReportTemplateListRow[]> {
   const { data, error } = await supabase
     .from('report_templates')
     .select(`
-      id, name, abbreviation, description, is_active, auto_generate,
+      id, name, abbreviation, description, is_active, auto_generate, status,
       form_template_id, created_at, updated_at,
       form_templates!inner ( name ),
       report_template_versions ( version_number, is_latest, report_instances ( id ) )
@@ -169,6 +171,7 @@ export async function fetchReportTemplates(): Promise<ReportTemplateListRow[]> {
       description: row.description,
       is_active: row.is_active,
       auto_generate: row.auto_generate,
+      status: row.status as 'draft' | 'published',
       form_template_id: row.form_template_id,
       form_template_name: ft.name,
       instance_count: instanceCount,
@@ -188,7 +191,7 @@ export async function fetchReportTemplateById(
   const { data: template, error: tErr } = await supabase
     .from('report_templates')
     .select(`
-      id, name, abbreviation, description, is_active, auto_generate,
+      id, name, abbreviation, description, is_active, auto_generate, status,
       form_template_id, instance_counter, created_at, updated_at,
       form_templates!inner ( name )
     `)
@@ -245,6 +248,7 @@ export async function fetchReportTemplateById(
     description: template.description,
     is_active: template.is_active,
     auto_generate: template.auto_generate,
+    status: template.status as 'draft' | 'published',
     form_template_id: template.form_template_id,
     form_template_name: ft.name,
     instance_counter: template.instance_counter,
@@ -447,6 +451,7 @@ export async function createReportTemplate(
       description: input.description,
       auto_generate: input.auto_generate,
       created_by: user.id,
+      status: 'published',
     })
     .select('id')
     .single()
@@ -460,6 +465,7 @@ export async function createReportTemplate(
       version_number: 1,
       is_latest: true,
       created_by: user.id,
+      status: 'published',
     })
     .select('id')
     .single()
@@ -698,6 +704,250 @@ export async function deactivateReportTemplate(
     .eq('id', templateId)
 
   if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Draft / Published Lifecycle
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a new report template as a draft with version 1 and no sections.
+ * The dialog only collects name + form_template_id; sections are added later.
+ */
+export async function saveDraftReportTemplate(input: {
+  name: string
+  abbreviation: string
+  form_template_id: string
+}): Promise<string> {
+  const user = await getCurrentAuthUser()
+
+  const { data: template, error: tErr } = await supabase
+    .from('report_templates')
+    .insert({
+      name: input.name.trim(),
+      abbreviation: input.abbreviation.trim(),
+      form_template_id: input.form_template_id,
+      created_by: user.id,
+      status: 'draft',
+    })
+    .select('id')
+    .single()
+
+  if (tErr || !template) throw tErr ?? new Error('Failed to create report template')
+
+  const { error: vErr } = await supabase
+    .from('report_template_versions')
+    .insert({
+      report_template_id: template.id,
+      version_number: 1,
+      is_latest: true,
+      status: 'draft',
+      created_by: user.id,
+    })
+
+  if (vErr) throw vErr
+
+  return template.id
+}
+
+/**
+ * Publish a draft report template by setting status to 'published'
+ * on both the template and the latest version.
+ */
+export async function publishReportTemplate(
+  templateId: string,
+): Promise<void> {
+  const { error: tErr } = await supabase
+    .from('report_templates')
+    .update({ status: 'published' })
+    .eq('id', templateId)
+
+  if (tErr) throw tErr
+
+  const { error: vErr } = await supabase
+    .from('report_template_versions')
+    .update({ status: 'published' })
+    .eq('report_template_id', templateId)
+    .eq('is_latest', true)
+
+  if (vErr) throw vErr
+}
+
+/**
+ * Discard a draft report template version.
+ * - If version 1 (never published): deactivates the template.
+ * - If version > 1 (draft on top of published): deletes the draft version
+ *   and restores the previous published version as latest.
+ */
+export async function discardReportDraft(
+  templateId: string,
+): Promise<'deactivated' | 'restored'> {
+  const { data: latestVer, error: findErr } = await supabase
+    .from('report_template_versions')
+    .select('id, version_number')
+    .eq('report_template_id', templateId)
+    .eq('is_latest', true)
+    .single()
+
+  if (findErr || !latestVer) throw findErr ?? new Error('No latest version found')
+
+  if (latestVer.version_number === 1) {
+    // Never-published draft — deactivate the whole template
+    const { error } = await supabase
+      .from('report_templates')
+      .update({ is_active: false })
+      .eq('id', templateId)
+
+    if (error) throw error
+    return 'deactivated'
+  }
+
+  // Draft on top of published — delete draft version (CASCADE handles sections/fields)
+  const { error: delErr } = await supabase
+    .from('report_template_versions')
+    .delete()
+    .eq('id', latestVer.id)
+
+  if (delErr) throw delErr
+
+  // Restore previous version as latest
+  const { error: restoreErr } = await supabase
+    .from('report_template_versions')
+    .update({ is_latest: true })
+    .eq('report_template_id', templateId)
+    .eq('version_number', latestVer.version_number - 1)
+
+  if (restoreErr) throw restoreErr
+
+  // Set template status back to published
+  const { error: statusErr } = await supabase
+    .from('report_templates')
+    .update({ status: 'published' })
+    .eq('id', templateId)
+
+  if (statusErr) throw statusErr
+
+  return 'restored'
+}
+
+/**
+ * Create a new draft version for a published report template by copying
+ * sections/fields from the current published version.
+ */
+export async function createReportDraftVersion(
+  templateId: string,
+): Promise<{ versionNumber: number }> {
+  const user = await getCurrentAuthUser()
+
+  // Get current published version
+  const { data: current, error: cvErr } = await supabase
+    .from('report_template_versions')
+    .select('id, version_number')
+    .eq('report_template_id', templateId)
+    .eq('is_latest', true)
+    .eq('status', 'published')
+    .single()
+
+  if (cvErr || !current) throw cvErr ?? new Error('No published version found')
+
+  // Unset is_latest on current
+  const { error: unErr } = await supabase
+    .from('report_template_versions')
+    .update({ is_latest: false })
+    .eq('id', current.id)
+
+  if (unErr) throw unErr
+
+  // Create new draft version
+  const newNum = current.version_number + 1
+  const { data: newVer, error: nErr } = await supabase
+    .from('report_template_versions')
+    .insert({
+      report_template_id: templateId,
+      version_number: newNum,
+      is_latest: true,
+      status: 'draft',
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (nErr || !newVer) throw nErr ?? new Error('Failed to create draft version')
+
+  // Copy sections and fields from the current version
+  const { data: sections, error: secErr } = await supabase
+    .from('report_template_sections')
+    .select('id, title, description, sort_order')
+    .eq('report_template_version_id', current.id)
+    .order('sort_order')
+
+  if (secErr) throw secErr
+
+  for (const sec of sections ?? []) {
+    const { data: newSec, error: nsErr } = await supabase
+      .from('report_template_sections')
+      .insert({
+        report_template_version_id: newVer.id,
+        title: sec.title,
+        description: sec.description,
+        sort_order: sec.sort_order,
+      })
+      .select('id')
+      .single()
+
+    if (nsErr || !newSec) throw nsErr ?? new Error('Failed to copy section')
+
+    const { data: fields, error: fErr } = await supabase
+      .from('report_template_fields')
+      .select('label, field_type, sort_order, config')
+      .eq('report_template_section_id', sec.id)
+      .order('sort_order')
+
+    if (fErr) throw fErr
+
+    if (fields && fields.length > 0) {
+      const fieldRows = fields.map((f) => ({
+        report_template_section_id: newSec.id,
+        label: f.label,
+        field_type: f.field_type,
+        sort_order: f.sort_order,
+        config: f.config as unknown as Json,
+      }))
+
+      const { error: fiErr } = await supabase
+        .from('report_template_fields')
+        .insert(fieldRows)
+
+      if (fiErr) throw fiErr
+    }
+  }
+
+  // Set template status to draft
+  const { error: statusErr } = await supabase
+    .from('report_templates')
+    .update({ status: 'draft' })
+    .eq('id', templateId)
+
+  if (statusErr) throw statusErr
+
+  return { versionNumber: newNum }
+}
+
+/**
+ * Check if a report template name is already taken (case-insensitive).
+ * Only considers active templates.
+ */
+export async function isReportTemplateNameTaken(
+  name: string,
+): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('report_templates')
+    .select('id', { count: 'exact', head: true })
+    .ilike('name', name.trim())
+    .eq('is_active', true)
+
+  if (error) throw error
+  return (count ?? 0) > 0
 }
 
 // ---------------------------------------------------------------------------
