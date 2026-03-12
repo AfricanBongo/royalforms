@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     const rootAdminEmail = bodyEmail || Deno.env.get("ROOT_ADMIN_EMAIL")
     const rootAdminPassword = bodyPassword || Deno.env.get("ROOT_ADMIN_PASSWORD")
-    const orgName = bodyOrgName || "RoyalHouse Root"
+    const orgName = bodyOrgName || "RoyalForms Root"
 
     if (!rootAdminEmail || !rootAdminPassword) {
       console.info("[bootstrap-root-admin] Missing email or password (body + env vars)")

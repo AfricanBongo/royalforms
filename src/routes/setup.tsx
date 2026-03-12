@@ -198,7 +198,7 @@ function OrgSetupStep({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-6">
       <h1 className="text-center text-[30px] font-semibold leading-[30px] tracking-[-1px] text-foreground">
-        RoyalHouse Reporting Dashboard
+        RoyalForms
       </h1>
 
       <Card className="w-full min-w-[280px] max-w-[400px]">
@@ -498,7 +498,7 @@ function OnboardingStep({
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-6">
         <h1 className="text-center text-[30px] font-semibold leading-[30px] tracking-[-1px] text-foreground">
-          RoyalHouse Reporting Dashboard
+          RoyalForms
         </h1>
         <Card className="w-full min-w-[280px] max-w-[400px]">
           <CardHeader>
@@ -526,7 +526,7 @@ function OnboardingStep({
             Welcome to
           </p>
           <h1 className="text-[48px] font-semibold leading-[48px] tracking-[-1.5px] text-foreground">
-            RoyalHouse Reporting Dashboard
+            RoyalForms
           </h1>
         </div>
 
@@ -656,8 +656,7 @@ function ThankYouStep({ onStart }: { onStart: () => void }) {
           Thank you!
         </h1>
         <p className="text-lg leading-[27px] text-foreground">
-          Your organization is ready. You can now start using the RoyalHouse
-          Reporting Dashboard.
+          Your organization is ready. You can now start using RoyalForms.
         </p>
         <div>
           <Button onClick={onStart}>Get Started</Button>

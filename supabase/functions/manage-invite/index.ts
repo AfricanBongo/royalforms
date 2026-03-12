@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
       .eq("id", targetProfile.group_id)
       .single();
     const groupName = groupRow?.name ?? "your group";
-    const organizationName = Deno.env.get("ORGANIZATION_NAME") ?? "RoyalHouse Reporting";
+    const organizationName = Deno.env.get("ORGANIZATION_NAME") ?? "RoyalForms";
 
     // Rate limit: resend requires 1 hour between invites (always)
     // Rate limit: change_email requires 1 hour between invites (after 3+ changes)

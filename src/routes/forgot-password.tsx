@@ -77,7 +77,7 @@ function ForgotPasswordPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-6">
       <h1 className="text-center text-[30px] font-semibold leading-[30px] tracking-[-1px] text-foreground">
-        RoyalHouse Reporting Dashboard
+        RoyalForms
       </h1>
 
       <Card className="w-full min-w-[280px] max-w-[400px]">
