@@ -303,7 +303,7 @@ function TemplateDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
         <p className="py-8 text-center text-sm text-muted-foreground">
           Loading template...
         </p>
@@ -313,7 +313,7 @@ function TemplateDetailPage() {
 
   if (!template) {
     return (
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
         <p className="py-8 text-center text-sm text-muted-foreground">
           Template not found.
         </p>
@@ -322,7 +322,7 @@ function TemplateDetailPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
       {/* Stat cards */}
       <div className="flex gap-2.5">
         <StatCard
@@ -464,7 +464,7 @@ function TemplateDetailPage() {
                   onClick={() => void navigate({
                     to: '/instances/$readableId',
                     params: { readableId: instance.readable_id },
-                    search: { mode: getInstanceMode(instance.status, currentUser?.role) },
+                    search: { mode: getInstanceMode(instance.status, currentUser?.role, instance.group_id, currentUser?.groupId) },
                   })}
                 >
                   <TableCell
@@ -762,9 +762,18 @@ function StatusBadge({ status }: { status: string }) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function getInstanceMode(status: string, role: string | undefined): 'view' | 'edit' {
-  if (!role || role === 'root_admin' || role === 'viewer') return 'view'
+function getInstanceMode(
+  status: string,
+  role: string | undefined,
+  instanceGroupId: string,
+  userGroupId: string | null | undefined,
+): 'view' | 'edit' {
+  if (!role || role === 'viewer') return 'view'
   if (status === 'submitted') return 'view'
+  // Root admin can only edit instances in their own group
+  if (role === 'root_admin') {
+    return userGroupId === instanceGroupId ? 'edit' : 'view'
+  }
   return 'edit'
 }
 

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 
 import { createFileRoute, Link, Outlet, redirect, useMatches, useNavigate } from '@tanstack/react-router'
 
@@ -81,7 +81,7 @@ function AuthenticatedLayout() {
             <HeaderBar />
 
             {/* Page content */}
-            <div className="flex-1 overflow-auto">
+            <div className="flex flex-1 flex-col overflow-auto">
               <Outlet />
             </div>
           </SidebarInset>
@@ -141,20 +141,22 @@ function HeaderBar() {
             const isLast = index === crumbs.length - 1
 
             return (
-              <BreadcrumbItem key={crumb.path}>
+              <Fragment key={crumb.path}>
                 {index > 0 && <BreadcrumbSeparator />}
-                {isLast ? (
-                  <BreadcrumbPage className="text-sm text-foreground">
-                    {crumb.label}
-                  </BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink asChild>
-                    <Link to={crumb.path}>
+                <BreadcrumbItem>
+                  {isLast ? (
+                    <BreadcrumbPage className="text-sm text-foreground">
                       {crumb.label}
-                    </Link>
-                  </BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
+                    </BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink asChild>
+                      <Link to={crumb.path}>
+                        {crumb.label}
+                      </Link>
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              </Fragment>
             )
           })}
         </BreadcrumbList>

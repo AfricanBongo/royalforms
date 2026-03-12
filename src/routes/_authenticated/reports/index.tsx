@@ -146,7 +146,7 @@ function ReportTemplateListPage() {
   }, [search, tab])
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
       {/* Stat cards */}
       <div className="flex gap-2.5">
         <StatCard label="Total Templates" value={totalTemplateCount} />
