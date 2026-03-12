@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 import type { GroupMember } from '../../services/form-templates'
 
@@ -49,20 +50,25 @@ export function FieldAssignmentPopover({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-6 shrink-0"
-        >
-          {isAssigned ? (
-            <UserCheckIcon className="size-3.5 text-blue-500" />
-          ) : (
-            <UserIcon className="size-3.5 text-muted-foreground" />
-          )}
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-6 shrink-0"
+            >
+              {isAssigned ? (
+                <UserCheckIcon className="size-3.5 text-blue-500" />
+              ) : (
+                <UserIcon className="size-3.5 text-muted-foreground" />
+              )}
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>{isAssigned ? 'Reassign field' : 'Assign field'}</TooltipContent>
+      </Tooltip>
       <PopoverContent className="w-64 p-0" align="start">
         {/* Header */}
         <div className="px-3 py-2">

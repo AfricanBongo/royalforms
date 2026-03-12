@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from './ui/dialog'
 import { FieldTypePicker } from './field-type-picker'
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 
 import type { BuilderField, BuilderSection as BuilderSectionType, FieldType } from '../hooks/use-form-builder'
 
@@ -124,15 +125,19 @@ export function BuilderSection({
           </div>
 
           {canDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-              onClick={handleDeleteClick}
-              title="Delete section"
-            >
-              <Trash2Icon className="size-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={handleDeleteClick}
+                >
+                  <Trash2Icon className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete section</TooltipContent>
+            </Tooltip>
           )}
         </div>
 
