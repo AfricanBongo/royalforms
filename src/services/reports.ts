@@ -142,8 +142,7 @@ export async function fetchReportTemplates(): Promise<ReportTemplateListRow[]> {
       id, name, abbreviation, description, is_active, auto_generate,
       form_template_id, created_at, updated_at,
       form_templates!inner ( name ),
-      report_template_versions ( version_number, is_latest ),
-      report_instances ( id )
+      report_template_versions ( version_number, is_latest, report_instances ( id ) )
     `)
     .order('created_at', { ascending: false })
 
@@ -151,9 +150,17 @@ export async function fetchReportTemplates(): Promise<ReportTemplateListRow[]> {
 
   return (data ?? []).map((row) => {
     const ft = row.form_templates as unknown as { name: string }
-    const versions = row.report_template_versions as unknown as Array<{ version_number: number; is_latest: boolean }>
+    const versions = row.report_template_versions as unknown as Array<{
+      version_number: number
+      is_latest: boolean
+      report_instances: Array<{ id: string }>
+    }>
     const latestVersion = versions?.find((v) => v.is_latest)
-    const instances = row.report_instances as unknown as Array<{ id: string }>
+    // Count instances across all versions of this template
+    const instanceCount = versions?.reduce(
+      (sum, v) => sum + (v.report_instances?.length ?? 0),
+      0,
+    ) ?? 0
 
     return {
       id: row.id,
@@ -164,7 +171,7 @@ export async function fetchReportTemplates(): Promise<ReportTemplateListRow[]> {
       auto_generate: row.auto_generate,
       form_template_id: row.form_template_id,
       form_template_name: ft.name,
-      instance_count: instances?.length ?? 0,
+      instance_count: instanceCount,
       latest_version_number: latestVersion?.version_number ?? 1,
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -494,7 +501,9 @@ export async function createReportTemplate(
 }
 
 /**
- * Update a report template (version-on-edit pattern).
+ * Update a report template in-place (no new version).
+ * Replaces all sections and fields on the current latest version.
+ * Version bumps only happen on explicit publish / restore.
  */
 export async function updateReportTemplate(
   templateId: string,
@@ -506,8 +515,6 @@ export async function updateReportTemplate(
     sections: CreateReportSectionInput[]
   },
 ): Promise<void> {
-  const user = await getCurrentAuthUser()
-
   const updates: Record<string, unknown> = {}
   if (input.name !== undefined) updates.name = input.name
   if (input.description !== undefined) updates.description = input.description
@@ -522,41 +529,30 @@ export async function updateReportTemplate(
     if (error) throw error
   }
 
+  // Get the current latest version (we update it in-place)
   const { data: currentVersion, error: cvErr } = await supabase
     .from('report_template_versions')
-    .select('id, version_number')
+    .select('id')
     .eq('report_template_id', templateId)
     .eq('is_latest', true)
     .single()
 
   if (cvErr || !currentVersion) throw cvErr ?? new Error('No current version found')
 
-  const { error: ulErr } = await supabase
-    .from('report_template_versions')
-    .update({ is_latest: false })
-    .eq('id', currentVersion.id)
+  // Delete existing sections (fields cascade via FK)
+  const { error: delErr } = await supabase
+    .from('report_template_sections')
+    .delete()
+    .eq('report_template_version_id', currentVersion.id)
 
-  if (ulErr) throw ulErr
+  if (delErr) throw delErr
 
-  const newVersionNumber = currentVersion.version_number + 1
-  const { data: newVersion, error: nvErr } = await supabase
-    .from('report_template_versions')
-    .insert({
-      report_template_id: templateId,
-      version_number: newVersionNumber,
-      is_latest: true,
-      created_by: user.id,
-    })
-    .select('id')
-    .single()
-
-  if (nvErr || !newVersion) throw nvErr ?? new Error('Failed to create new version')
-
+  // Re-insert sections and fields
   for (const section of input.sections) {
     const { data: sectionRow, error: sErr } = await supabase
       .from('report_template_sections')
       .insert({
-        report_template_version_id: newVersion.id,
+        report_template_version_id: currentVersion.id,
         title: section.title,
         description: section.description,
         sort_order: section.sort_order,
