@@ -237,7 +237,7 @@ export type Database = {
       groups: {
         Row: {
           created_at: string
-          created_by: string
+          created_by: string | null
           id: string
           is_active: boolean
           is_bootstrap: boolean
@@ -247,7 +247,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
+          created_by?: string | null
           id?: string
           is_active?: boolean
           is_bootstrap?: boolean
@@ -257,7 +257,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           id?: string
           is_active?: boolean
           is_bootstrap?: boolean
@@ -620,6 +620,7 @@ export type Database = {
           is_latest: boolean
           report_template_id: string
           restored_from: string | null
+          status: string
           version_number: number
         }
         Insert: {
@@ -629,6 +630,7 @@ export type Database = {
           is_latest?: boolean
           report_template_id: string
           restored_from?: string | null
+          status?: string
           version_number: number
         }
         Update: {
@@ -638,6 +640,7 @@ export type Database = {
           is_latest?: boolean
           report_template_id?: string
           restored_from?: string | null
+          status?: string
           version_number?: number
         }
         Relationships: [
@@ -676,6 +679,7 @@ export type Database = {
           instance_counter: number
           is_active: boolean
           name: string
+          status: string
           updated_at: string
         }
         Insert: {
@@ -689,6 +693,7 @@ export type Database = {
           instance_counter?: number
           is_active?: boolean
           name: string
+          status?: string
           updated_at?: string
         }
         Update: {
@@ -702,6 +707,7 @@ export type Database = {
           instance_counter?: number
           is_active?: boolean
           name?: string
+          status?: string
           updated_at?: string
         }
         Relationships: [
