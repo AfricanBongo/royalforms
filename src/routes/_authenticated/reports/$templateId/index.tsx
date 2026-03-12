@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
+  CheckIcon,
   DownloadIcon,
   EllipsisVerticalIcon,
   EyeIcon,
   FileTextIcon,
   HistoryIcon,
+  LinkIcon,
   Loader2Icon,
   PencilIcon,
   PlayIcon,
@@ -55,6 +57,7 @@ import { usePageTitle } from '../../../../hooks/use-page-title'
 import { useReportGenerationWatch } from '../../../../hooks/use-report-generation-watch'
 import {
   deactivateReportTemplate,
+  deleteReportInstance,
   exportReport,
   fetchReportInstances,
   fetchReportTemplateById,
@@ -99,8 +102,13 @@ function ReportTemplateDetailPage() {
   const [togglingAutoGen, setTogglingAutoGen] = useState(false)
   const [exportingId, setExportingId] = useState<string | null>(null)
 
+  const [deleteInstanceId, setDeleteInstanceId] = useState<string | null>(null)
+  const [deletingInstance, setDeletingInstance] = useState(false)
+  const [copiedInstanceId, setCopiedInstanceId] = useState<string | null>(null)
+
   const { watch } = useReportGenerationWatch()
   const isRootAdmin = currentUser?.role === 'root_admin'
+  const canDelete = currentUser?.role === 'root_admin' || currentUser?.role === 'admin'
 
   // Filter instances by filters + search
   const afterFilters = applyFilters(instances, filters, {
@@ -235,6 +243,44 @@ function ReportTemplateDetailPage() {
       toast.error(mapped.title, { description: mapped.description })
     } finally {
       setExportingId(null)
+    }
+  }
+
+  // Delete a report instance
+  async function handleDeleteInstance() {
+    if (!deleteInstanceId || deletingInstance) return
+    setDeletingInstance(true)
+    try {
+      await deleteReportInstance(deleteInstanceId)
+      toast.success('Report instance deleted')
+      void loadTemplate()
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(
+        error.code,
+        error.message,
+        'database',
+        'delete_record',
+      )
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setDeletingInstance(false)
+      setDeleteInstanceId(null)
+    }
+  }
+
+  // Copy instance link to clipboard
+  async function handleCopyInstanceLink(instance: ReportInstanceListRow) {
+    const link =
+      instance.short_url ??
+      `${window.location.origin}/reports/${templateId}/instances/${instance.readable_id}`
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopiedInstanceId(instance.id)
+      toast.success('Link copied')
+      setTimeout(() => setCopiedInstanceId(null), 2000)
+    } catch {
+      toast.error('Failed to copy link')
     }
   }
 
@@ -432,6 +478,17 @@ function ReportTemplateDetailPage() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => void handleCopyInstanceLink(instance)}
+                      >
+                        {copiedInstanceId === instance.id ? (
+                          <CheckIcon className="size-4" />
+                        ) : (
+                          <LinkIcon className="size-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => void navigate({
                           to: '/reports/$templateId/instances/$readableId',
                           params: { templateId, readableId: instance.readable_id },
@@ -468,6 +525,16 @@ function ReportTemplateDetailPage() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDeleteInstanceId(instance.id)}
+                        >
+                          <Trash2Icon className="size-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -546,6 +613,32 @@ function ReportTemplateDetailPage() {
               }}
             >
               {deleting ? 'Archiving...' : 'Archive'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete instance confirmation dialog */}
+      <AlertDialog open={!!deleteInstanceId} onOpenChange={(open) => { if (!open) setDeleteInstanceId(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete report instance?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this report instance, its exported
+              files, and short URL. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingInstance}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deletingInstance}
+              onClick={(e) => {
+                e.preventDefault()
+                void handleDeleteInstance()
+              }}
+            >
+              {deletingInstance ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

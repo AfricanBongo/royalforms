@@ -472,3 +472,9 @@ entrypoint = "./functions/send-notification-email/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/sync-resend-contacts/index.ts"
+
+[functions.delete-report-instance]
+enabled = true
+verify_jwt = false
+import_map = "./functions/delete-report-instance/deno.json"
+entrypoint = "./functions/delete-report-instance/index.ts"

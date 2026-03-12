@@ -1103,3 +1103,15 @@ export async function exportReport(
 
   return data.download_url
 }
+
+/**
+ * Delete a report instance via the delete-report-instance Edge Function.
+ */
+export async function deleteReportInstance(reportInstanceId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('delete-report-instance', {
+    body: { report_instance_id: reportInstanceId },
+  })
+
+  if (error) throw error
+  if (!data?.success) throw new Error(data?.error ?? 'Failed to delete report instance')
+}
