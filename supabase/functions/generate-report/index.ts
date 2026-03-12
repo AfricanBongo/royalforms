@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
     // Fetch report template
     const { data: reportTemplate, error: rtErr } = await supabaseAdmin
       .from("report_templates")
-      .select("id, name")
+      .select("id, name, is_public_default")
       .eq("id", report_template_id)
       .single();
 
@@ -332,6 +332,7 @@ Deno.serve(async (req) => {
         created_by: createdBy,
         form_instances_included: form_instance_ids,
         data_snapshot: null,
+        is_public: reportTemplate.is_public_default ?? true,
       })
       .select("id, readable_id")
       .single();

@@ -7,9 +7,11 @@ import {
   EllipsisVerticalIcon,
   EyeIcon,
   FileTextIcon,
+  GlobeIcon,
   HistoryIcon,
   LinkIcon,
   Loader2Icon,
+  LockIcon,
   PencilIcon,
   PlayIcon,
   SearchIcon,
@@ -425,6 +427,9 @@ function ReportTemplateDetailPage() {
                   Status
                 </TableHead>
                 <TableHead className="font-medium">
+                  Visibility
+                </TableHead>
+                <TableHead className="font-medium">
                   Short URL
                 </TableHead>
                 <TableHead className="font-medium">
@@ -453,6 +458,19 @@ function ReportTemplateDetailPage() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={instance.status} />
+                  </TableCell>
+                  <TableCell>
+                    {instance.is_public ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <GlobeIcon className="size-3" />
+                        Public
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <LockIcon className="size-3" />
+                        Private
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {instance.short_url ? (

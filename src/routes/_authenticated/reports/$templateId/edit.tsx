@@ -93,6 +93,7 @@ function EditReportTemplatePage() {
     description: null,
     linkedFormTemplateId: '',
     autoGenerate: true,
+    isPublicDefault: true,
   })
 
   // Refs for latest metadata + editor document (for serialization)
@@ -113,6 +114,7 @@ function EditReportTemplatePage() {
     abbreviation: metadata.abbreviation,
     linkedFormTemplateId: metadata.linkedFormTemplateId,
     autoGenerate: metadata.autoGenerate,
+    isPublicDefault: metadata.isPublicDefault,
     editorDocument: JSON.stringify(editorDocumentRef.current),
   }
 
@@ -213,6 +215,7 @@ function EditReportTemplatePage() {
           description: data.description,
           linkedFormTemplateId: data.form_template_id,
           autoGenerate: data.auto_generate,
+          isPublicDefault: data.is_public_default,
         })
 
         // Convert service format to BlockNote editor content
@@ -382,6 +385,20 @@ function EditReportTemplatePage() {
               />
               <Label htmlFor="auto-generate" className="text-sm">
                 Auto-generate reports when form instances are submitted
+              </Label>
+            </div>
+
+            {/* Public by default switch */}
+            <div className="flex items-center gap-3">
+              <Switch
+                id="public-default"
+                checked={metadata.isPublicDefault}
+                onCheckedChange={(checked) =>
+                  setMetadata((m) => ({ ...m, isPublicDefault: checked }))
+                }
+              />
+              <Label htmlFor="public-default" className="text-sm">
+                Make generated reports publicly accessible by default
               </Label>
             </div>
           </div>

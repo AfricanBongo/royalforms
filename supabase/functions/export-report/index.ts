@@ -545,58 +545,56 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const sbSecretKey = Deno.env.get("SB_SECRET_KEY") ?? "";
-
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Missing Authorization header",
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
     const supabaseAdmin = createClient(supabaseUrl, sbSecretKey);
-    const token = authHeader.replace("Bearer ", "");
-    const {
-      data: { user: caller },
-      error: authError,
-    } = await supabaseAdmin.auth.getUser(token);
 
-    if (authError || !caller) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Invalid or expired token",
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
+    // -----------------------------------------------------------------------
+    // Auth: two-path approach — authenticated users OR public access
+    // -----------------------------------------------------------------------
+    const authHeader = req.headers.get("Authorization");
+    let isPublicAccess = false;
 
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("is_active")
-      .eq("id", caller.id)
-      .single();
+    if (authHeader) {
+      // Authenticated path — validate token as before
+      const token = authHeader.replace("Bearer ", "");
+      const {
+        data: { user: caller },
+        error: authError,
+      } = await supabaseAdmin.auth.getUser(token);
 
-    if (!profile?.is_active) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "User account is not active",
-        }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      if (authError || !caller) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Invalid or expired token",
+          }),
+          {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("is_active")
+        .eq("id", caller.id)
+        .single();
+
+      if (!profile?.is_active) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "User account is not active",
+          }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+    } else {
+      // Unauthenticated — mark as public access (will verify is_public below)
+      isPublicAccess = true;
     }
 
     const { report_instance_id, format } = await req.json();
@@ -612,6 +610,25 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );
+    }
+
+    // For unauthenticated requests, verify the report instance is public
+    if (isPublicAccess) {
+      const { data: publicCheck, error: publicErr } = await supabaseAdmin
+        .from("report_instances")
+        .select("is_public, status")
+        .eq("id", report_instance_id)
+        .single();
+
+      if (publicErr || !publicCheck || !publicCheck.is_public || publicCheck.status !== "ready") {
+        return new Response(
+          JSON.stringify({ success: false, error: "Unauthorized" }),
+          {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
     }
 
     console.info(
