@@ -20,6 +20,25 @@ const corsHeaders = {
 };
 
 // ---------------------------------------------------------------------------
+// Signed URL rewriting
+// ---------------------------------------------------------------------------
+// Inside local Edge Functions, SUPABASE_URL points to the internal Docker
+// network (e.g. http://supabase_kong_royalforms:8000). Signed Storage URLs
+// use that base, making them unreachable from the browser.
+// API_EXTERNAL_URL overrides the base when set (local dev only).
+// In production SUPABASE_URL is already the public URL so no rewrite occurs.
+
+function toPublicUrl(signedUrl: string | undefined): string | undefined {
+  if (!signedUrl) return signedUrl;
+  const externalUrl = Deno.env.get("API_EXTERNAL_URL");
+  const internalUrl = Deno.env.get("SUPABASE_URL");
+  if (externalUrl && internalUrl && externalUrl !== internalUrl) {
+    return signedUrl.replace(internalUrl, externalUrl);
+  }
+  return signedUrl;
+}
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -640,7 +659,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          download_url: signedUrl?.signedUrl,
+          download_url: toPublicUrl(signedUrl?.signedUrl),
         }),
         {
           status: 200,
@@ -728,7 +747,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        download_url: signedUrl?.signedUrl,
+        download_url: toPublicUrl(signedUrl?.signedUrl),
       }),
       {
         status: 200,
