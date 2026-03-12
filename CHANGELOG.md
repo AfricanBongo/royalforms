@@ -3,6 +3,25 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [1.0.0-alpha.0](https://github.com/AfricanBongo/royalforms/compare/v0.12.0...v1.0.0-alpha.0) (2026-03-12)
+
+
+### Features
+
+* **reports:** add public shareable report links ([0076216](https://github.com/AfricanBongo/royalforms/commit/0076216081aaa5d37dd9f20a6b020688329d012e))
+* **ui:** add tooltips to all icon-only buttons for better discoverability ([15206bd](https://github.com/AfricanBongo/royalforms/commit/15206bdb06d0d5bcbd928c010b6d3a927d13b371))
+
+
+### Bug Fixes
+
+* **reports:** remove automatic dividers between report content items ([0873469](https://github.com/AfricanBongo/royalforms/commit/087346912118650666978250799a64dcbe26943c))
+* **ui:** use native title attribute for dropdown/popover trigger tooltips ([5a30c9e](https://github.com/AfricanBongo/royalforms/commit/5a30c9e70fa5be67be9849df7de4e298233bae7f))
+
+
+### Documentation
+
+* update TODO checklist with completed and new items ([432ada0](https://github.com/AfricanBongo/royalforms/commit/432ada09d83f8469b34d5efdea002ae971fe629d))
+
 ## [0.12.0](https://github.com/AfricanBongo/royalforms/compare/v0.11.0...v0.12.0) (2026-03-12)
 
 
