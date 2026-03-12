@@ -668,9 +668,7 @@ export async function fetchEditorActionItems(
 }
 
 /** Viewer action items: new report instances created in last 7 days. */
-export async function fetchViewerActionItems(
-  _groupId: string,
-): Promise<ActionItem[]> {
+export async function fetchViewerActionItems(): Promise<ActionItem[]> {
   const sevenDaysAgo = computeSinceDate(7)
 
   // RLS handles group visibility for viewers
@@ -744,7 +742,6 @@ export async function fetchRecentFormInstances(
 /** Recent report instances. RLS handles group visibility. */
 export async function fetchRecentReportInstances(
   limit: number,
-  _groupId?: string,
 ): Promise<RecentReportInstance[]> {
   // RLS handles visibility — viewers can only see reports for their group.
   // No explicit group filter needed; just rely on RLS policies.

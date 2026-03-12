@@ -189,7 +189,7 @@ export function useDashboardData(
             data = await fetchEditorActionItems(userId!)
             break
           case 'viewer':
-            data = await fetchViewerActionItems(groupId!)
+            data = await fetchViewerActionItems()
             break
         }
         if (!cancelled) setActionItems({ data, isLoading: false })
@@ -220,10 +220,7 @@ export function useDashboardData(
     // --- Recent Reports ---
     const loadRecentReports = async () => {
       try {
-        const data = await fetchRecentReportInstances(
-          5,
-          role !== 'root_admin' ? groupId : undefined,
-        )
+        const data = await fetchRecentReportInstances(5)
         if (!cancelled) setRecentReports({ data, isLoading: false })
       } catch (err) {
         if (!cancelled) {
