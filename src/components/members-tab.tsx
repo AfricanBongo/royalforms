@@ -50,7 +50,6 @@ import {
   TableHeader,
   TableRow,
 } from './ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { MoveToGroupDialog } from './move-to-group-dialog'
 
 interface MembersTabProps {
@@ -322,14 +321,9 @@ export function MembersTab({ groupId, isRootAdmin, reloadKey }: MembersTabProps)
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="size-8">
-                              <MoreHorizontalIcon className="size-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>More actions</TooltipContent>
-                        </Tooltip>
+                        <Button variant="ghost" size="icon" className="size-8" title="More actions">
+                          <MoreHorizontalIcon className="size-4" />
+                        </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {member.invite_status === 'invite_sent' ? (

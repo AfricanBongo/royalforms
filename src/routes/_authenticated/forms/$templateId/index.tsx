@@ -53,7 +53,6 @@ import {
   TableHeader,
   TableRow,
 } from '../../../../components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/ui/tooltip'
 import { ShareFormSheet } from '../../../../components/share-form-sheet'
 import { VersionHistorySheet } from '../../../../features/forms/VersionHistorySheet'
 import { CreateInstanceSheet } from '../../../../features/forms/CreateInstanceSheet'
@@ -415,14 +414,9 @@ function TemplateDetailPage() {
             </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <EllipsisVerticalIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>More actions</TooltipContent>
-                </Tooltip>
+                <Button variant="outline" size="icon" title="More actions">
+                  <EllipsisVerticalIcon className="size-4" />
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setVersionsOpen(true)}>

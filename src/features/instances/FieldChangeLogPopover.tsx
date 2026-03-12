@@ -7,7 +7,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 import type { ChangeLogEntry, GroupMember } from '../../services/form-templates'
 
@@ -66,21 +65,17 @@ export function FieldChangeLogPopover({
 
   return (
     <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-6 shrink-0"
-            >
-              <ClockIcon className="size-3.5 text-muted-foreground" />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>View change history</TooltipContent>
-      </Tooltip>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-6 shrink-0"
+          title="View change history"
+        >
+          <ClockIcon className="size-3.5 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="start">
         <div className="px-3 py-2">
           <p className="text-sm font-medium">Change history</p>

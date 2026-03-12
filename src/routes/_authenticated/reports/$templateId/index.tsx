@@ -46,8 +46,8 @@ import {
   TableHeader,
   TableRow,
 } from '../../../../components/ui/table'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/ui/tooltip'
 import { FilterPopover } from '../../../../components/filter-popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../../components/ui/tooltip'
 import type { FilterState } from '../../../../lib/filter-utils'
 import { applyFilters, EMPTY_FILTERS } from '../../../../lib/filter-utils'
 import { StatCard } from '../../../../components/stat-card'
@@ -383,14 +383,9 @@ function ReportTemplateDetailPage() {
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <EllipsisVerticalIcon className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>More actions</TooltipContent>
-                </Tooltip>
+                <Button variant="outline" size="icon" title="More actions">
+                  <EllipsisVerticalIcon className="size-4" />
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setVersionsOpen(true)}>
@@ -514,22 +509,18 @@ function ReportTemplateDetailPage() {
                       </Tooltip>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={instance.status !== 'ready' || exportingId === instance.id}
-                              >
-                                {exportingId === instance.id ? (
-                                  <Loader2Icon className="size-4 animate-spin" />
-                                ) : (
-                                  <DownloadIcon className="size-4" />
-                                )}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Export</TooltipContent>
-                          </Tooltip>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Export"
+                            disabled={instance.status !== 'ready' || exportingId === instance.id}
+                          >
+                            {exportingId === instance.id ? (
+                              <Loader2Icon className="size-4 animate-spin" />
+                            ) : (
+                              <DownloadIcon className="size-4" />
+                            )}
+                          </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
