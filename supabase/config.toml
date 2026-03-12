@@ -443,3 +443,32 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/on-instance-created/deno.json"
 entrypoint = "./functions/on-instance-created/index.ts"
+
+[functions.generate-report]
+enabled = true
+verify_jwt = false
+import_map = "./functions/generate-report/deno.json"
+entrypoint = "./functions/generate-report/index.ts"
+
+[functions.on-report-instance-ready]
+enabled = true
+verify_jwt = false
+import_map = "./functions/on-report-instance-ready/deno.json"
+entrypoint = "./functions/on-report-instance-ready/index.ts"
+
+[functions.export-report]
+enabled = true
+verify_jwt = false
+import_map = "./functions/export-report/deno.json"
+entrypoint = "./functions/export-report/index.ts"
+
+[functions.send-notification-email]
+enabled = true
+verify_jwt = false
+import_map = "./functions/send-notification-email/deno.json"
+entrypoint = "./functions/send-notification-email/index.ts"
+
+[functions.sync-resend-contacts]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/sync-resend-contacts/index.ts"
