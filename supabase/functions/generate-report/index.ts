@@ -7,6 +7,16 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+/** Generate a random 10-char alphanumeric readable_id (same format as form instances). */
+function generateReadableId(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < 10; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Formula resolution helpers
 // ---------------------------------------------------------------------------
@@ -230,7 +240,7 @@ Deno.serve(async (req) => {
     // Fetch report template
     const { data: reportTemplate, error: rtErr } = await supabaseAdmin
       .from("report_templates")
-      .select("id, name, abbreviation, instance_counter")
+      .select("id, name")
       .eq("id", report_template_id)
       .single();
 
@@ -293,8 +303,7 @@ Deno.serve(async (req) => {
     }
 
     // Create report instance with 'generating' status
-    const newCounter = reportTemplate.instance_counter + 1;
-    const readableId = `${reportTemplate.abbreviation}-r-${String(newCounter).padStart(3, "0")}`;
+    const readableId = generateReadableId();
 
     // Determine created_by
     let createdBy: string;
@@ -329,12 +338,6 @@ Deno.serve(async (req) => {
 
     if (insertErr) throw insertErr;
     newInstanceId = newInstance!.id;
-
-    // Increment instance counter
-    await supabaseAdmin
-      .from("report_templates")
-      .update({ instance_counter: newCounter })
-      .eq("id", report_template_id);
 
     console.info(
       "[generate-report] Created instance:",
