@@ -33,10 +33,12 @@ export type TemplateDetail = TemplateListRow
 export interface InstanceRow {
   id: string
   readable_id: string
+  group_id: string
   group_name: string
   status: string
   version_number: number
   created_at: string
+  short_url_edit: string | null
 }
 
 /** Input for creating a new template via the form builder. */
@@ -193,6 +195,8 @@ export async function fetchTemplateInstances(
     .select(`
       id,
       readable_id,
+      short_url_edit,
+      group_id,
       status,
       created_at,
       groups!form_instances_group_id_fkey ( name ),
@@ -218,10 +222,12 @@ export async function fetchTemplateInstances(
       return {
         id: row.id,
         readable_id: row.readable_id,
+        group_id: row.group_id,
         group_name: group?.name ?? 'Unknown',
         status: row.status,
         version_number: version?.version_number ?? 0,
         created_at: row.created_at,
+        short_url_edit: row.short_url_edit ?? null,
       }
     })
 }
@@ -252,6 +258,23 @@ export async function fetchGroupAccessCount(
 
   if (error) throw error
   return count ?? 0
+}
+
+/**
+ * Check if a form template name is already taken (case-insensitive).
+ * Only considers active templates.
+ */
+export async function isFormTemplateNameTaken(
+  name: string,
+): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('form_templates')
+    .select('id', { count: 'exact', head: true })
+    .ilike('name', name.trim())
+    .eq('is_active', true)
+
+  if (error) throw error
+  return (count ?? 0) > 0
 }
 
 // ---------------------------------------------------------------------------
@@ -624,8 +647,7 @@ export async function deleteDraftTemplate(templateId: string): Promise<void> {
  * CASCADE handles versions → sections → fields.
  * Also deletes group access entries.
  *
- * NOTE: When instances exist, the caller should present archive vs hard-delete
- * options instead. That flow is not yet implemented — see docs/TODO.md.
+ * For templates WITH instances, use `archiveTemplate` or `hardDeleteTemplate`.
  */
 export async function deleteTemplate(templateId: string): Promise<void> {
   // Safety: verify no instances exist before deleting
@@ -652,6 +674,53 @@ export async function deleteTemplate(templateId: string): Promise<void> {
     .from('form_templates')
     .delete()
     .eq('id', templateId)
+
+  if (error) throw error
+}
+
+/**
+ * Archive a template (soft-delete) by setting is_active=false.
+ * Also deactivates any active schedule for this template.
+ */
+export async function archiveTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from('form_templates')
+    .update({ is_active: false })
+    .eq('id', templateId)
+
+  if (error) throw error
+
+  // Deactivate any active schedule for this template
+  const { error: schedErr } = await supabase
+    .from('instance_schedules')
+    .update({ is_active: false })
+    .eq('template_id', templateId)
+
+  if (schedErr) throw schedErr
+}
+
+/**
+ * Restore an archived template by setting is_active=true.
+ */
+export async function restoreTemplate(templateId: string): Promise<void> {
+  const { error } = await supabase
+    .from('form_templates')
+    .update({ is_active: true })
+    .eq('id', templateId)
+
+  if (error) throw error
+}
+
+/**
+ * Hard-delete a template and ALL related data (instances, field values,
+ * schedules, group access, versions, sections, fields).
+ * Uses a Postgres SECURITY DEFINER function for transactional cascade.
+ */
+export async function hardDeleteTemplate(templateId: string): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.rpc as any)('hard_delete_template', {
+    p_template_id: templateId,
+  })
 
   if (error) throw error
 }
@@ -1407,6 +1476,7 @@ export interface InstancePageData {
     status: 'pending' | 'submitted'
     group_id: string
     group_name: string
+    admin_only_submit: boolean
     created_at: string
     submitted_at: string | null
     submitted_by: string | null
@@ -1484,6 +1554,7 @@ export async function fetchInstanceByReadableId(
       readable_id,
       status,
       group_id,
+      admin_only_submit,
       created_at,
       submitted_at,
       submitted_by,
@@ -1577,6 +1648,7 @@ export async function fetchInstanceByReadableId(
       status: instance.status as 'pending' | 'submitted',
       group_id: instance.group_id,
       group_name: group?.name ?? 'Unknown',
+      admin_only_submit: instance.admin_only_submit,
       created_at: instance.created_at,
       submitted_at: instance.submitted_at,
       submitted_by: instance.submitted_by,
@@ -1624,8 +1696,8 @@ export async function fetchFieldValues(
 
 /**
  * Upsert a field value for an instance.
- * If a row exists for (form_instance_id, template_field_id), updates value
- * and appends to change_log. Otherwise, inserts a new row.
+ * Uses a Postgres function for atomic INSERT ... ON CONFLICT with
+ * change_log append, eliminating the read-modify-write race condition.
  */
 export async function upsertFieldValue(
   instanceId: string,
@@ -1635,66 +1707,38 @@ export async function upsertFieldValue(
 ): Promise<FieldValue> {
   const user = await getCurrentAuthUser()
 
-  // Check if a field_values row already exists
-  const { data: existing, error: findErr } = await supabase
-    .from('field_values')
-    .select('id, change_log')
-    .eq('form_instance_id', instanceId)
-    .eq('template_field_id', fieldId)
-    .maybeSingle()
-
-  if (findErr) throw findErr
-
-  const newEntry: ChangeLogEntry = {
-    old_value: oldValue,
-    new_value: value,
-    changed_by: user.id,
-    changed_at: new Date().toISOString(),
-  }
-
-  if (existing) {
-    // Update existing row
-    const currentLog = (existing.change_log ?? []) as unknown as ChangeLogEntry[]
-    const updatedLog = [...currentLog, newEntry]
-
-    const { data, error } = await supabase
-      .from('field_values')
-      .update({
-        value,
-        change_log: updatedLog as unknown as Json,
-        updated_by: user.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', existing.id)
-      .select('id, template_field_id, value, assigned_to, assigned_by, change_log, updated_by, updated_at')
-      .single()
-
-    if (error) throw error
-
-    return {
-      ...data,
-      change_log: (data.change_log ?? []) as unknown as ChangeLogEntry[],
-    }
-  }
-
-  // Insert new row
-  const { data, error } = await supabase
-    .from('field_values')
-    .insert({
-      form_instance_id: instanceId,
-      template_field_id: fieldId,
-      value,
-      change_log: [newEntry] as unknown as Json,
-      updated_by: user.id,
-    })
-    .select('id, template_field_id, value, assigned_to, assigned_by, change_log, updated_by, updated_at')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.rpc as any)('upsert_field_value', {
+    p_instance_id: instanceId,
+    p_field_id: fieldId,
+    p_value: value,
+    p_old_value: oldValue,
+    p_user_id: user.id,
+  })
     .single()
 
   if (error) throw error
 
+  const row = data as unknown as {
+    id: string
+    template_field_id: string
+    value: string | null
+    assigned_to: string | null
+    assigned_by: string | null
+    change_log: unknown
+    updated_by: string
+    updated_at: string
+  }
+
   return {
-    ...data,
-    change_log: (data.change_log ?? []) as unknown as ChangeLogEntry[],
+    id: row.id,
+    template_field_id: row.template_field_id,
+    value: row.value,
+    assigned_to: row.assigned_to,
+    assigned_by: row.assigned_by,
+    change_log: (row.change_log ?? []) as unknown as ChangeLogEntry[],
+    updated_by: row.updated_by,
+    updated_at: row.updated_at,
   }
 }
 
@@ -1770,6 +1814,82 @@ export async function submitInstance(
 }
 
 /**
+ * Toggle admin_only_submit on a form instance.
+ * Only admin and root_admin can call this (enforced by RLS).
+ */
+export async function toggleAdminOnlySubmit(
+  instanceId: string,
+  adminOnly: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from('form_instances')
+    .update({ admin_only_submit: adminOnly })
+    .eq('id', instanceId)
+
+  if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// File upload helpers
+// ---------------------------------------------------------------------------
+
+export interface UploadedFile {
+  path: string
+  name: string
+  size: number
+}
+
+/**
+ * Upload a file to the form-uploads storage bucket.
+ * Returns the file metadata for storing in field_values.value.
+ */
+export async function uploadInstanceFile(
+  instanceId: string,
+  fieldId: string,
+  file: File,
+): Promise<UploadedFile> {
+  const timestamp = Date.now()
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const storagePath = `${instanceId}/${fieldId}/${timestamp}-${safeName}`
+
+  const { error } = await supabase.storage
+    .from('form-uploads')
+    .upload(storagePath, file)
+
+  if (error) throw error
+
+  return {
+    path: storagePath,
+    name: file.name,
+    size: file.size,
+  }
+}
+
+/**
+ * Remove a file from the form-uploads storage bucket.
+ */
+export async function removeInstanceFile(storagePath: string): Promise<void> {
+  const { error } = await supabase.storage
+    .from('form-uploads')
+    .remove([storagePath])
+
+  if (error) throw error
+}
+
+/**
+ * Get a signed download URL for a file in form-uploads.
+ * URL expires in 60 minutes.
+ */
+export async function getFileDownloadUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('form-uploads')
+    .createSignedUrl(storagePath, 3600)
+
+  if (error) throw error
+  return data.signedUrl
+}
+
+/**
  * Fetch group members (admin + editor roles) for field assignment.
  * Ordered alphabetically by full_name.
  */
@@ -1789,5 +1909,88 @@ export async function fetchGroupMembers(
     id: row.id,
     full_name: row.full_name,
     role: row.role,
+  }))
+}
+
+// ---------------------------------------------------------------------------
+// Fetch published form template fields (for report editor)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch fields from the **published** version of a form template.
+ *
+ * Unlike `fetchTemplateForEditing` (which may load a draft), this always
+ * returns field IDs from the current published version — matching the IDs
+ * stored in `field_values` for form instances created against that version.
+ *
+ * Used by the report editor to ensure formula expressions reference the
+ * correct field IDs.
+ */
+export async function fetchPublishedFormFields(
+  formTemplateId: string,
+): Promise<LoadedSection[]> {
+  // Get the latest published version
+  const { data: version, error: vErr } = await supabase
+    .from('template_versions')
+    .select('id')
+    .eq('template_id', formTemplateId)
+    .eq('status', 'published')
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (vErr || !version) throw vErr ?? new Error('No published version found')
+
+  // Fetch sections
+  const { data: sections, error: secErr } = await supabase
+    .from('template_sections')
+    .select('id, title, description, sort_order')
+    .eq('template_version_id', version.id)
+    .order('sort_order')
+
+  if (secErr) throw secErr
+
+  // Fetch fields
+  const sectionIds = (sections ?? []).map((s) => s.id)
+  let allFields: {
+    id: string
+    template_section_id: string
+    label: string
+    description: string | null
+    field_type: string
+    sort_order: number
+    is_required: boolean
+    options: Json | null
+    validation_rules: Json | null
+  }[] = []
+
+  if (sectionIds.length > 0) {
+    const { data: fields, error: fieldsErr } = await supabase
+      .from('template_fields')
+      .select('id, template_section_id, label, description, field_type, sort_order, is_required, options, validation_rules')
+      .in('template_section_id', sectionIds)
+      .order('sort_order')
+
+    if (fieldsErr) throw fieldsErr
+    allFields = fields ?? []
+  }
+
+  return (sections ?? []).map((s) => ({
+    id: s.id,
+    title: s.title,
+    description: s.description,
+    sort_order: s.sort_order,
+    fields: allFields
+      .filter((f) => f.template_section_id === s.id)
+      .map((f) => ({
+        id: f.id,
+        label: f.label,
+        description: f.description,
+        field_type: f.field_type,
+        sort_order: f.sort_order,
+        is_required: f.is_required ?? false,
+        options: f.options,
+        validation_rules: f.validation_rules,
+      })),
   }))
 }

@@ -1,4 +1,6 @@
-import { Link, useMatches } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+
+import { Link, useMatches, useNavigate } from '@tanstack/react-router'
 import {
   ChevronsUpDownIcon,
   FileTextIcon,
@@ -30,17 +32,19 @@ import {
 } from './ui/sidebar'
 import { useAuth } from '../hooks/use-auth'
 import { getDefaultAvatarUri } from '../lib/avatar'
+import { fetchGroupName } from '../services/profiles'
 
 // ---------------------------------------------------------------------------
 // Navigation items
 // ---------------------------------------------------------------------------
 
 // Nav items reference routes under /_authenticated.
+// Groups is only shown to root_admin (filtered at render time).
 const NAV_ITEMS = [
-  { label: 'Home', icon: HomeIcon, to: '/' },
-  { label: 'Forms', icon: FileTextIcon, to: '/forms' },
-  { label: 'Reports', icon: PieChartIcon, to: '/reports' },
-  { label: 'Groups', icon: UsersIcon, to: '/groups' },
+  { label: 'Home', icon: HomeIcon, to: '/', roles: null },
+  { label: 'Forms', icon: FileTextIcon, to: '/forms', roles: null },
+  { label: 'Reports', icon: PieChartIcon, to: '/reports', roles: null },
+  { label: 'Groups', icon: UsersIcon, to: '/groups', roles: ['root_admin'] as const },
 ] as const
 
 // ---------------------------------------------------------------------------
@@ -50,6 +54,7 @@ const NAV_ITEMS = [
 export function AppSidebar() {
   const { currentUser, signOut } = useAuth()
   const matches = useMatches()
+  const navigate = useNavigate()
 
   // Determine the active route for highlighting
   const currentPath = matches[matches.length - 1]?.pathname ?? '/'
@@ -64,22 +69,43 @@ export function AppSidebar() {
     .join('')
 
   // Avatar: use uploaded URL from user_metadata, or DiceBear default
-  const avatarUrl = getDefaultAvatarUri(displayName)
+  const avatarUrl = currentUser?.avatarUrl ?? getDefaultAvatarUri(displayName)
 
-  // Org / group display
-  const orgInitial = 'R'
-  const orgName = 'RoyalHouse Root'
+  // Fetch user's group name
+  const [groupName, setGroupName] = useState<string | null>(null)
+  const groupId = currentUser?.groupId ?? null
+
+  useEffect(() => {
+    if (!groupId) return
+    let cancelled = false
+    void fetchGroupName(groupId).then((name) => {
+      if (!cancelled) setGroupName(name)
+    })
+    return () => { cancelled = true }
+  }, [groupId])
+
+  const displayGroupName = groupId ? (groupName ?? 'Loading...') : 'No Group'
+  const groupInitial = displayGroupName.charAt(0).toUpperCase()
 
   return (
     <Sidebar>
-      {/* Header: org/group badge */}
+      {/* Header: group badge (clickable — navigates to group detail) */}
       <SidebarHeader>
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-background p-2">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-lg border border-border bg-background p-2 text-left hover:bg-accent/50 transition-colors"
+          onClick={() => {
+            if (groupId) {
+              void navigate({ to: '/groups/$groupId', params: { groupId } })
+            }
+          }}
+          disabled={!groupId}
+        >
           <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-foreground">
-            {orgInitial}
+            {groupInitial}
           </div>
-          <span className="flex-1 truncate text-xs">{orgName}</span>
-        </div>
+          <span className="flex-1 truncate text-xs">{displayGroupName}</span>
+        </button>
       </SidebarHeader>
 
       {/* Navigation */}
@@ -87,7 +113,11 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarMenu>
-            {NAV_ITEMS.map((item) => {
+            {NAV_ITEMS.filter((item) => {
+              // If roles is null, show to everyone. Otherwise check role.
+              if (!item.roles) return true
+              return currentUser?.role && (item.roles as readonly string[]).includes(currentUser.role)
+            }).map((item) => {
               const isActive = item.to === '/'
                 ? currentPath === '/'
                 : currentPath.startsWith(item.to)
@@ -129,7 +159,7 @@ export function AppSidebar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-[--radix-dropdown-menu-trigger-width]">
             <DropdownMenuItem asChild>
-              <Link to="/">
+              <Link to="/settings">
                 <UserIcon className="size-4" />
                 View Profile
               </Link>

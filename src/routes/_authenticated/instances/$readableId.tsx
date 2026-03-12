@@ -15,8 +15,10 @@ import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 
 import { FieldAssignmentPopover } from '../../../features/instances/FieldAssignmentPopover'
 import { FieldChangeLogPopover } from '../../../features/instances/FieldChangeLogPopover'
@@ -25,15 +27,19 @@ import { SectionStepper } from '../../../features/instances/SectionStepper'
 import { useCurrentUser } from '../../../hooks/use-current-user'
 import { usePageTitle } from '../../../hooks/use-page-title'
 import { mapSupabaseError } from '../../../lib/supabase-errors'
+import { supabase } from '../../../services/supabase'
+
 import {
   assignField,
   fetchFieldValues,
   fetchGroupMembers,
   fetchInstanceByReadableId,
   submitInstance,
+  toggleAdminOnlySubmit,
   upsertFieldValue,
 } from '../../../services/form-templates'
 import type {
+  ChangeLogEntry,
   FieldValue,
   GroupMember,
   InstancePageData,
@@ -77,7 +83,7 @@ function InstancePage() {
   const { mode } = Route.useSearch()
   const navigate = useNavigate()
   const currentUser = useCurrentUser()
-  const { setPageTitle } = usePageTitle()
+  const { setBreadcrumbs } = usePageTitle()
 
   // Core data
   const [data, setData] = useState<InstancePageData | null>(null)
@@ -108,7 +114,11 @@ function InstancePage() {
     try {
       const pageData = await fetchInstanceByReadableId(readableId)
       setData(pageData)
-      setPageTitle(pageData.template.name)
+      setBreadcrumbs([
+        { label: 'Forms', path: '/forms' },
+        { label: pageData.template.name, path: `/forms/${pageData.template.id}` },
+        { label: pageData.instance.readable_id, path: `/instances/${readableId}` },
+      ])
 
       const [values, groupMembers] = await Promise.all([
         fetchFieldValues(pageData.instance.id),
@@ -129,18 +139,18 @@ function InstancePage() {
     } finally {
       setLoading(false)
     }
-  }, [readableId, setPageTitle])
+  }, [readableId, setBreadcrumbs])
 
   useEffect(() => {
     void loadData()
     return () => {
-      setPageTitle(null)
+      setBreadcrumbs([])
       // Cleanup saved timers
       for (const timer of savedTimers.current.values()) {
         clearTimeout(timer)
       }
     }
-  }, [loadData, setPageTitle])
+  }, [loadData, setBreadcrumbs])
 
   // -------------------------------------------------------------------------
   // Access control redirects
@@ -161,11 +171,117 @@ function InstancePage() {
   }, [data, currentUser, mode, navigate, readableId])
 
   // -------------------------------------------------------------------------
+  // Real-time subscription for field values and instance status
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!data || !currentUser) return
+
+    const channel = supabase
+      .channel(`instance-${data.instance.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'field_values',
+          filter: `form_instance_id=eq.${data.instance.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const row = payload.new as {
+              id: string
+              template_field_id: string
+              value: string | null
+              assigned_to: string | null
+              assigned_by: string | null
+              change_log: unknown
+              updated_by: string
+              updated_at: string
+            }
+
+            // Skip if this change was made by the current user
+            // (they already have it in local state)
+            if (row.updated_by === currentUser.id) return
+
+            const fieldValue: FieldValue = {
+              id: row.id,
+              template_field_id: row.template_field_id,
+              value: row.value,
+              assigned_to: row.assigned_to,
+              assigned_by: row.assigned_by,
+              change_log: (row.change_log ?? []) as unknown as ChangeLogEntry[],
+              updated_by: row.updated_by,
+              updated_at: row.updated_at,
+            }
+
+            setFieldValues((prev) => {
+              const next = new Map(prev)
+              next.set(fieldValue.template_field_id, fieldValue)
+              return next
+            })
+
+            // Clear any local value for that field
+            // (another user's change takes precedence)
+            setLocalValues((prev) => {
+              if (!prev.has(fieldValue.template_field_id)) return prev
+              const next = new Map(prev)
+              next.delete(fieldValue.template_field_id)
+              return next
+            })
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'form_instances',
+          filter: `id=eq.${data.instance.id}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            status: string
+            submitted_by: string | null
+            submitted_at: string | null
+          }
+          if (row.status === 'submitted') {
+            setData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    instance: {
+                      ...prev.instance,
+                      status: 'submitted' as const,
+                      submitted_by: row.submitted_by,
+                      submitted_at: row.submitted_at,
+                    },
+                  }
+                : prev,
+            )
+            toast.info('This form has been submitted')
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-subscribe when instance or user changes, not on every state update
+  }, [data?.instance.id, currentUser?.id])
+
+  // -------------------------------------------------------------------------
   // Derived state
   // -------------------------------------------------------------------------
 
   const effectiveMode = mode ?? 'view'
-  const isViewMode = effectiveMode === 'view'
+  // Root admin can only edit instances in their own group
+  const isOtherGroup =
+    currentUser?.role === 'root_admin' &&
+    currentUser.groupId !== data?.instance.group_id
+  const isViewMode = effectiveMode === 'view' || isOtherGroup
   const isSubmitted = data?.instance.status === 'submitted'
 
   // Check group access (non-root_admin must belong to the instance's group)
@@ -226,15 +342,44 @@ function InstancePage() {
   const canAssign =
     currentUser?.role === 'root_admin' || currentUser?.role === 'admin'
 
+  // Can the current user toggle admin_only_submit?
+  const canToggleSubmitRestriction = canAssign && !isViewMode && !isSubmitted
+
   // Can the current user submit?
-  const canSubmit =
-    !isViewMode &&
-    !isSubmitted &&
-    (currentUser?.role === 'root_admin' || currentUser?.role === 'admin')
+  const canSubmit = (() => {
+    if (isViewMode || isSubmitted || !currentUser) return false
+    if (currentUser.role === 'root_admin' || currentUser.role === 'admin') return true
+    if (currentUser.role === 'editor') return !data?.instance.admin_only_submit
+    return false
+  })()
 
   // -------------------------------------------------------------------------
   // Handlers
   // -------------------------------------------------------------------------
+
+  async function handleToggleAdminOnlySubmit(checked: boolean) {
+    if (!data) return
+    try {
+      await toggleAdminOnlySubmit(data.instance.id, checked)
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              instance: { ...prev.instance, admin_only_submit: checked },
+            }
+          : prev,
+      )
+      toast.success(
+        checked
+          ? 'Only admins can submit this form'
+          : 'Editors can now submit this form',
+      )
+    } catch (err: unknown) {
+      const e = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(e.code, e.message, 'database', 'update_record')
+      toast.error(mapped.title, { description: mapped.description })
+    }
+  }
 
   function handleFieldChange(fieldId: string, value: string | null) {
     setLocalValues((prev) => {
@@ -244,15 +389,20 @@ function InstancePage() {
     })
   }
 
-  async function handleFieldBlur(fieldId: string) {
+  async function handleFieldBlur(fieldId: string, valueOverride?: string | null) {
     if (!data) return
-    const localVal = localValues.get(fieldId)
-    // No local change for this field
-    if (localVal === undefined) return
+
+    // Use override if provided (instant fields like rating, checkbox, select)
+    // Otherwise read from localValues (text/textarea fields that blur separately)
+    const hasOverride = valueOverride !== undefined
+    const localVal = hasOverride ? valueOverride : localValues.get(fieldId)
+    if (!hasOverride && localVal === undefined) return
+
+    // After the guard above, localVal is guaranteed to be string | null
+    const saveValue = localVal as string | null
 
     const dbVal = fieldValues.get(fieldId)?.value ?? null
-    // Value hasn't changed from DB
-    if (localVal === dbVal) return
+    if (saveValue === dbVal) return
 
     setSavingFields((prev) => new Set(prev).add(fieldId))
 
@@ -260,7 +410,7 @@ function InstancePage() {
       const result = await upsertFieldValue(
         data.instance.id,
         fieldId,
-        localVal,
+        saveValue,
         dbVal,
       )
 
@@ -396,7 +546,7 @@ function InstancePage() {
 
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col gap-6 p-6">
+      <div className="flex min-h-full flex-1 flex-col gap-6 p-6">
         {/* Header skeleton */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -433,7 +583,7 @@ function InstancePage() {
 
   if (error || !data) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-4 p-6">
         <p className="text-sm text-muted-foreground">
           {error ?? 'Failed to load form instance'}
         </p>
@@ -450,7 +600,7 @@ function InstancePage() {
 
   if (!hasGroupAccess) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-4 p-6">
         <p className="text-sm text-destructive font-medium">
           You don&apos;t have access to this form instance
         </p>
@@ -463,7 +613,7 @@ function InstancePage() {
 
   if (viewerPendingBlocked) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6">
+      <div className="flex min-h-full flex-1 flex-col items-center justify-center gap-4 p-6">
         <p className="text-sm text-muted-foreground">
           This form is not available yet
         </p>
@@ -478,7 +628,7 @@ function InstancePage() {
   const { instance, template } = data
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-full flex-1 flex-col">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-6 pb-4">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
@@ -492,10 +642,25 @@ function InstancePage() {
           <span>&middot;</span>
           <span>v{template.version_number}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Badge variant={isSubmitted ? 'default' : 'secondary'}>
             {isSubmitted ? 'Submitted' : 'Pending'}
           </Badge>
+          {canToggleSubmitRestriction && (
+            <div className="flex items-center gap-2">
+              <Switch
+                id="admin-only-submit"
+                checked={instance.admin_only_submit}
+                onCheckedChange={(checked) => void handleToggleAdminOnlySubmit(checked)}
+              />
+              <Label
+                htmlFor="admin-only-submit"
+                className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap"
+              >
+                Admin-only submit
+              </Label>
+            </div>
+          )}
           {canSubmit && (
             <Button
               size="sm"
@@ -519,14 +684,16 @@ function InstancePage() {
       {sections.length > 1 && (
         <>
           <div className="px-6">
-            <SectionStepper
-              sections={sections.map((s, i) => ({
-                title: s.title,
-                isComplete: isSectionComplete(i),
-              }))}
-              currentIndex={currentSection}
-              onStepClick={setCurrentSection}
-            />
+            <div className="mx-auto w-fit">
+              <SectionStepper
+                sections={sections.map((s, i) => ({
+                  title: s.title,
+                  isComplete: isSectionComplete(i),
+                }))}
+                currentIndex={currentSection}
+                onStepClick={setCurrentSection}
+              />
+            </div>
           </div>
           <Separator />
         </>
@@ -577,11 +744,21 @@ function InstancePage() {
                         disabled={false}
                       />
                     )}
+                    {/* "Assigned to someone else" badge for editors */}
+                    {!canAssign &&
+                      fv?.assigned_to &&
+                      fv.assigned_to !== currentUser?.id && (
+                        <span className="text-xs text-muted-foreground italic">
+                          Assigned to someone else
+                        </span>
+                      )}
                     {/* Change log popover */}
                     {(fv?.change_log?.length ?? 0) > 0 && (
                       <FieldChangeLogPopover
                         changeLog={fv?.change_log ?? []}
                         members={members}
+                        currentUserId={currentUser?.id}
+                        isAdmin={canAssign}
                       />
                     )}
                   </div>
@@ -598,8 +775,9 @@ function InstancePage() {
                     field={field}
                     value={getDisplayValue(field.id)}
                     disabled={disabled}
+                    instanceId={instance.id}
                     onChange={(val) => handleFieldChange(field.id, val)}
-                    onBlur={() => void handleFieldBlur(field.id)}
+                    onBlur={(valueOverride) => void handleFieldBlur(field.id, valueOverride)}
                   />
 
                   {/* Save indicator */}
@@ -634,11 +812,11 @@ function InstancePage() {
         )}
       </div>
 
-      {/* Footer navigation */}
-      {sections.length > 1 && (
-        <>
-          <Separator />
-          <div className="flex items-center justify-between px-6 py-4">
+      {/* Footer navigation — always pinned to bottom */}
+      <Separator />
+      <div className="mt-auto flex items-center justify-between px-6 py-4">
+        {sections.length > 1 ? (
+          <>
             <Button
               variant="outline"
               size="sm"
@@ -676,9 +854,29 @@ function InstancePage() {
             ) : (
               <div className="w-20" />
             )}
-          </div>
-        </>
-      )}
+          </>
+        ) : (
+          <>
+            <div />
+            {canSubmit ? (
+              <Button
+                size="sm"
+                disabled={submitting}
+                onClick={() => void handleSubmit()}
+              >
+                {submitting ? (
+                  <Loader2Icon className="mr-1.5 size-4 animate-spin" />
+                ) : (
+                  <SendIcon className="mr-1.5 size-4" />
+                )}
+                Submit
+              </Button>
+            ) : (
+              <div />
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

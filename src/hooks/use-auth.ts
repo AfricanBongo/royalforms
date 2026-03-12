@@ -50,6 +50,7 @@ function parseCurrentUser(user: User): CurrentUser | null {
     email: user.email ?? meta.email ?? '',
     firstName: (meta.first_name as string) ?? '',
     lastName: (meta.last_name as string) ?? '',
+    avatarUrl: (meta.avatar_url as string) ?? null,
     role: role as UserRole,
     groupId: (meta.group_id as string) ?? null,
     isActive: meta.is_active !== false,

@@ -28,14 +28,14 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] `groups` table + RLS policies
 - [x] `member_requests` table + RLS policies
 - [x] Apply `update_updated_at` trigger to foundation tables
-- [x] Seed data: Root Admin bootstrap in `seed.sql`
+- [x] ~~Seed data: Root Admin bootstrap in `seed.sql`~~ (replaced by /setup wizard)
 - [x] Generate TypeScript types via `supabase_generate_typescript_types`
 
 ## Feature: Auth
 
 ### Backend
 - [x] `invite-user` Edge Function -- invite new user via Supabase Auth admin API
-- [x] `bootstrap-root-admin` Edge Function -- create first Root Admin from env vars
+- [x] `bootstrap-root-admin` Edge Function -- create first Root Admin via /setup wizard
 - [x] `update-user-role` Edge Function -- sync role/group/active to JWT metadata
 - [x] `manage-invite` Edge Function -- resend invite, change email, delete invite (root admin)
 - [x] `invite_status` column on profiles (invite_sent/completed lifecycle)
@@ -57,6 +57,18 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] Page header with breadcrumbs
 - [x] Invite lifecycle UI (Invite Sent badge, resend, change email, delete in members tab)
 - [x] Cancelled request badge in requests tab
+
+## Feature: Profile Settings
+
+### Backend
+- [x] `avatar_url`, `first_name`, `last_name` columns on profiles table
+- [x] Email change confirmation template (`supabase/templates/email-change.html`)
+
+### Frontend
+- [x] Settings page (`/settings`) with avatar, name, email, password sections
+- [x] Fix sidebar to show real avatar with DiceBear fallback
+- [x] Update "View Profile" link to point to `/settings`
+- [x] `avatarUrl` added to `CurrentUser` type and parsed from JWT metadata
 
 ## Feature: Groups
 
@@ -104,8 +116,8 @@ After each migration, run `supabase_get_advisors` (security) and `supabase_list_
 - [x] More dropdown (Versions, Share, Delete) with ellipsis icon button
 - [x] Hard delete form template (no instances)
 - [x] Archived tab in forms list page
-- [ ] Archive/hard-delete flow for templates WITH instances (see notes below)
-- [ ] Form builder preview button in header (depends on form instances)
+- [x] Archive/hard-delete flow for templates WITH instances (see notes below)
+- [x] Form builder preview button in header (depends on form instances)
 
 ### Deferred: Delete form with instances
 
@@ -128,7 +140,7 @@ When deleting a form template that has existing instances, present two options:
 - [x] `schedule_group_targets` table + RLS policies
 - [x] Apply `update_updated_at` trigger to form instance tables
 - [x] `trigger_on_form_instance_created` (pg_net -> Edge Function)
-- [ ] `trigger_on_form_instance_submitted` (AFTER UPDATE, auto-report)
+- [x] `trigger_on_form_instance_submitted` (AFTER UPDATE, auto-report)
 - [x] `on-instance-created` Edge Function -- generate short URLs (Shlink)
 - [x] `create_scheduled_instances` pg_cron job
 
@@ -139,52 +151,81 @@ When deleting a form template that has existing instances, present two options:
 - [x] Field change log display (per-field popover)
 - [x] Required field validation on submit
 - [x] Auto-save on blur
-- [ ] Schedule management (create/edit schedule, add groups)
+- [x] Schedule management (create/edit schedule, add groups)
 
 ## Feature: Reports
 
 ### Backend
-- [ ] `report_templates` table + RLS policies
-- [ ] `report_template_versions` table + RLS policies
-- [ ] `report_template_sections` table + RLS policies
-- [ ] `report_template_fields` table + RLS policies
-- [ ] `report_instances` table + RLS policies
-- [ ] Apply `update_updated_at` trigger to report tables
-- [ ] `trigger_on_report_instance_created` (pg_net -> Edge Function)
-- [ ] `on-report-instance-created` Edge Function -- generate short URL (Shlink)
-- [ ] `generate-report` Edge Function -- compute report data + create instance
-- [ ] `export-report` Edge Function -- generate PDF/Word, cache in Storage
+- [x] `report_templates` table + RLS policies
+- [x] `report_template_versions` table + RLS policies
+- [x] `report_template_sections` table + RLS policies
+- [x] `report_template_fields` table + RLS policies
+- [x] `report_instances` table + RLS policies (with generation status)
+- [x] Apply `update_updated_at` trigger to report tables
+- [x] `trigger_on_report_instance_ready` (pg_net -> Edge Function, fires on status='ready')
+- [x] `trigger_on_form_instance_submitted` (auto-report generation)
+- [x] `on-report-instance-ready` Edge Function -- generate short URL (Shlink)
+- [x] `generate-report` Edge Function -- compute report data + create instance
+- [x] `export-report` Edge Function -- generate PDF/Word, cache in Storage
+- [x] `report-exports` storage bucket with authenticated read access
+- [x] Report service layer (`src/services/reports.ts`)
 
 ### Frontend
-- [ ] Report template list page (`/reports/templates`)
-- [ ] Report template detail page (`/reports/templates/:id`)
-- [ ] Report template builder (`/reports/templates/new` and `edit`)
-- [ ] Formula editor (aggregates + arithmetic)
-- [ ] Dynamic variable field picker
-- [ ] Table column configuration
-- [ ] Static text editor
-- [ ] Version history side sheet
-- [ ] Report instance list page (`/reports`)
-- [ ] Report instance viewer (`/reports/:readableId`)
-- [ ] Manual report creation (select form instances, generate)
-- [ ] Export buttons (PDF / Word) with download
+- [x] Report template list page (`/reports`)
+- [x] Report template detail page (`/reports/:templateId`)
+- [x] Report template builder (`/reports/new` and `/reports/:templateId/edit`)
+- [x] Formula editor (visual block builder with aggregates + arithmetic)
+- [x] Dynamic variable field picker
+- [x] Table column configuration
+- [x] Static text editor
+- [x] Version history side sheet
+- [x] Report instance viewer (`/reports/:templateId/instances/:readableId`)
+- [x] Manual report creation (select form instances, generate)
+- [x] Export buttons (PDF / Word) with download
+- [x] Realtime generation watch with toast notifications
+- [x] Auto-save for report template builder
 
 ## Feature: Notifications
 
 ### Backend
-- [ ] `send-notification-email` Edge Function -- custom emails via Resend SDK
+- [x] `send-notification-email` Edge Function -- custom emails via Resend SDK
 
 ## Feature: Dashboard
 
-- [ ] Adaptive dashboard (`/`)
-- [ ] Root Admin widgets (pending requests, recent submissions, schedules, stats)
-- [ ] Admin widgets (group members, draft instances, submissions)
-- [ ] Editor widgets (assigned fields, draft instances)
-- [ ] Viewer widgets (recent submissions, reports)
+- [x] Adaptive dashboard (`/`)
+- [x] Root Admin widgets (pending requests, recent submissions, schedules, stats)
+- [x] Admin widgets (group members, draft instances, submissions)
+- [x] Editor widgets (assigned fields, draft instances)
+- [x] Viewer widgets (recent submissions, reports)
+- [x] Dashboard redesign: colorful stat cards with deltas
+- [x] Dashboard redesign: time-series trend charts (Shadcn Charts / Recharts)
+- [x] Dashboard redesign: action items banner
+- [x] Dashboard redesign: greeting header with time range toggle (7d/30d/90d)
+- [x] Dashboard redesign: recent form instances list (10)
+- [x] Dashboard redesign: recent report instances list (10)
+- [x] Dashboard redesign: group breakdown chart (Root Admin)
+- [x] Dashboard redesign: per-widget skeleton loading
 
 ## External Services
 
 - [ ] Shlink setup (self-hosted or cloud) + API key
 - [ ] Resend SMTP configuration in Supabase Auth settings
-- [ ] Resend SDK API key for Edge Functions
+- [x] Resend SDK API key for Edge Functions
+- [x] Resend contact/segment sync (sync-resend-contacts Edge Function + pg_net triggers)
+- [ ] Create "General" segment in Resend dashboard and set RESEND_GENERAL_SEGMENT_ID env var
+- [ ] Backfill existing users/groups into Resend (one-time migration script)
 - [x] Supabase Storage buckets (form-uploads, report-exports)
+
+## Feature: First-Run Setup
+
+- [x] `is_setup_complete()` SECURITY DEFINER function
+- [x] Remove `seed.sql` -- replaced by setup wizard
+- [x] `bootstrap-root-admin` Edge Function -- accept body params (email, password, orgName)
+- [x] Sample form template creation in bootstrap Edge Function
+- [x] Setup service layer (`src/services/setup.ts`)
+- [x] SetupProvider context + `useSetup` hook
+- [x] Route guards for setup detection (redirect to `/setup` when incomplete)
+- [x] `/setup` route -- 3-step wizard (org setup, onboarding, thank-you)
+- [x] Regenerate TypeScript types after local `supabase db reset`
+- [ ] Deploy Edge Function with `verify_jwt: false`
+- [ ] End-to-end test of full setup flow

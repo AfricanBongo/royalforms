@@ -1,6 +1,6 @@
 import { type SubmitEvent, useState } from 'react'
 
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { CheckIcon, Loader2Icon, LockIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -22,6 +22,11 @@ import { updatePassword } from '../services/auth'
 import { mapSupabaseError } from '../lib/supabase-errors'
 
 export const Route = createFileRoute('/reset-password')({
+  beforeLoad: ({ context }) => {
+    if (context.setup.isSetupComplete === false) {
+      throw redirect({ to: '/setup' })
+    }
+  },
   component: ResetPasswordPage,
 })
 
@@ -82,7 +87,7 @@ function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-6">
       <h1 className="text-center text-[30px] font-semibold leading-[30px] tracking-[-1px] text-foreground">
-        RoyalHouse Reporting Dashboard
+        RoyalForms
       </h1>
 
       <Card className="w-full min-w-[280px] max-w-[400px]">

@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   ChevronDownIcon,
   EllipsisVerticalIcon,
   FilePlus,
-  FilterIcon,
   HistoryIcon,
   PencilIcon,
   SearchIcon,
@@ -28,6 +27,14 @@ import { Badge } from '../../../../components/ui/badge'
 import { Button } from '../../../../components/ui/button'
 import { Checkbox } from '../../../../components/ui/checkbox'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../../../components/ui/dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -35,6 +42,8 @@ import {
   DropdownMenuTrigger,
 } from '../../../../components/ui/dropdown-menu'
 import { Input } from '../../../../components/ui/input'
+import { Label } from '../../../../components/ui/label'
+import { RadioGroup, RadioGroupItem } from '../../../../components/ui/radio-group'
 import { Separator } from '../../../../components/ui/separator'
 import {
   Table,
@@ -51,14 +60,19 @@ import { CreateInstanceSuccessDialog } from '../../../../features/forms/CreateIn
 import { ScheduleInstanceSheet } from '../../../../features/forms/ScheduleInstanceSheet'
 import { ScheduleInstanceSuccessDialog } from '../../../../features/forms/ScheduleInstanceSuccessDialog'
 import { StatCard } from '../../../../components/stat-card'
+import { FilterPopover } from '../../../../components/filter-popover'
+import type { FilterState, GroupOption } from '../../../../lib/filter-utils'
+import { applyFilters, EMPTY_FILTERS } from '../../../../lib/filter-utils'
 import { useCurrentUser } from '../../../../hooks/use-current-user'
 import { usePageTitle } from '../../../../hooks/use-page-title'
 import {
+  archiveTemplate,
   deleteTemplate,
   fetchGroupAccessCount,
   fetchTemplateDetail,
   fetchTemplateInstances,
   fetchTemplateSchedule,
+  hardDeleteTemplate,
 } from '../../../../services/form-templates'
 import type {
   CreatedInstance,
@@ -99,18 +113,36 @@ function TemplateDetailPage() {
   const [versionsOpen, setVersionsOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteWithInstancesOpen, setDeleteWithInstancesOpen] = useState(false)
+  const [deleteChoice, setDeleteChoice] = useState<'archive' | 'hard-delete'>('archive')
+  const [confirmName, setConfirmName] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
   const [createSuccessOpen, setCreateSuccessOpen] = useState(false)
   const [createdInstances, setCreatedInstances] = useState<CreatedInstance[]>([])
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [scheduleSuccessOpen, setScheduleSuccessOpen] = useState(false)
   const [schedule, setSchedule] = useState<ScheduleData | null>(null)
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
-  // Filter instances by search (readable_id or group_name)
+  // Derive unique group options from instances
+  const groupOptions: GroupOption[] = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const i of instances) {
+      if (!seen.has(i.group_id)) seen.set(i.group_id, i.group_name)
+    }
+    return [...seen.entries()].map(([id, name]) => ({ id, name }))
+  }, [instances])
+
+  // Apply popover filters first, then search
+  const afterFilters = applyFilters(instances, filters, {
+    getStatus: (i) => i.status,
+    getGroupId: (i) => i.group_id,
+    getDate: (i) => i.created_at,
+  })
   const filtered = search.trim()
-    ? instances.filter(
+    ? afterFilters.filter(
         (i) =>
           i.readable_id
             .toLowerCase()
@@ -119,7 +151,7 @@ function TemplateDetailPage() {
             .toLowerCase()
             .includes(search.trim().toLowerCase()),
       )
-    : instances
+    : afterFilters
 
   // Pagination
   const totalItems = filtered.length
@@ -201,6 +233,11 @@ function TemplateDetailPage() {
     setPage(1)
   }, [search])
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [filters])
+
   // Refresh group count after sharing settings change
   async function refreshGroupCount() {
     if (!template) return
@@ -238,9 +275,57 @@ function TemplateDetailPage() {
     }
   }
 
+  // Archive template (soft-delete)
+  async function handleArchive() {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      await archiveTemplate(templateId)
+      toast.success('Form template archived')
+      void navigate({ to: '/forms' })
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(
+        error.code,
+        error.message,
+        'database',
+        'update_record',
+      )
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setDeleting(false)
+      setDeleteWithInstancesOpen(false)
+    }
+  }
+
+  // Hard-delete template with all instances
+  async function handleHardDelete() {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      await hardDeleteTemplate(templateId)
+      toast.success('Form template and all instances permanently deleted')
+      void navigate({ to: '/forms' })
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(
+        error.code,
+        error.message,
+        'database',
+        'delete_record',
+      )
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setDeleting(false)
+      setDeleteWithInstancesOpen(false)
+      setConfirmName('')
+      setDeleteChoice('archive')
+    }
+  }
+
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
         <p className="py-8 text-center text-sm text-muted-foreground">
           Loading template...
         </p>
@@ -250,7 +335,7 @@ function TemplateDetailPage() {
 
   if (!template) {
     return (
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
         <p className="py-8 text-center text-sm text-muted-foreground">
           Template not found.
         </p>
@@ -259,7 +344,7 @@ function TemplateDetailPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
       {/* Stat cards */}
       <div className="flex gap-2.5">
         <StatCard
@@ -284,10 +369,15 @@ function TemplateDetailPage() {
               className="pl-9"
             />
           </div>
-          <Button variant="outline" size="default">
-            <FilterIcon className="size-4" />
-            Filters
-          </Button>
+          <FilterPopover
+            filters={filters}
+            onChange={setFilters}
+            statusOptions={[
+              { value: 'pending', label: 'Pending' },
+              { value: 'submitted', label: 'Submitted' },
+            ]}
+            groupOptions={groupOptions}
+          />
         </div>
 
         {/* Right: action buttons (Root Admin only) */}
@@ -340,11 +430,16 @@ function TemplateDetailPage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
-                  disabled={instances.length > 0}
-                  onClick={() => setDeleteOpen(true)}
+                  onClick={() => {
+                    if (instances.length > 0) {
+                      setDeleteWithInstancesOpen(true)
+                    } else {
+                      setDeleteOpen(true)
+                    }
+                  }}
                 >
                   <Trash2Icon className="size-4" />
-                  {instances.length > 0 ? 'Delete Form...' : 'Delete Form'}
+                  Delete Form
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -390,7 +485,15 @@ function TemplateDetailPage() {
             </TableHeader>
             <TableBody>
               {paged.map((instance) => (
-                <TableRow key={instance.id} className="cursor-pointer">
+                <TableRow
+                  key={instance.id}
+                  className="cursor-pointer"
+                  onClick={() => void navigate({
+                    to: '/instances/$readableId',
+                    params: { readableId: instance.readable_id },
+                    search: { mode: getInstanceMode(instance.status, currentUser?.role, instance.group_id, currentUser?.groupId) },
+                  })}
+                >
                   <TableCell
                     className="w-[40px]"
                     onClick={(e) => e.stopPropagation()}
@@ -513,6 +616,99 @@ function TemplateDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete dialog — template with instances (archive vs hard-delete) */}
+      <Dialog
+        open={deleteWithInstancesOpen}
+        onOpenChange={(open) => {
+          setDeleteWithInstancesOpen(open)
+          if (!open) {
+            setDeleteChoice('archive')
+            setConfirmName('')
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Delete &ldquo;{template.name}&rdquo;?</DialogTitle>
+            <DialogDescription>
+              This template has {instances.length} instance{instances.length !== 1 ? 's' : ''}. Choose how to proceed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <RadioGroup
+            value={deleteChoice}
+            onValueChange={(v) => {
+              setDeleteChoice(v as 'archive' | 'hard-delete')
+              setConfirmName('')
+            }}
+            className="gap-3"
+          >
+            <div className="flex items-start gap-3 rounded-md border p-3">
+              <RadioGroupItem value="archive" id="delete-archive" className="mt-0.5" />
+              <div className="grid gap-1">
+                <Label htmlFor="delete-archive" className="font-medium">
+                  Archive (recommended)
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Hide the template and its instances from the active list. You can restore it later from the Archived tab.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-md border border-destructive/30 p-3">
+              <RadioGroupItem value="hard-delete" id="delete-hard" className="mt-0.5" />
+              <div className="grid gap-1">
+                <Label htmlFor="delete-hard" className="font-medium text-destructive">
+                  Permanently delete everything
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  This will permanently delete the template, all {instances.length} instance{instances.length !== 1 ? 's' : ''}, and their data. This cannot be undone.
+                </p>
+              </div>
+            </div>
+          </RadioGroup>
+
+          {deleteChoice === 'hard-delete' && (
+            <div className="grid gap-2">
+              <Label htmlFor="confirm-name" className="text-sm">
+                Type <span className="font-semibold">{template.name}</span> to confirm
+              </Label>
+              <Input
+                id="confirm-name"
+                value={confirmName}
+                onChange={(e) => setConfirmName(e.target.value)}
+                placeholder={template.name}
+              />
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setDeleteWithInstancesOpen(false)}
+            >
+              Cancel
+            </Button>
+            {deleteChoice === 'archive' ? (
+              <Button
+                disabled={deleting}
+                onClick={() => void handleArchive()}
+              >
+                {deleting ? 'Archiving...' : 'Archive template'}
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                disabled={deleting || confirmName !== template.name}
+                onClick={() => void handleHardDelete()}
+              >
+                {deleting ? 'Deleting...' : 'Permanently delete'}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Create instance sheet */}
       <CreateInstanceSheet
         open={createOpen}
@@ -592,6 +788,21 @@ function StatusBadge({ status }: { status: string }) {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function getInstanceMode(
+  status: string,
+  role: string | undefined,
+  instanceGroupId: string,
+  userGroupId: string | null | undefined,
+): 'view' | 'edit' {
+  if (!role || role === 'viewer') return 'view'
+  if (status === 'submitted') return 'view'
+  // Root admin can only edit instances in their own group
+  if (role === 'root_admin') {
+    return userGroupId === instanceGroupId ? 'edit' : 'view'
+  }
+  return 'edit'
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', {

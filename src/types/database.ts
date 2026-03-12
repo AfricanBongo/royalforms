@@ -108,6 +108,7 @@ export type Database = {
       }
       form_instances: {
         Row: {
+          admin_only_submit: boolean
           created_at: string
           created_by: string
           group_id: string
@@ -123,6 +124,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_only_submit?: boolean
           created_at?: string
           created_by: string
           group_id: string
@@ -138,6 +140,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_only_submit?: boolean
           created_at?: string
           created_by?: string
           group_id?: string
@@ -237,26 +240,32 @@ export type Database = {
       groups: {
         Row: {
           created_at: string
-          created_by: string
+          created_by: string | null
           id: string
           is_active: boolean
+          is_bootstrap: boolean
           name: string
+          resend_segment_id: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
-          created_by: string
+          created_by?: string | null
           id?: string
           is_active?: boolean
+          is_bootstrap?: boolean
           name: string
+          resend_segment_id?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           id?: string
           is_active?: boolean
+          is_bootstrap?: boolean
           name?: string
+          resend_segment_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -409,41 +418,50 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           email: string
           email_change_count: number
+          first_name: string | null
           full_name: string
           group_id: string | null
           id: string
           invite_status: string
           is_active: boolean
           last_invite_sent_at: string | null
+          last_name: string | null
           role: string
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           email: string
           email_change_count?: number
+          first_name?: string | null
           full_name: string
           group_id?: string | null
           id: string
           invite_status?: string
           is_active?: boolean
           last_invite_sent_at?: string | null
+          last_name?: string | null
           role: string
           updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           email?: string
           email_change_count?: number
+          first_name?: string | null
           full_name?: string
           group_id?: string | null
           id?: string
           invite_status?: string
           is_active?: boolean
           last_invite_sent_at?: string | null
+          last_name?: string | null
           role?: string
           updated_at?: string
         }
@@ -463,6 +481,294 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      report_instances: {
+        Row: {
+          created_at: string
+          created_by: string
+          data_snapshot: Json | null
+          error_message: string | null
+          export_docx_path: string | null
+          export_pdf_path: string | null
+          form_instances_included: Json
+          id: string
+          readable_id: string
+          report_template_version_id: string
+          short_url: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          data_snapshot?: Json | null
+          error_message?: string | null
+          export_docx_path?: string | null
+          export_pdf_path?: string | null
+          form_instances_included: Json
+          id?: string
+          readable_id: string
+          report_template_version_id: string
+          short_url?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          data_snapshot?: Json | null
+          error_message?: string | null
+          export_docx_path?: string | null
+          export_pdf_path?: string | null
+          form_instances_included?: Json
+          id?: string
+          readable_id?: string
+          report_template_version_id?: string
+          short_url?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_instances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_instances_report_template_version_id_fkey"
+            columns: ["report_template_version_id"]
+            isOneToOne: false
+            referencedRelation: "report_template_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_template_fields: {
+        Row: {
+          config: Json
+          created_at: string
+          field_type: string
+          id: string
+          label: string
+          report_template_section_id: string
+          sort_order: number
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          field_type: string
+          id?: string
+          label: string
+          report_template_section_id: string
+          sort_order: number
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          field_type?: string
+          id?: string
+          label?: string
+          report_template_section_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_template_fields_report_template_section_id_fkey"
+            columns: ["report_template_section_id"]
+            isOneToOne: false
+            referencedRelation: "report_template_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_template_sections: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          report_template_version_id: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          report_template_version_id: string
+          sort_order: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          report_template_version_id?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_template_sections_report_template_version_id_fkey"
+            columns: ["report_template_version_id"]
+            isOneToOne: false
+            referencedRelation: "report_template_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_template_versions: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_latest: boolean
+          report_template_id: string
+          restored_from: string | null
+          status: string
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_latest?: boolean
+          report_template_id: string
+          restored_from?: string | null
+          status?: string
+          version_number: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_latest?: boolean
+          report_template_id?: string
+          restored_from?: string | null
+          status?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_template_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_template_versions_report_template_id_fkey"
+            columns: ["report_template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_template_versions_restored_from_fkey"
+            columns: ["restored_from"]
+            isOneToOne: false
+            referencedRelation: "report_template_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_templates: {
+        Row: {
+          abbreviation: string
+          auto_generate: boolean
+          created_at: string
+          created_by: string
+          description: string | null
+          form_template_id: string
+          id: string
+          instance_counter: number
+          is_active: boolean
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          abbreviation: string
+          auto_generate?: boolean
+          created_at?: string
+          created_by: string
+          description?: string | null
+          form_template_id: string
+          id?: string
+          instance_counter?: number
+          is_active?: boolean
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          abbreviation?: string
+          auto_generate?: boolean
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          form_template_id?: string
+          id?: string
+          instance_counter?: number
+          is_active?: boolean
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_templates_form_template_id_fkey"
+            columns: ["form_template_id"]
+            isOneToOne: false
+            referencedRelation: "form_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_templates_form_template_id_fkey"
+            columns: ["form_template_id"]
+            isOneToOne: false
+            referencedRelation: "templates_with_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resend_sync_queue: {
+        Row: {
+          action: string
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          payload: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          payload: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       schedule_group_targets: {
         Row: {
@@ -744,7 +1050,38 @@ export type Database = {
       create_scheduled_instances: { Args: never; Returns: undefined }
       get_current_user_group_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
+      hard_delete_template: {
+        Args: { p_template_id: string }
+        Returns: undefined
+      }
       is_active_user: { Args: never; Returns: boolean }
+      is_setup_complete: { Args: never; Returns: boolean }
+      upsert_field_value: {
+        Args: {
+          p_field_id: string
+          p_instance_id: string
+          p_old_value: string
+          p_user_id: string
+          p_value: string
+        }
+        Returns: {
+          assigned_by: string | null
+          assigned_to: string | null
+          change_log: Json
+          form_instance_id: string
+          id: string
+          template_field_id: string
+          updated_at: string
+          updated_by: string
+          value: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "field_values"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never

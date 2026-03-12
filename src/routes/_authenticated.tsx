@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 
 import { createFileRoute, Link, Outlet, redirect, useMatches, useNavigate } from '@tanstack/react-router'
 
@@ -19,9 +19,15 @@ import {
   SidebarTrigger,
 } from '../components/ui/sidebar'
 import { PageTitleProvider, usePageTitle } from '../hooks/use-page-title'
+import { ReportGenerationWatchProvider } from '../hooks/use-report-generation-watch'
 
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: ({ context }) => {
+    // Setup not complete -- redirect to setup wizard
+    if (context.setup.isSetupComplete === false) {
+      throw redirect({ to: '/setup' })
+    }
+
     // Still loading auth state -- let it resolve
     if (context.auth.isLoading) return
 
@@ -46,6 +52,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   groups: 'Groups',
   forms: 'Forms',
   reports: 'Reports',
+  settings: 'Settings',
 }
 
 // ---------------------------------------------------------------------------
@@ -67,17 +74,19 @@ function AuthenticatedLayout() {
 
   return (
     <PageTitleProvider>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <HeaderBar />
+      <ReportGenerationWatchProvider>
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset className="max-h-svh overflow-hidden">
+            <HeaderBar />
 
-          {/* Page content */}
-          <div className="flex-1 overflow-auto">
-            <Outlet />
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+            {/* Page content */}
+            <div className="flex flex-1 flex-col overflow-auto">
+              <Outlet />
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      </ReportGenerationWatchProvider>
     </PageTitleProvider>
   )
 }
@@ -132,20 +141,22 @@ function HeaderBar() {
             const isLast = index === crumbs.length - 1
 
             return (
-              <BreadcrumbItem key={crumb.path}>
+              <Fragment key={crumb.path}>
                 {index > 0 && <BreadcrumbSeparator />}
-                {isLast ? (
-                  <BreadcrumbPage className="text-sm text-foreground">
-                    {crumb.label}
-                  </BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink asChild>
-                    <Link to={crumb.path}>
+                <BreadcrumbItem>
+                  {isLast ? (
+                    <BreadcrumbPage className="text-sm text-foreground">
                       {crumb.label}
-                    </Link>
-                  </BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
+                    </BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink asChild>
+                      <Link to={crumb.path}>
+                        {crumb.label}
+                      </Link>
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              </Fragment>
             )
           })}
         </BreadcrumbList>

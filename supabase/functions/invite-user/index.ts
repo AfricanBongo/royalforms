@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
       .eq("id", group_id)
       .single();
     const groupName = groupRow?.name ?? "your group";
-    const organizationName = Deno.env.get("ORGANIZATION_NAME") ?? "RoyalHouse Reporting";
+    const organizationName = Deno.env.get("ORGANIZATION_NAME") ?? "RoyalForms";
 
     // Invite the user via Supabase Auth admin API
     const siteUrl = Deno.env.get("SITE_URL") ?? ""

@@ -11,8 +11,8 @@
  */
 import { useEffect, useRef, useState } from 'react'
 
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { ShareIcon } from 'lucide-react'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { AlertTriangleIcon, EyeIcon, ShareIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { BuilderSection } from '../../../../components/builder-section'
@@ -27,7 +27,9 @@ import {
 } from '../../../../components/ui/dialog'
 import { useAutoSave } from '../../../../hooks/use-auto-save'
 import { useFormBuilder, FIELD_TYPE } from '../../../../hooks/use-form-builder'
+import { useFormReportLinkCheck } from '../../../../hooks/use-form-report-link-check'
 import { usePageTitle } from '../../../../hooks/use-page-title'
+import { PreviewSheet } from '../../../../features/forms/PreviewSheet.tsx'
 import {
   fetchTemplateForEditing,
   createDraftVersion,
@@ -56,34 +58,48 @@ function toBuilderState(data: TemplateVersionData): BuilderState {
     return `__loaded_${clientIdCounter}_${Date.now()}`
   }
 
+  const sections = data.sections.map((sec) => ({
+    clientId: makeId(),
+    title: sec.title,
+    description: sec.description,
+    sort_order: sec.sort_order,
+    fields: sec.fields.map((f) => ({
+      clientId: makeId(),
+      label: f.label,
+      description: (f as { description?: string | null }).description ?? '',
+      field_type: f.field_type as FieldType,
+      sort_order: f.sort_order,
+      is_required: f.is_required,
+      options:
+        (f.field_type === FIELD_TYPE.SELECT || f.field_type === FIELD_TYPE.MULTI_SELECT) &&
+        Array.isArray(f.options)
+          ? (f.options as string[])
+          : [],
+      validation_rules:
+        f.validation_rules && typeof f.validation_rules === 'object' && !Array.isArray(f.validation_rules)
+          ? (f.validation_rules as Record<string, unknown>)
+          : null,
+      isEditing: false,
+    })),
+    insertingAtIndex: null,
+  }))
+
+  // Ensure at least one section exists so the builder is usable
+  if (sections.length === 0) {
+    sections.push({
+      clientId: makeId(),
+      title: 'Section 1',
+      description: null,
+      sort_order: 1,
+      fields: [],
+      insertingAtIndex: null,
+    })
+  }
+
   return {
     name: data.template.name,
     description: data.template.description ?? '',
-    sections: data.sections.map((sec) => ({
-      clientId: makeId(),
-      title: sec.title,
-      description: sec.description,
-      sort_order: sec.sort_order,
-      fields: sec.fields.map((f) => ({
-        clientId: makeId(),
-        label: f.label,
-        description: (f as { description?: string | null }).description ?? '',
-        field_type: f.field_type as FieldType,
-        sort_order: f.sort_order,
-        is_required: f.is_required,
-        options:
-          (f.field_type === FIELD_TYPE.SELECT || f.field_type === FIELD_TYPE.MULTI_SELECT) &&
-          Array.isArray(f.options)
-            ? (f.options as string[])
-            : [],
-        validation_rules:
-          f.validation_rules && typeof f.validation_rules === 'object' && !Array.isArray(f.validation_rules)
-            ? (f.validation_rules as Record<string, unknown>)
-            : null,
-        isEditing: false,
-      })),
-      insertingAtIndex: null,
-    })),
+    sections,
   }
 }
 
@@ -115,6 +131,8 @@ function EditFormPage() {
   const [versionNumber, setVersionNumber] = useState(1)
   const [isPublishing, setIsPublishing] = useState(false)
   const [showDiscardDialog, setShowDiscardDialog] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false)
 
   const builder = useFormBuilder()
   const { state } = builder
@@ -129,6 +147,10 @@ function EditFormPage() {
   // Refs to hold latest handlers so header buttons never use stale closures
   const handlePublishRef = useRef<() => void>(() => {})
   const handleDiscardRef = useRef<() => void>(() => {})
+  const handlePreviewRef = useRef<() => void>(() => {})
+
+  // Breaking change detection for linked report templates
+  const linkCheck = useFormReportLinkCheck(templateId, state.sections)
 
   // Update breadcrumbs: Forms > [Form Name] > Edit
   useEffect(() => {
@@ -159,6 +181,15 @@ function EditFormPage() {
         <Button
           variant="outline"
           size="sm"
+          onClick={() => handlePreviewRef.current()}
+          className="gap-2"
+        >
+          <EyeIcon className="size-4" />
+          Preview
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => handleDiscardRef.current()}
           disabled={isPublishing}
         >
@@ -178,7 +209,6 @@ function EditFormPage() {
     return () => {
       setHeaderActions(null)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveStatus, isPublishing, templateStatus, versionNumber, setHeaderActions])
 
   // Load existing template data
@@ -238,6 +268,7 @@ function EditFormPage() {
     }
   }
   handleDiscardRef.current = () => setShowDiscardDialog(true)
+  handlePreviewRef.current = () => setShowPreview(true)
 
   // -------------------------------------------------------------------------
   // Publish / Publish New Version
@@ -250,6 +281,20 @@ function EditFormPage() {
       return
     }
 
+    // If linked reports exist and there are breaking changes or additions,
+    // show a confirmation dialog before publishing
+    if (!linkCheck.loading && linkCheck.linkedReports.length > 0) {
+      if (linkCheck.hasBreakingChanges || linkCheck.hasAdditions) {
+        setShowPublishConfirm(true)
+        return
+      }
+    }
+
+    await executePublish()
+  }
+
+  async function executePublish() {
+    setShowPublishConfirm(false)
     setIsPublishing(true)
     try {
       // Flush any pending auto-save first
@@ -314,6 +359,23 @@ function EditFormPage() {
               </p>
             </div>
           </div>
+
+          {/* Breaking change warning for linked reports */}
+          {!linkCheck.loading && linkCheck.hasBreakingChanges && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3">
+              <p className="text-sm font-medium text-destructive">
+                Breaking changes detected
+              </p>
+              <p className="mt-1 text-sm text-destructive/80">
+                Removed fields are referenced by linked report{' '}
+                {linkCheck.breakingChanges
+                  .map((c) => c.reportName)
+                  .filter((v, i, a) => a.indexOf(v) === i)
+                  .join(', ')}
+                . Publishing will break those reports.
+              </p>
+            </div>
+          )}
 
           {/* Sections */}
           {state.sections.map((section) => (
@@ -385,6 +447,83 @@ function EditFormPage() {
             </Button>
             <Button variant="destructive" onClick={() => void handleDiscard()}>
               Discard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Form preview side sheet */}
+      <PreviewSheet
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        formName={state.name}
+        formDescription={state.description}
+        sections={state.sections}
+      />
+
+      {/* Publish confirmation dialog (breaking changes / additions) */}
+      <Dialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            {linkCheck.hasBreakingChanges ? (
+              <>
+                <DialogTitle className="flex items-center gap-2">
+                  <AlertTriangleIcon className="size-5 text-destructive" />
+                  Breaking changes detected
+                </DialogTitle>
+                <DialogDescription>
+                  Publishing this version will break linked report templates.
+                  The following changes affect reports:
+                </DialogDescription>
+              </>
+            ) : (
+              <>
+                <DialogTitle>New fields added</DialogTitle>
+                <DialogDescription>
+                  This version has new fields that are not yet included
+                  in linked report templates. You can update them after publishing.
+                </DialogDescription>
+              </>
+            )}
+          </DialogHeader>
+
+          <div className="max-h-48 space-y-2 overflow-y-auto py-2">
+            {linkCheck.hasBreakingChanges && (
+              <ul className="space-y-1 text-sm">
+                {linkCheck.breakingChanges.map((c, i) => (
+                  <li key={i} className="text-destructive">
+                    Field removed &mdash; referenced by <span className="font-medium">{c.reportName}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {linkCheck.hasAdditions && !linkCheck.hasBreakingChanges && (
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                {linkCheck.additions.map((a) => (
+                  <li key={a.fieldId}>
+                    <span className="font-medium text-foreground">{a.fieldLabel}</span> — not in any report
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            {linkCheck.hasAdditions && !linkCheck.hasBreakingChanges && linkCheck.linkedReports.length > 0 && (
+              <Button variant="outline" asChild>
+                <Link
+                  to="/reports/$templateId/edit"
+                  params={{ templateId: linkCheck.linkedReports[0].id }}
+                >
+                  Go to Report Template
+                </Link>
+              </Button>
+            )}
+            <Button
+              variant={linkCheck.hasBreakingChanges ? 'destructive' : 'default'}
+              onClick={() => void executePublish()}
+            >
+              {linkCheck.hasBreakingChanges ? 'Publish Anyway' : 'Publish'}
             </Button>
           </DialogFooter>
         </DialogContent>

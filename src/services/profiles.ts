@@ -2,6 +2,7 @@
  * Profiles service — data access for user profiles, avatar uploads,
  * and group name lookups used during onboarding.
  */
+import { compressImage } from '../lib/compress'
 import { supabase } from './supabase'
 
 // ---------------------------------------------------------------------------
@@ -13,7 +14,13 @@ import { supabase } from './supabase'
  */
 export async function updateProfile(
   userId: string,
-  data: { full_name?: string; invite_status?: string },
+  data: {
+    full_name?: string
+    first_name?: string
+    last_name?: string
+    avatar_url?: string | null
+    invite_status?: string
+  },
 ) {
   const { error } = await supabase
     .from('profiles')
@@ -21,6 +28,20 @@ export async function updateProfile(
     .eq('id', userId)
 
   if (error) throw error
+}
+
+/**
+ * Fetch a user's profile by ID.
+ */
+export async function fetchProfile(userId: string) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email, full_name, first_name, last_name, avatar_url, role, group_id, is_active')
+    .eq('id', userId)
+    .single()
+
+  if (error) throw error
+  return data
 }
 
 // ---------------------------------------------------------------------------
@@ -49,18 +70,19 @@ export async function fetchGroupName(
 
 /**
  * Upload an avatar image to the `avatars` storage bucket.
- * Returns the public URL of the uploaded file.
+ * Compresses the image before upload. Returns the public URL.
  */
 export async function uploadAvatar(
   userId: string,
   file: File,
 ): Promise<string> {
-  const ext = file.name.split('.').pop() ?? 'png'
+  const compressed = await compressImage(file, 'avatar')
+  const ext = compressed.name.split('.').pop() ?? 'png'
   const filePath = `${userId}/avatar.${ext}`
 
   const { error } = await supabase.storage
     .from('avatars')
-    .upload(filePath, file, { upsert: true })
+    .upload(filePath, compressed, { upsert: true })
 
   if (error) throw error
 
@@ -69,4 +91,25 @@ export async function uploadAvatar(
     .getPublicUrl(filePath)
 
   return urlData.publicUrl
+}
+
+/**
+ * Delete the user's avatar from the storage bucket.
+ * Lists all files under the user's folder and removes them.
+ */
+export async function deleteAvatar(userId: string): Promise<void> {
+  const { data: files, error: listError } = await supabase.storage
+    .from('avatars')
+    .list(userId)
+
+  if (listError) throw listError
+
+  if (files && files.length > 0) {
+    const paths = files.map((f) => `${userId}/${f.name}`)
+    const { error: removeError } = await supabase.storage
+      .from('avatars')
+      .remove(paths)
+
+    if (removeError) throw removeError
+  }
 }

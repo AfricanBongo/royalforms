@@ -4,8 +4,6 @@
 import { supabase } from './supabase'
 import { getCurrentAuthUser } from './auth'
 
-import type { Tables } from '../types/database'
-
 // ---------------------------------------------------------------------------
 // Types (derived from generated Database types)
 // ---------------------------------------------------------------------------
@@ -20,7 +18,15 @@ export type GroupRow = {
 }
 
 /** Full group detail from the groups table. */
-export type GroupDetail = Tables<'groups'>
+export interface GroupDetail {
+  id: string
+  name: string
+  is_active: boolean
+  is_bootstrap: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -56,13 +62,13 @@ export async function fetchGroups(): Promise<GroupRow[]> {
 export async function fetchGroup(groupId: string): Promise<GroupDetail> {
   const { data, error } = await supabase
     .from('groups')
-    .select('id, name, is_active, created_at, created_by, updated_at')
+    .select('id, name, is_active, is_bootstrap, created_at, created_by, updated_at')
     .eq('id', groupId)
     .single()
 
   if (error) throw error
 
-  return data
+  return data as unknown as GroupDetail
 }
 
 // ---------------------------------------------------------------------------

@@ -12,6 +12,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 
+import { Link } from '@tanstack/react-router'
 import { CalendarIcon, InfoIcon, SearchIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -63,6 +64,7 @@ import {
   updateInstanceSchedule,
   deleteInstanceSchedule,
 } from '../../services/form-templates'
+import { supabase } from '../../services/supabase'
 import { mapSupabaseError } from '../../lib/supabase-errors'
 
 import type { SimpleGroup, ScheduleData } from '../../services/form-templates'
@@ -128,6 +130,9 @@ export function ScheduleInstanceSheet({
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // Linked report templates (for auto-generate notice)
+  const [linkedReports, setLinkedReports] = useState<{ id: string; name: string; auto_generate: boolean }[]>([])
+
   // Load groups when sheet opens and pre-fill if editing
   useEffect(() => {
     if (!open) return
@@ -137,6 +142,14 @@ export function ScheduleInstanceSheet({
       try {
         const data = await fetchActiveGroups()
         setGroups(data)
+
+        // Fetch linked report templates for auto-generate notice
+        const { data: reports } = await supabase
+          .from('report_templates')
+          .select('id, name, auto_generate')
+          .eq('form_template_id', templateId)
+          .eq('is_active', true)
+        setLinkedReports(reports ?? [])
 
         if (existingSchedule) {
           setSendDate(new Date(existingSchedule.start_date))
@@ -170,7 +183,7 @@ export function ScheduleInstanceSheet({
     }
 
     void load()
-  }, [open, existingSchedule])
+  }, [open, existingSchedule, templateId])
 
   // Filter groups by search
   const filtered = useMemo(() => {
@@ -351,6 +364,34 @@ export function ScheduleInstanceSheet({
                 )}
               </p>
             </div>
+
+            {/* Linked report auto-generate notice */}
+            {linkedReports.length > 0 && (
+              <div className="rounded-lg border border-border bg-muted/50 px-4 py-3">
+                <p className="text-sm text-muted-foreground">
+                  This form has {linkedReports.length === 1 ? 'a linked report' : `${linkedReports.length} linked reports`}:
+                </p>
+                <ul className="mt-1 space-y-1">
+                  {linkedReports.map((r) => (
+                    <li key={r.id} className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-foreground">{r.name}</span>
+                      <span className="flex items-center gap-2">
+                        <span className={r.auto_generate ? 'text-green-600' : 'text-muted-foreground'}>
+                          Auto-generate {r.auto_generate ? 'on' : 'off'}
+                        </span>
+                        <Link
+                          to="/reports/$templateId/edit"
+                          params={{ templateId: r.id }}
+                          className="text-xs text-primary underline-offset-4 hover:underline"
+                        >
+                          Manage
+                        </Link>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Send On row */}
             <div className="flex items-center gap-1">

@@ -59,7 +59,7 @@ schema_paths = []
 
 [db.seed]
 # If enabled, seeds the database after migrations during a db reset.
-enabled = true
+enabled = false
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]
@@ -233,6 +233,10 @@ otp_expiry = 3600
 [auth.email.template.invite]
 subject = "You have been invited"
 content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your email change"
+content_path = "./supabase/templates/email-change.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
@@ -439,3 +443,38 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/on-instance-created/deno.json"
 entrypoint = "./functions/on-instance-created/index.ts"
+
+[functions.generate-report]
+enabled = true
+verify_jwt = false
+import_map = "./functions/generate-report/deno.json"
+entrypoint = "./functions/generate-report/index.ts"
+
+[functions.on-report-instance-ready]
+enabled = true
+verify_jwt = false
+import_map = "./functions/on-report-instance-ready/deno.json"
+entrypoint = "./functions/on-report-instance-ready/index.ts"
+
+[functions.export-report]
+enabled = true
+verify_jwt = false
+import_map = "./functions/export-report/deno.json"
+entrypoint = "./functions/export-report/index.ts"
+
+[functions.send-notification-email]
+enabled = true
+verify_jwt = false
+import_map = "./functions/send-notification-email/deno.json"
+entrypoint = "./functions/send-notification-email/index.ts"
+
+[functions.sync-resend-contacts]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/sync-resend-contacts/index.ts"
+
+[functions.delete-report-instance]
+enabled = true
+verify_jwt = false
+import_map = "./functions/delete-report-instance/deno.json"
+entrypoint = "./functions/delete-report-instance/index.ts"

@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { FilterIcon, PlusIcon, SearchIcon } from 'lucide-react'
+import { PlusIcon, RotateCcwIcon, SearchIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { FilterPopover } from '../../../components/filter-popover'
+import type { FilterState } from '../../../lib/filter-utils'
+import { applyFilters, EMPTY_FILTERS } from '../../../lib/filter-utils'
 import { Badge } from '../../../components/ui/badge'
 import { Button } from '../../../components/ui/button'
 import { Checkbox } from '../../../components/ui/checkbox'
@@ -22,8 +25,9 @@ import {
   TabsTrigger,
 } from '../../../components/ui/tabs'
 import { StatCard } from '../../../components/stat-card'
+import { CreateFormTemplateDialog } from '../../../features/forms/CreateFormTemplateDialog'
 import { useCurrentUser } from '../../../hooks/use-current-user'
-import { fetchTemplates } from '../../../services/form-templates'
+import { fetchTemplates, restoreTemplate } from '../../../services/form-templates'
 import type { TemplateListRow } from '../../../services/form-templates'
 import { mapSupabaseError } from '../../../lib/supabase-errors'
 
@@ -51,15 +55,22 @@ function FormTemplateListPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
-  // Filter templates by search term (client-side)
+  // Apply filters then search (client-side)
+  const afterFilters = applyFilters(templates, filters, {
+    getStatus: (t) => t.status,
+    getDate: (t) => t.created_at,
+  })
   const filtered = search.trim()
-    ? templates.filter((t) =>
+    ? afterFilters.filter((t) =>
         t.name.toLowerCase().includes(search.trim().toLowerCase()),
       )
-    : templates
+    : afterFilters
 
   // Pagination
   const totalItems = filtered.length
@@ -111,6 +122,26 @@ function FormTemplateListPage() {
     })
   }
 
+  async function handleRestore(templateId: string) {
+    setRestoringId(templateId)
+    try {
+      await restoreTemplate(templateId)
+      toast.success('Template restored')
+      setTemplates((prev) => prev.filter((t) => t.id !== templateId))
+    } catch (err: unknown) {
+      const error = err as { code?: string; message: string }
+      const mapped = mapSupabaseError(
+        error.code,
+        error.message,
+        'database',
+        'update_record',
+      )
+      toast.error(mapped.title, { description: mapped.description })
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
   // Load templates on mount and when tab changes
   useEffect(() => {
     async function load() {
@@ -135,13 +166,13 @@ function FormTemplateListPage() {
     void load()
   }, [tab])
 
-  // Reset to page 1 when search or tab changes
+  // Reset to page 1 when search, tab, or filters change
   useEffect(() => {
     setPage(1)
-  }, [search, tab])
+  }, [search, tab, filters])
 
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
+    <div className="flex min-h-full flex-1 flex-col gap-4 p-4">
       {/* Stat cards */}
       <div className="flex gap-2.5">
         <StatCard label="Total Instances" value={totalInstances} />
@@ -173,15 +204,17 @@ function FormTemplateListPage() {
               className="pl-9"
             />
           </div>
-          <Button variant="outline" size="default">
-            <FilterIcon className="size-4" />
-            Filters
-          </Button>
+          <FilterPopover
+            filters={filters}
+            onChange={setFilters}
+            statusOptions={[
+              { value: 'draft', label: 'Draft' },
+              { value: 'published', label: 'Published' },
+            ]}
+          />
         </div>
         {isRootAdmin && (
-          <Button
-            onClick={() => void navigate({ to: '/forms/new' })}
-          >
+          <Button onClick={() => setShowCreateDialog(true)}>
             <PlusIcon className="size-4" />
             New Form
           </Button>
@@ -229,6 +262,11 @@ function FormTemplateListPage() {
                 <TableHead className="text-right font-medium">
                   Created On
                 </TableHead>
+                {tab === 'archived' && isRootAdmin && (
+                  <TableHead className="w-[100px] text-right font-medium">
+                    Actions
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -287,6 +325,22 @@ function FormTemplateListPage() {
                   <TableCell className="text-right">
                     {formatDate(template.created_at)}
                   </TableCell>
+                  {tab === 'archived' && isRootAdmin && (
+                    <TableCell
+                      className="text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={restoringId === template.id}
+                        onClick={() => void handleRestore(template.id)}
+                      >
+                        <RotateCcwIcon className="size-4" />
+                        {restoringId === template.id ? 'Restoring...' : 'Restore'}
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -339,6 +393,11 @@ function FormTemplateListPage() {
           </div>
         </>
       )}
+
+      <CreateFormTemplateDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+      />
     </div>
   )
 }

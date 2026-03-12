@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react'
 
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import type { User } from '@supabase/supabase-js'
 import {
   CheckIcon,
@@ -40,6 +40,11 @@ import { getDefaultAvatarUri } from '../../lib/avatar'
 import type { UserRole } from '../../types/auth'
 
 export const Route = createFileRoute('/invite/accept')({
+  beforeLoad: ({ context }) => {
+    if (context.setup.isSetupComplete === false) {
+      throw redirect({ to: '/setup' })
+    }
+  },
   component: InviteAcceptPage,
 })
 
@@ -200,7 +205,7 @@ function ErrorScreen({ message }: { message: string }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-6">
       <h1 className="text-center text-[30px] font-semibold leading-[30px] tracking-[-1px] text-foreground">
-        RoyalHouse Reporting Dashboard
+        RoyalForms
       </h1>
       <Card className="w-full min-w-[280px] max-w-[400px]">
         <CardHeader>
@@ -287,7 +292,7 @@ function CreateAccountStep({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-6">
       <h1 className="text-center text-[30px] font-semibold leading-[30px] tracking-[-1px] text-foreground">
-        RoyalHouse Reporting Dashboard
+        RoyalForms
       </h1>
 
       <Card className="w-full min-w-[280px] max-w-[400px]">
@@ -543,7 +548,7 @@ function OnboardingStep({
             Welcome to
           </p>
           <h1 className="text-[48px] font-semibold leading-[48px] tracking-[-1.5px] text-foreground">
-            RoyalHouse Reporting Dashboard
+            RoyalForms
           </h1>
         </div>
 
@@ -667,7 +672,7 @@ function ThankYouStep({ onStart }: { onStart: () => void }) {
           Thank you!
         </h1>
         <p className="text-lg leading-[27px] text-foreground">
-          You can now start using the RoyalHouse Reporting Dashboard and filling in forms. If you have any issues please reach out to the administrator as listed in your invitation email.
+          You can now start using RoyalForms and filling in forms. If you have any issues please reach out to the administrator as listed in your invitation email.
         </p>
         <div>
           <Button onClick={onStart}>Start</Button>

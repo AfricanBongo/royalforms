@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { FilterIcon, SearchIcon } from 'lucide-react'
+import { SearchIcon } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '../../../components/ui/badge'
-import { Button } from '../../../components/ui/button'
 import { Input } from '../../../components/ui/input'
 import { Separator } from '../../../components/ui/separator'
+import { FilterPopover } from '../../../components/filter-popover'
+import type { FilterState } from '../../../lib/filter-utils'
+import { applyFilters, EMPTY_FILTERS } from '../../../lib/filter-utils'
 import {
   Table,
   TableBody,
@@ -41,15 +43,31 @@ function GroupListPage() {
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
 
   const isRootAdmin = currentUser?.role === 'root_admin'
 
-  // Filter groups by search term (UI-only logic)
+  // Non-root-admin users get redirected to their own group detail page
+  useEffect(() => {
+    if (currentUser && !isRootAdmin && currentUser.groupId) {
+      void navigate({
+        to: '/groups/$groupId',
+        params: { groupId: currentUser.groupId },
+        replace: true,
+      })
+    }
+  }, [currentUser, isRootAdmin, navigate])
+
+  // Filter groups by filters + search term (UI-only logic)
+  const afterFilters = applyFilters(groups, filters, {
+    getStatus: (g) => g.is_active ? 'active' : 'inactive',
+    getDate: (g) => g.created_at,
+  })
   const filteredGroups = search.trim()
-    ? groups.filter((g) =>
+    ? afterFilters.filter((g) =>
         g.name.toLowerCase().includes(search.trim().toLowerCase()),
       )
-    : groups
+    : afterFilters
 
   // Load groups on mount
   useEffect(() => {
@@ -111,10 +129,14 @@ function GroupListPage() {
                 className="pl-9"
               />
             </div>
-            <Button variant="outline" size="default">
-              <FilterIcon className="size-4" />
-              Filters
-            </Button>
+            <FilterPopover
+              filters={filters}
+              onChange={setFilters}
+              statusOptions={[
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+              ]}
+            />
           </div>
           <div className="flex items-center gap-2">
             <Separator orientation="vertical" className="h-6" />

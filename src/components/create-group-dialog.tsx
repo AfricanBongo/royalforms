@@ -70,7 +70,7 @@ export function CreateGroupDialog({
             <Label htmlFor="group-name">Group Name</Label>
             <Input
               id="group-name"
-              placeholder="e.g. RoyalHouse Louisiana"
+              placeholder="e.g. RoyalForms Louisiana"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={submitting}

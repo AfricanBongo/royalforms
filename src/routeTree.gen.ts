@@ -9,22 +9,34 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as InviteAcceptRouteImport } from './routes/invite/accept'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports/index'
 import { Route as AuthenticatedGroupsIndexRouteImport } from './routes/_authenticated/groups/index'
 import { Route as AuthenticatedFormsIndexRouteImport } from './routes/_authenticated/forms/index'
+import { Route as AuthenticatedReportsNewRouteImport } from './routes/_authenticated/reports/new'
 import { Route as AuthenticatedInstancesReadableIdRouteImport } from './routes/_authenticated/instances/$readableId'
 import { Route as AuthenticatedGroupsGroupIdRouteImport } from './routes/_authenticated/groups/$groupId'
 import { Route as AuthenticatedFormsNewRouteImport } from './routes/_authenticated/forms/new'
+import { Route as AuthenticatedReportsTemplateIdRouteRouteImport } from './routes/_authenticated/reports/$templateId/route'
 import { Route as AuthenticatedFormsTemplateIdRouteRouteImport } from './routes/_authenticated/forms/$templateId/route'
+import { Route as AuthenticatedReportsTemplateIdIndexRouteImport } from './routes/_authenticated/reports/$templateId/index'
 import { Route as AuthenticatedFormsTemplateIdIndexRouteImport } from './routes/_authenticated/forms/$templateId/index'
+import { Route as AuthenticatedReportsTemplateIdEditRouteImport } from './routes/_authenticated/reports/$templateId/edit'
 import { Route as AuthenticatedFormsTemplateIdEditRouteImport } from './routes/_authenticated/forms/$templateId/edit'
+import { Route as AuthenticatedReportsTemplateIdInstancesReadableIdRouteImport } from './routes/_authenticated/reports/$templateId/instances/$readableId'
 
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -54,6 +66,11 @@ const InviteAcceptRoute = InviteAcceptRouteImport.update({
   path: '/invite/accept',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedReportsIndexRoute =
   AuthenticatedReportsIndexRouteImport.update({
     id: '/reports/',
@@ -69,6 +86,11 @@ const AuthenticatedGroupsIndexRoute =
 const AuthenticatedFormsIndexRoute = AuthenticatedFormsIndexRouteImport.update({
   id: '/forms/',
   path: '/forms/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedReportsNewRoute = AuthenticatedReportsNewRouteImport.update({
+  id: '/reports/new',
+  path: '/reports/new',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedInstancesReadableIdRoute =
@@ -88,11 +110,23 @@ const AuthenticatedFormsNewRoute = AuthenticatedFormsNewRouteImport.update({
   path: '/forms/new',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedReportsTemplateIdRouteRoute =
+  AuthenticatedReportsTemplateIdRouteRouteImport.update({
+    id: '/reports/$templateId',
+    path: '/reports/$templateId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedFormsTemplateIdRouteRoute =
   AuthenticatedFormsTemplateIdRouteRouteImport.update({
     id: '/forms/$templateId',
     path: '/forms/$templateId',
     getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedReportsTemplateIdIndexRoute =
+  AuthenticatedReportsTemplateIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedReportsTemplateIdRouteRoute,
   } as any)
 const AuthenticatedFormsTemplateIdIndexRoute =
   AuthenticatedFormsTemplateIdIndexRouteImport.update({
@@ -100,11 +134,23 @@ const AuthenticatedFormsTemplateIdIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedFormsTemplateIdRouteRoute,
   } as any)
+const AuthenticatedReportsTemplateIdEditRoute =
+  AuthenticatedReportsTemplateIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => AuthenticatedReportsTemplateIdRouteRoute,
+  } as any)
 const AuthenticatedFormsTemplateIdEditRoute =
   AuthenticatedFormsTemplateIdEditRouteImport.update({
     id: '/edit',
     path: '/edit',
     getParentRoute: () => AuthenticatedFormsTemplateIdRouteRoute,
+  } as any)
+const AuthenticatedReportsTemplateIdInstancesReadableIdRoute =
+  AuthenticatedReportsTemplateIdInstancesReadableIdRouteImport.update({
+    id: '/instances/$readableId',
+    path: '/instances/$readableId',
+    getParentRoute: () => AuthenticatedReportsTemplateIdRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -112,31 +158,44 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/setup': typeof SetupRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/invite/accept': typeof InviteAcceptRoute
   '/forms/$templateId': typeof AuthenticatedFormsTemplateIdRouteRouteWithChildren
+  '/reports/$templateId': typeof AuthenticatedReportsTemplateIdRouteRouteWithChildren
   '/forms/new': typeof AuthenticatedFormsNewRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/instances/$readableId': typeof AuthenticatedInstancesReadableIdRoute
+  '/reports/new': typeof AuthenticatedReportsNewRoute
   '/forms/': typeof AuthenticatedFormsIndexRoute
   '/groups/': typeof AuthenticatedGroupsIndexRoute
   '/reports/': typeof AuthenticatedReportsIndexRoute
   '/forms/$templateId/edit': typeof AuthenticatedFormsTemplateIdEditRoute
+  '/reports/$templateId/edit': typeof AuthenticatedReportsTemplateIdEditRoute
   '/forms/$templateId/': typeof AuthenticatedFormsTemplateIdIndexRoute
+  '/reports/$templateId/': typeof AuthenticatedReportsTemplateIdIndexRoute
+  '/reports/$templateId/instances/$readableId': typeof AuthenticatedReportsTemplateIdInstancesReadableIdRoute
 }
 export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/setup': typeof SetupRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/invite/accept': typeof InviteAcceptRoute
   '/': typeof AuthenticatedIndexRoute
   '/forms/new': typeof AuthenticatedFormsNewRoute
   '/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/instances/$readableId': typeof AuthenticatedInstancesReadableIdRoute
+  '/reports/new': typeof AuthenticatedReportsNewRoute
   '/forms': typeof AuthenticatedFormsIndexRoute
   '/groups': typeof AuthenticatedGroupsIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/forms/$templateId/edit': typeof AuthenticatedFormsTemplateIdEditRoute
+  '/reports/$templateId/edit': typeof AuthenticatedReportsTemplateIdEditRoute
   '/forms/$templateId': typeof AuthenticatedFormsTemplateIdIndexRoute
+  '/reports/$templateId': typeof AuthenticatedReportsTemplateIdIndexRoute
+  '/reports/$templateId/instances/$readableId': typeof AuthenticatedReportsTemplateIdInstancesReadableIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -144,17 +203,24 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/setup': typeof SetupRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/invite/accept': typeof InviteAcceptRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/forms/$templateId': typeof AuthenticatedFormsTemplateIdRouteRouteWithChildren
+  '/_authenticated/reports/$templateId': typeof AuthenticatedReportsTemplateIdRouteRouteWithChildren
   '/_authenticated/forms/new': typeof AuthenticatedFormsNewRoute
   '/_authenticated/groups/$groupId': typeof AuthenticatedGroupsGroupIdRoute
   '/_authenticated/instances/$readableId': typeof AuthenticatedInstancesReadableIdRoute
+  '/_authenticated/reports/new': typeof AuthenticatedReportsNewRoute
   '/_authenticated/forms/': typeof AuthenticatedFormsIndexRoute
   '/_authenticated/groups/': typeof AuthenticatedGroupsIndexRoute
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/forms/$templateId/edit': typeof AuthenticatedFormsTemplateIdEditRoute
+  '/_authenticated/reports/$templateId/edit': typeof AuthenticatedReportsTemplateIdEditRoute
   '/_authenticated/forms/$templateId/': typeof AuthenticatedFormsTemplateIdIndexRoute
+  '/_authenticated/reports/$templateId/': typeof AuthenticatedReportsTemplateIdIndexRoute
+  '/_authenticated/reports/$templateId/instances/$readableId': typeof AuthenticatedReportsTemplateIdInstancesReadableIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -163,48 +229,68 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/setup'
+    | '/settings'
     | '/invite/accept'
     | '/forms/$templateId'
+    | '/reports/$templateId'
     | '/forms/new'
     | '/groups/$groupId'
     | '/instances/$readableId'
+    | '/reports/new'
     | '/forms/'
     | '/groups/'
     | '/reports/'
     | '/forms/$templateId/edit'
+    | '/reports/$templateId/edit'
     | '/forms/$templateId/'
+    | '/reports/$templateId/'
+    | '/reports/$templateId/instances/$readableId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/setup'
+    | '/settings'
     | '/invite/accept'
     | '/'
     | '/forms/new'
     | '/groups/$groupId'
     | '/instances/$readableId'
+    | '/reports/new'
     | '/forms'
     | '/groups'
     | '/reports'
     | '/forms/$templateId/edit'
+    | '/reports/$templateId/edit'
     | '/forms/$templateId'
+    | '/reports/$templateId'
+    | '/reports/$templateId/instances/$readableId'
   id:
     | '__root__'
     | '/_authenticated'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/setup'
+    | '/_authenticated/settings'
     | '/invite/accept'
     | '/_authenticated/'
     | '/_authenticated/forms/$templateId'
+    | '/_authenticated/reports/$templateId'
     | '/_authenticated/forms/new'
     | '/_authenticated/groups/$groupId'
     | '/_authenticated/instances/$readableId'
+    | '/_authenticated/reports/new'
     | '/_authenticated/forms/'
     | '/_authenticated/groups/'
     | '/_authenticated/reports/'
     | '/_authenticated/forms/$templateId/edit'
+    | '/_authenticated/reports/$templateId/edit'
     | '/_authenticated/forms/$templateId/'
+    | '/_authenticated/reports/$templateId/'
+    | '/_authenticated/reports/$templateId/instances/$readableId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -212,11 +298,19 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SetupRoute: typeof SetupRoute
   InviteAcceptRoute: typeof InviteAcceptRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -259,6 +353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteAcceptRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/reports/': {
       id: '/_authenticated/reports/'
       path: '/reports'
@@ -278,6 +379,13 @@ declare module '@tanstack/react-router' {
       path: '/forms'
       fullPath: '/forms/'
       preLoaderRoute: typeof AuthenticatedFormsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/reports/new': {
+      id: '/_authenticated/reports/new'
+      path: '/reports/new'
+      fullPath: '/reports/new'
+      preLoaderRoute: typeof AuthenticatedReportsNewRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/instances/$readableId': {
@@ -301,12 +409,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFormsNewRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/reports/$templateId': {
+      id: '/_authenticated/reports/$templateId'
+      path: '/reports/$templateId'
+      fullPath: '/reports/$templateId'
+      preLoaderRoute: typeof AuthenticatedReportsTemplateIdRouteRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/forms/$templateId': {
       id: '/_authenticated/forms/$templateId'
       path: '/forms/$templateId'
       fullPath: '/forms/$templateId'
       preLoaderRoute: typeof AuthenticatedFormsTemplateIdRouteRouteImport
       parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/reports/$templateId/': {
+      id: '/_authenticated/reports/$templateId/'
+      path: '/'
+      fullPath: '/reports/$templateId/'
+      preLoaderRoute: typeof AuthenticatedReportsTemplateIdIndexRouteImport
+      parentRoute: typeof AuthenticatedReportsTemplateIdRouteRoute
     }
     '/_authenticated/forms/$templateId/': {
       id: '/_authenticated/forms/$templateId/'
@@ -315,12 +437,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFormsTemplateIdIndexRouteImport
       parentRoute: typeof AuthenticatedFormsTemplateIdRouteRoute
     }
+    '/_authenticated/reports/$templateId/edit': {
+      id: '/_authenticated/reports/$templateId/edit'
+      path: '/edit'
+      fullPath: '/reports/$templateId/edit'
+      preLoaderRoute: typeof AuthenticatedReportsTemplateIdEditRouteImport
+      parentRoute: typeof AuthenticatedReportsTemplateIdRouteRoute
+    }
     '/_authenticated/forms/$templateId/edit': {
       id: '/_authenticated/forms/$templateId/edit'
       path: '/edit'
       fullPath: '/forms/$templateId/edit'
       preLoaderRoute: typeof AuthenticatedFormsTemplateIdEditRouteImport
       parentRoute: typeof AuthenticatedFormsTemplateIdRouteRoute
+    }
+    '/_authenticated/reports/$templateId/instances/$readableId': {
+      id: '/_authenticated/reports/$templateId/instances/$readableId'
+      path: '/instances/$readableId'
+      fullPath: '/reports/$templateId/instances/$readableId'
+      preLoaderRoute: typeof AuthenticatedReportsTemplateIdInstancesReadableIdRouteImport
+      parentRoute: typeof AuthenticatedReportsTemplateIdRouteRoute
     }
   }
 }
@@ -343,24 +479,52 @@ const AuthenticatedFormsTemplateIdRouteRouteWithChildren =
     AuthenticatedFormsTemplateIdRouteRouteChildren,
   )
 
+interface AuthenticatedReportsTemplateIdRouteRouteChildren {
+  AuthenticatedReportsTemplateIdEditRoute: typeof AuthenticatedReportsTemplateIdEditRoute
+  AuthenticatedReportsTemplateIdIndexRoute: typeof AuthenticatedReportsTemplateIdIndexRoute
+  AuthenticatedReportsTemplateIdInstancesReadableIdRoute: typeof AuthenticatedReportsTemplateIdInstancesReadableIdRoute
+}
+
+const AuthenticatedReportsTemplateIdRouteRouteChildren: AuthenticatedReportsTemplateIdRouteRouteChildren =
+  {
+    AuthenticatedReportsTemplateIdEditRoute:
+      AuthenticatedReportsTemplateIdEditRoute,
+    AuthenticatedReportsTemplateIdIndexRoute:
+      AuthenticatedReportsTemplateIdIndexRoute,
+    AuthenticatedReportsTemplateIdInstancesReadableIdRoute:
+      AuthenticatedReportsTemplateIdInstancesReadableIdRoute,
+  }
+
+const AuthenticatedReportsTemplateIdRouteRouteWithChildren =
+  AuthenticatedReportsTemplateIdRouteRoute._addFileChildren(
+    AuthenticatedReportsTemplateIdRouteRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedFormsTemplateIdRouteRoute: typeof AuthenticatedFormsTemplateIdRouteRouteWithChildren
+  AuthenticatedReportsTemplateIdRouteRoute: typeof AuthenticatedReportsTemplateIdRouteRouteWithChildren
   AuthenticatedFormsNewRoute: typeof AuthenticatedFormsNewRoute
   AuthenticatedGroupsGroupIdRoute: typeof AuthenticatedGroupsGroupIdRoute
   AuthenticatedInstancesReadableIdRoute: typeof AuthenticatedInstancesReadableIdRoute
+  AuthenticatedReportsNewRoute: typeof AuthenticatedReportsNewRoute
   AuthenticatedFormsIndexRoute: typeof AuthenticatedFormsIndexRoute
   AuthenticatedGroupsIndexRoute: typeof AuthenticatedGroupsIndexRoute
   AuthenticatedReportsIndexRoute: typeof AuthenticatedReportsIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedFormsTemplateIdRouteRoute:
     AuthenticatedFormsTemplateIdRouteRouteWithChildren,
+  AuthenticatedReportsTemplateIdRouteRoute:
+    AuthenticatedReportsTemplateIdRouteRouteWithChildren,
   AuthenticatedFormsNewRoute: AuthenticatedFormsNewRoute,
   AuthenticatedGroupsGroupIdRoute: AuthenticatedGroupsGroupIdRoute,
   AuthenticatedInstancesReadableIdRoute: AuthenticatedInstancesReadableIdRoute,
+  AuthenticatedReportsNewRoute: AuthenticatedReportsNewRoute,
   AuthenticatedFormsIndexRoute: AuthenticatedFormsIndexRoute,
   AuthenticatedGroupsIndexRoute: AuthenticatedGroupsIndexRoute,
   AuthenticatedReportsIndexRoute: AuthenticatedReportsIndexRoute,
@@ -375,6 +539,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SetupRoute: SetupRoute,
   InviteAcceptRoute: InviteAcceptRoute,
 }
 export const routeTree = rootRouteImport
