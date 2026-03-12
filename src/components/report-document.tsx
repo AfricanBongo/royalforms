@@ -160,7 +160,7 @@ function SectionBlock({
         </p>
       )}
 
-      <div className="mt-4 space-y-0">
+      <div className="mt-4 space-y-1">
         {section.fields.map((field, fIdx) => (
           <FieldRenderer key={fIdx} field={field} />
         ))}
@@ -206,13 +206,10 @@ function KeyValueField({ label, value }: { label: string; value: unknown }) {
   const displayValue = formatDisplayValue(value)
 
   return (
-    <>
-      <div className="flex items-center justify-between py-3">
-        <span className="text-sm font-medium text-foreground">{label}</span>
-        <span className="text-right text-lg text-foreground">{displayValue}</span>
-      </div>
-      <Separator />
-    </>
+    <div className="flex items-center justify-between py-3">
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      <span className="text-right text-lg text-foreground">{displayValue}</span>
+    </div>
   )
 }
 
@@ -254,7 +251,6 @@ function TableField({ label, value }: { label: string; value: unknown }) {
           </TableBody>
         </Table>
       </div>
-      <Separator className="mt-3" />
     </div>
   )
 }
@@ -263,9 +259,8 @@ function StaticTextField({ value }: { label: string; value: unknown }) {
   const text = typeof value === 'string' ? value : String(value ?? '')
 
   return (
-    <div className="py-3">
+    <div>
       <p className="whitespace-pre-wrap text-sm text-foreground">{text}</p>
-      <Separator className="mt-3" />
     </div>
   )
 }
