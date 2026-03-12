@@ -3,6 +3,48 @@
 All notable changes to RoyalForms are documented here.
 
 
+## [0.12.0](https://github.com/AfricanBongo/royalforms/compare/v0.11.0...v0.12.0) (2026-03-12)
+
+
+### Features
+
+* **dashboard:** add dashboard types and rewrite service layer with time-range queries ([e96e73e](https://github.com/AfricanBongo/royalforms/commit/e96e73e3566d8ef87188d0f359318137dcf93b24))
+* **dashboard:** add role-specific dashboard layout components ([26afb0f](https://github.com/AfricanBongo/royalforms/commit/26afb0f59eb4ba767d6b2943deb30ba2e6eaa51b))
+* **dashboard:** add shared widget components (greeting, banner, stat card, charts, lists) ([79dc607](https://github.com/AfricanBongo/royalforms/commit/79dc607c9b8b68e4668ed53958be0614ec72d97f))
+* **dashboard:** add useDashboardData hook with parallel fetching ([1eb1739](https://github.com/AfricanBongo/royalforms/commit/1eb173905b04857091934e9e0ff32c5fe6eff816))
+* **dashboard:** merge dashboard redesign with charts, action banners, and role-adaptive layouts ([508ad97](https://github.com/AfricanBongo/royalforms/commit/508ad97e04eb6bd8503e97aa9518ae56956ac390))
+* **dashboard:** rewrite dashboard page with role-adaptive layouts and charts ([44ff9f9](https://github.com/AfricanBongo/royalforms/commit/44ff9f962029e8b2ede867a98e902f181a0c0ccc))
+* **reports:** add inline formula and variable mentions in report editor ([8e1730d](https://github.com/AfricanBongo/royalforms/commit/8e1730d11b5446226f04dd602ebdfda39da9fa96))
+* **reports:** add report instance deletion with Shlink and Storage cleanup ([6cec4b9](https://github.com/AfricanBongo/royalforms/commit/6cec4b9b0874429aec720cde767438ca3c09d00f))
+* **reports:** default auto_generate to true for new report templates ([25cc6bc](https://github.com/AfricanBongo/royalforms/commit/25cc6bcaa0d86906aaeaa327de31a5c123af7aa0))
+* **ui:** add filter popovers to all list pages ([85319db](https://github.com/AfricanBongo/royalforms/commit/85319dbc673b43651e2589dfe81ba74646201a8a))
+
+
+### Bug Fixes
+
+* **dashboard:** remove unused parameters to satisfy lint ([747c938](https://github.com/AfricanBongo/royalforms/commit/747c93899b8b820e39eb7c004300990db67efe02))
+* **edge-functions:** handle duplicate Shlink slugs and improve error logging ([312fd1a](https://github.com/AfricanBongo/royalforms/commit/312fd1a2b837e3398b764cac965db99e2c1555fb))
+* **reports:** add copy link button to report instance viewer ([fec7cfa](https://github.com/AfricanBongo/royalforms/commit/fec7cfad1ac294fc07e756416c9193df51b35222))
+* **reports:** fix short URL column name and draft version race condition ([31ebc2d](https://github.com/AfricanBongo/royalforms/commit/31ebc2dbfdee2ff57aca0e859c16b3add449e99e))
+* **reports:** hide redundant labels for static_text and table fields in report viewer/exports ([8fde9dc](https://github.com/AfricanBongo/royalforms/commit/8fde9dc5036b26397e865b22fe51d81d3d5ce8cc))
+* **reports:** rewrite signed Storage URLs to use public-facing Supabase URL ([252496b](https://github.com/AfricanBongo/royalforms/commit/252496bf8de460d1b165158778f2880ebad4d51a))
+* **setup:** block routing until setup status resolves to prevent skipping /setup ([80cd299](https://github.com/AfricanBongo/royalforms/commit/80cd2992397e63fad0ad3b0a5603343dd63c5e7a))
+* **ui:** center section stepper with w-fit instead of max-w-2xl ([2ab1b5e](https://github.com/AfricanBongo/royalforms/commit/2ab1b5ebeb0725e0b57277358044e7c425e11bf7))
+* **ui:** remove stray "the" before RoyalForms in invite thank-you text ([90417bd](https://github.com/AfricanBongo/royalforms/commit/90417bd19946c7e65d14a839ca15367662b46a73))
+
+
+### Refactoring
+
+* rename "RoyalHouse Reporting Dashboard" to "RoyalForms" across UI and Edge Functions ([d4919b0](https://github.com/AfricanBongo/royalforms/commit/d4919b0bc862b0b19892f74a040f5532e10b988a))
+* **reports:** use random 10-char readable_id for report instances ([fd14015](https://github.com/AfricanBongo/royalforms/commit/fd14015b9d716c52bc384225e8730de848c0de91))
+
+
+### Documentation
+
+* add public shareable report links design ([ee94730](https://github.com/AfricanBongo/royalforms/commit/ee94730b289a7bbcbad52757923b373c727f2038))
+* **reports:** add inline mentions design and implementation plan ([b6f434d](https://github.com/AfricanBongo/royalforms/commit/b6f434d7c944f25389df6a90b227695887861ebe))
+* update TODO with dashboard redesign items ([f0b18dc](https://github.com/AfricanBongo/royalforms/commit/f0b18dcbd4d76c5e71dee4ce9525899fea5f4070))
+
 ## [0.11.0](https://github.com/AfricanBongo/royalforms/compare/v0.10.0...v0.11.0) (2026-03-12)
 
 
